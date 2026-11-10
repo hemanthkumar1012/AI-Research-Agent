@@ -91,6 +91,11 @@
         <button class="tab" data-t="confidence">🎯 Confidence</button>
         <button class="tab" data-t="wordcloud">☁ Words</button>
         <button class="tab" data-t="sourcemap">🗺 Map</button>
+        <button class="tab" data-t="credibility">🛡 Trust</button>
+        <button class="tab" data-t="claimgraph">🔗 Claims</button>
+        <button class="tab" data-t="diff">⇄ Diff</button>
+        <button class="tab" data-t="bookmarks">★ Saved</button>
+        <button class="tab" data-t="notifications">🔔 Alerts</button>
       </div>
 
       <!-- Score -->
@@ -174,6 +179,51 @@
           <div class="empty-icon">🗺</div>
           <div class="empty-title">Source Relationship Map</div>
           <div class="empty-sub">Force-directed graph showing co-citation links between sources</div>
+        </div>
+      </div>
+
+      <!-- Credibility -->
+      <div id="credibilityPanel" class="credibility-container hidden">
+        <div class="empty-state">
+          <div class="empty-icon">🛡</div>
+          <div class="empty-title">Source Trust Scores</div>
+          <div class="empty-sub">Detailed credibility analysis per source</div>
+        </div>
+      </div>
+
+      <!-- Claim Graph -->
+      <div id="claimgraphPanel" class="claimgraph-container hidden">
+        <div class="empty-state">
+          <div class="empty-icon">🔗</div>
+          <div class="empty-title">Claim Dependencies</div>
+          <div class="empty-sub">Interactive graph of claim-source relationships</div>
+        </div>
+      </div>
+
+      <!-- Diff -->
+      <div id="diffPanel" class="diff-container hidden">
+        <div class="empty-state">
+          <div class="empty-icon">⇄</div>
+          <div class="empty-title">Report Diff</div>
+          <div class="empty-sub">Run two searches to compare reports side-by-side</div>
+        </div>
+      </div>
+
+      <!-- Bookmarks -->
+      <div id="bookmarksPanel" class="bookmarks-container hidden">
+        <div class="empty-state">
+          <div class="empty-icon">★</div>
+          <div class="empty-title">Bookmarks</div>
+          <div class="empty-sub">Your saved research sessions will appear here</div>
+        </div>
+      </div>
+
+      <!-- Notifications -->
+      <div id="notificationsPanel" class="notifications-container hidden">
+        <div class="empty-state">
+          <div class="empty-icon">🔔</div>
+          <div class="empty-title">Notifications</div>
+          <div class="empty-sub">Research events will be collected here</div>
         </div>
       </div>
 

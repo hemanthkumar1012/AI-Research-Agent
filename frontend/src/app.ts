@@ -26,6 +26,14 @@ import { shareReport } from "./share.js";
 import { initI18n, t, setLang, getLang, getAvailableLangs } from "./i18n.js";
 import { renderSourceMap } from "./sourcemap.js";
 import { initReadingProgress, setReadingContent } from "./reading.js";
+import { initVoiceInput } from "./voice.js";
+import { renderDiff, pushReport, canDiff, getReportHistory } from "./diff.js";
+import { renderCredibilityPanel } from "./credibility.js";
+import { renderClaimGraph } from "./claimgraph.js";
+import { addBookmark, renderBookmarksPanel, getBookmarkCount } from "./bookmarks.js";
+import { injectTransitionStyles, fadeIn, staggerChildren } from "./transitions.js";
+import { notify, renderNotificationCenter, setNotificationListener, getUnreadCount } from "./notifications.js";
+import { printReport } from "./print.js";
 
 // ── State ─────────────────────────────────────────────
 let current: ReportData | null = null;
@@ -72,9 +80,20 @@ export function init(): void {
 
   initI18n();
   initReadingProgress();
+  initVoiceInput();
+  injectTransitionStyles();
+
+  // Notification badge listener
+  setNotificationListener(updateNotifBadge);
 
   // Welcome toast
   toast("Press Ctrl+K for command palette · ? for shortcuts", "info", 3000);
+}
+
+function updateNotifBadge(): void {
+  const count = getUnreadCount();
+  const btn = document.querySelector('[data-t="notifications"]');
+  if (btn) btn.textContent = count > 0 ? `🔔 Alerts (${count})` : "🔔 Alerts";
 }
 
 // ── Register commands ─────────────────────────────────
@@ -140,6 +159,32 @@ function registerAllCommands(): void {
       action: () => { setLang("es"); toast("Idioma: Español", "info"); } },
     { id: "lang-te", label: "Language: తెలుగు", icon: "🇮🇳", category: "Language",
       action: () => { setLang("te"); toast("భాష: తెలుగు", "info"); } },
+    { id: "credibility-tab", label: "Show source trust scores", icon: "🛡", category: "Navigation",
+      action: () => switchTab("credibility") },
+    { id: "claimgraph-tab", label: "Show claim dependencies", icon: "🔗", category: "Navigation",
+      action: () => switchTab("claimgraph") },
+    { id: "diff-tab", label: "Compare reports", icon: "⇄", category: "Navigation",
+      action: () => switchTab("diff") },
+    { id: "bookmarks-tab", label: "Show bookmarks", icon: "★", category: "Navigation",
+      action: () => switchTab("bookmarks") },
+    { id: "notifications-tab", label: "Show notifications", icon: "🔔", category: "Navigation",
+      action: () => switchTab("notifications") },
+    { id: "bookmark-save", label: "Bookmark this research", icon: "★", category: "Actions",
+      action: () => {
+        if (current) {
+          const credNum = Math.round((current.score?.citation_precision || 0) * 100);
+          addBookmark(current.question || "Untitled", current.markdown || "", current.sources?.length || 0, current.claims?.length || 0, credNum);
+        } else toast("No report to bookmark", "warn");
+      }
+    },
+    { id: "print-report", label: "Print-optimized report", icon: "🖨", category: "Export",
+      action: () => {
+        if (current) {
+          const credSources = current.sources.map(s => ({ url: s.url, title: s.title, credibility: s.credibility === "high" ? 90 : s.credibility === "medium" ? 60 : 30 }));
+          printReport(current.question || "Research Report", current.markdown || "", credSources, Math.round((current.score?.citation_precision || 0) * 100));
+        } else toast("No report to print", "warn");
+      }
+    },
   ]);
 }
 
@@ -224,7 +269,7 @@ function addKeyboardShortcuts(): void {
 }
 
 // ── Tabs ──────────────────────────────────────────────
-const TAB_IDS = ["report", "graph", "inspector", "timelinePanel", "analyticsPanel", "heatmapPanel", "confidencePanel", "wordcloudPanel", "sourcemapPanel"];
+const TAB_IDS = ["report", "graph", "inspector", "timelinePanel", "analyticsPanel", "heatmapPanel", "confidencePanel", "wordcloudPanel", "sourcemapPanel", "credibilityPanel", "claimgraphPanel", "diffPanel", "bookmarksPanel", "notificationsPanel"];
 
 function switchTab(target: string): void {
   document.querySelectorAll<HTMLButtonElement>(".tab").forEach((x) =>
@@ -241,6 +286,23 @@ function switchTab(target: string): void {
   if (target === "confidence" && current) renderConfidence(current, $("confidencePanel"));
   if (target === "wordcloud" && current) renderWordCloud(current, $("wordcloudPanel"));
   if (target === "sourcemap" && current) renderSourceMap(current, $("sourcemapPanel"));
+  if (target === "credibility" && current) {
+    const cs = current.sources.map(s => ({ url: s.url, title: s.title, credibility: s.credibility === "high" ? 90 : s.credibility === "medium" ? 60 : 30 }));
+    renderCredibilityPanel(cs, $("credibilityPanel"));
+  }
+  if (target === "claimgraph" && current) {
+    const cl = current.claims.map(c => ({ text: c.text, sources: c.cites.map(id => { const s = current!.sources.find(x => x.id === id); return s ? s.title : ""; }).filter(Boolean) }));
+    renderClaimGraph(cl, current.sources.map(s => ({ url: s.url, title: s.title })), $("claimgraphPanel"));
+  }
+  if (target === "diff") {
+    const hist = getReportHistory();
+    if (hist.length >= 2) renderDiff(hist[hist.length - 2], hist[hist.length - 1], $("diffPanel"));
+  }
+  if (target === "bookmarks") renderBookmarksPanel($("bookmarksPanel"), (q) => {
+    ($("q") as HTMLInputElement).value = q;
+    ($("f") as HTMLFormElement).dispatchEvent(new Event("submit", { cancelable: true }));
+  });
+  if (target === "notifications") renderNotificationCenter($("notificationsPanel"));
   announce(`Switched to ${target} tab`);
 }
 
@@ -250,6 +312,9 @@ function matchTab(id: string, target: string): boolean {
     timelinePanel: "timeline", analyticsPanel: "analytics",
     heatmapPanel: "heatmap", confidencePanel: "confidence",
     wordcloudPanel: "wordcloud", sourcemapPanel: "sourcemap",
+    credibilityPanel: "credibility", claimgraphPanel: "claimgraph",
+    diffPanel: "diff", bookmarksPanel: "bookmarks",
+    notificationsPanel: "notifications",
   };
   return map[id] === target;
 }
@@ -333,6 +398,7 @@ function startResearch(): void {
   timeline.add("init", "🚀", "Research started");
 
   toast(`Researching: "${question.slice(0, 50)}${question.length > 50 ? "…" : ""}"`, "info");
+  notify("Research Started", `Query: "${question.slice(0, 80)}"`, "info");
 
   const depth = ($("depth") as HTMLSelectElement).value;
   const tokens = uploads.map((u) => u.token);
@@ -444,10 +510,12 @@ function startResearch(): void {
       $("report").classList.add("empty");
       done();
       toast("Research failed: " + d.message, "error");
+      notify("Research Failed", d.message, "error");
     })
     .onError(() => {
       done();
       toast("Connection lost", "error");
+      notify("Connection Lost", "SSE stream disconnected", "error");
     });
 
   function recordLatency(): void {
@@ -531,6 +599,26 @@ function showReport(d: ReportData): void {
   if (!$("confidencePanel").classList.contains("hidden")) renderConfidence(d, $("confidencePanel"));
   if (!$("wordcloudPanel").classList.contains("hidden")) renderWordCloud(d, $("wordcloudPanel"));
   if (!$("sourcemapPanel").classList.contains("hidden")) renderSourceMap(d, $("sourcemapPanel"));
+
+  // Update new panels if visible
+  if (!$("credibilityPanel").classList.contains("hidden")) {
+    const cs = d.sources.map(s => ({ url: s.url, title: s.title, credibility: s.credibility === "high" ? 90 : s.credibility === "medium" ? 60 : 30 }));
+    renderCredibilityPanel(cs, $("credibilityPanel"));
+  }
+  if (!$("claimgraphPanel").classList.contains("hidden")) {
+    const cl = d.claims.map(c => ({ text: c.text, sources: c.cites.map(id => { const src = d.sources.find(x => x.id === id); return src ? src.title : ""; }).filter(Boolean) }));
+    renderClaimGraph(cl, d.sources.map(s => ({ url: s.url, title: s.title })), $("claimgraphPanel"));
+  }
+
+  // Push to diff history
+  pushReport(d.markdown);
+
+  // Notify
+  notify("Research Complete", `"${(d.question || "").slice(0, 50)}" — ${d.sources.length} sources, precision ${pct(d.score.citation_precision)}`, "success");
+
+  // Animate report in
+  fadeIn($("report"));
+  staggerChildren($("score"), ".pill", 60);
 
   // Reading progress
   setReadingContent(words);

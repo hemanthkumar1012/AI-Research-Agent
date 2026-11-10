@@ -2188,10 +2188,937 @@ function updateProgress(scrollContainer) {
 }
 //# sourceMappingURL=reading.js.map
 
+// ── voice.js ──
+/* ── Voice Input ────────────────────────────────────────── */
+/* Web Speech API for dictating research questions            */
+/* Animated microphone button with live transcript feedback   */
+
+
+let recognition = null;
+let listening = false;
+let voiceBtn = null;
+function initVoiceInput() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition)
+        return; // Browser doesn't support it
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+    // Create mic button
+    voiceBtn = document.createElement("button");
+    voiceBtn.type = "button";
+    voiceBtn.className = "voice-btn";
+    voiceBtn.innerHTML = '<span class="voice-icon">🎙</span>';
+    voiceBtn.title = "Voice input (click to dictate)";
+    const wrap = document.querySelector(".search-input-wrap");
+    if (wrap)
+        wrap.appendChild(voiceBtn);
+    voiceBtn.addEventListener("click", toggleVoice);
+    recognition.onresult = (event) => {
+        const input = $("q");
+        let transcript = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+        }
+        input.value = transcript;
+        input.dispatchEvent(new Event("input"));
+    };
+    recognition.onend = () => {
+        listening = false;
+        if (voiceBtn) {
+            voiceBtn.classList.remove("voice-active");
+            voiceBtn.innerHTML = '<span class="voice-icon">🎙</span>';
+        }
+    };
+    recognition.onerror = (event) => {
+        listening = false;
+        if (voiceBtn) {
+            voiceBtn.classList.remove("voice-active");
+            voiceBtn.innerHTML = '<span class="voice-icon">🎙</span>';
+        }
+        if (event.error === "not-allowed") {
+            toast("Microphone access denied", "error");
+        }
+        else if (event.error !== "aborted") {
+            toast("Voice input error: " + event.error, "warn");
+        }
+    };
+}
+function toggleVoice() {
+    if (!recognition)
+        return;
+    if (listening) {
+        recognition.stop();
+        listening = false;
+        toast("Voice input stopped", "info");
+    }
+    else {
+        try {
+            recognition.start();
+            listening = true;
+            if (voiceBtn) {
+                voiceBtn.classList.add("voice-active");
+                voiceBtn.innerHTML = '<span class="voice-icon voice-pulse">🔴</span>';
+            }
+            toast("Listening… speak your question", "info", 2000);
+        }
+        catch {
+            toast("Could not start voice input", "error");
+        }
+    }
+}
+function isVoiceSupported() {
+    return !!window.SpeechRecognition || !!window.webkitSpeechRecognition;
+}
+//# sourceMappingURL=voice.js.map
+
+// ── diff.js ──
+/* ── Report Comparison / Diff ──────────────────────────── */
+/* Side-by-side diff of two research reports                 */
+/* Highlights added, removed, and changed sections           */
+
+function computeDiff(a, b) {
+    const linesA = a.split("\n");
+    const linesB = b.split("\n");
+    const result = [];
+    // Simple LCS-based diff
+    const m = linesA.length;
+    const n = linesB.length;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            dp[i][j] = linesA[i - 1] === linesB[j - 1]
+                ? dp[i - 1][j - 1] + 1
+                : Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+    }
+    // Backtrack
+    let i = m, j = n;
+    const ops = [];
+    while (i > 0 || j > 0) {
+        if (i > 0 && j > 0 && linesA[i - 1] === linesB[j - 1]) {
+            ops.push({ type: "same", text: linesA[i - 1] });
+            i--;
+            j--;
+        }
+        else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+            ops.push({ type: "added", text: linesB[j - 1] });
+            j--;
+        }
+        else {
+            ops.push({ type: "removed", text: linesA[i - 1] });
+            i--;
+        }
+    }
+    return ops.reverse();
+}
+function renderDiff(reportA, reportB, container) {
+    const diff = computeDiff(reportA, reportB);
+    const added = diff.filter(d => d.type === "added").length;
+    const removed = diff.filter(d => d.type === "removed").length;
+    const same = diff.filter(d => d.type === "same").length;
+    const total = diff.length || 1;
+    let html = `<div class="diff-view">`;
+    html += `<div class="diff-header">`;
+    html += `<div class="diff-stat">`;
+    html += `<span class="diff-stat-same">${same} unchanged</span>`;
+    html += `<span class="diff-stat-add">+${added} added</span>`;
+    html += `<span class="diff-stat-rm">-${removed} removed</span>`;
+    html += `</div>`;
+    html += `<div class="diff-bar">`;
+    html += `<div class="diff-bar-same" style="width:${(same / total) * 100}%"></div>`;
+    html += `<div class="diff-bar-add" style="width:${(added / total) * 100}%"></div>`;
+    html += `<div class="diff-bar-rm" style="width:${(removed / total) * 100}%"></div>`;
+    html += `</div></div>`;
+    html += `<div class="diff-lines">`;
+    let lineNum = 0;
+    for (const line of diff) {
+        lineNum++;
+        const cls = line.type === "added" ? "diff-add" : line.type === "removed" ? "diff-rm" : "diff-ctx";
+        const prefix = line.type === "added" ? "+" : line.type === "removed" ? "-" : " ";
+        html += `<div class="diff-line ${cls}">`;
+        html += `<span class="diff-ln">${lineNum}</span>`;
+        html += `<span class="diff-prefix">${prefix}</span>`;
+        html += `<span class="diff-text">${esc(line.text)}</span>`;
+        html += `</div>`;
+    }
+    html += `</div></div>`;
+    container.innerHTML = html;
+}
+// Store previous reports for comparison
+let reportHistory = [];
+function pushReport(markdown) {
+    reportHistory.push(markdown);
+    if (reportHistory.length > 10)
+        reportHistory.shift();
+}
+function getReportHistory() {
+    return [...reportHistory];
+}
+function canDiff() {
+    return reportHistory.length >= 2;
+}
+//# sourceMappingURL=diff.js.map
+
+// ── credibility.js ──
+/* ── Source Credibility Scoring ────────────────────────── */
+/* Visual credibility breakdown per source with badges       */
+/* Factors: domain authority, HTTPS, citation count, age     */
+
+const TRUSTED_DOMAINS = [
+    "nature.com", "science.org", "ieee.org", "acm.org", "arxiv.org",
+    "nih.gov", "who.int", "cdc.gov", "edu", "gov",
+    "reuters.com", "apnews.com", "bbc.com", "nytimes.com"
+];
+function scoreDomain(url) {
+    let domain = "";
+    try {
+        domain = new URL(url).hostname.replace("www.", "");
+    }
+    catch {
+        domain = url;
+    }
+    const factors = [];
+    // HTTPS check
+    const isHttps = url.startsWith("https://");
+    factors.push({ label: "HTTPS", value: isHttps ? 20 : 0, max: 20 });
+    // Domain trust
+    const isTrusted = TRUSTED_DOMAINS.some(d => domain.endsWith(d));
+    factors.push({ label: "Domain Trust", value: isTrusted ? 30 : 10, max: 30 });
+    // TLD quality
+    const tld = domain.split(".").pop() || "";
+    const tldScore = ["gov", "edu", "org"].includes(tld) ? 20 : ["com", "net"].includes(tld) ? 10 : 5;
+    factors.push({ label: "TLD Quality", value: tldScore, max: 20 });
+    // Domain length (shorter = more established usually)
+    const lenScore = domain.length < 15 ? 15 : domain.length < 25 ? 10 : 5;
+    factors.push({ label: "Establishment", value: lenScore, max: 15 });
+    // Subdomain depth
+    const parts = domain.split(".");
+    const depthScore = parts.length <= 2 ? 15 : parts.length <= 3 ? 10 : 5;
+    factors.push({ label: "Direct Source", value: depthScore, max: 15 });
+    const total = factors.reduce((s, f) => s + f.value, 0);
+    const tier = total >= 70 ? "high" : total >= 40 ? "medium" : "low";
+    return { url, domain, score: total, factors, tier };
+}
+function renderCredibilityPanel(sources, container) {
+    if (!sources.length) {
+        container.innerHTML = `<div class="empty-state"><span class="es-icon">🔍</span><h3>No Sources</h3><p>Run a research query first</p></div>`;
+        return;
+    }
+    const scored = sources.map(s => ({ ...s, cred: scoreDomain(s.url) }));
+    scored.sort((a, b) => b.cred.score - a.cred.score);
+    const avgScore = Math.round(scored.reduce((s, x) => s + x.cred.score, 0) / scored.length);
+    const highCount = scored.filter(s => s.cred.tier === "high").length;
+    const lowCount = scored.filter(s => s.cred.tier === "low").length;
+    let html = `<div class="cred-panel">`;
+    html += `<div class="cred-overview">`;
+    html += `<div class="cred-avg"><span class="cred-avg-num">${avgScore}</span><span class="cred-avg-label">Avg Score</span></div>`;
+    html += `<div class="cred-counts">`;
+    html += `<span class="cred-badge cred-high">${highCount} High</span>`;
+    html += `<span class="cred-badge cred-med">${scored.length - highCount - lowCount} Med</span>`;
+    html += `<span class="cred-badge cred-low">${lowCount} Low</span>`;
+    html += `</div></div>`;
+    for (const s of scored) {
+        const tierCls = s.cred.tier;
+        html += `<div class="cred-card cred-tier-${tierCls}">`;
+        html += `<div class="cred-card-head">`;
+        html += `<span class="cred-score-circle cred-${tierCls}">${s.cred.score}</span>`;
+        html += `<div class="cred-card-info">`;
+        html += `<div class="cred-domain">${esc(s.cred.domain)}</div>`;
+        html += `<div class="cred-title">${esc(s.title)}</div>`;
+        html += `</div></div>`;
+        html += `<div class="cred-factors">`;
+        for (const f of s.cred.factors) {
+            const pct = (f.value / f.max) * 100;
+            html += `<div class="cred-factor">`;
+            html += `<span class="cred-factor-label">${f.label}</span>`;
+            html += `<div class="cred-factor-bar"><div class="cred-factor-fill" style="width:${pct}%"></div></div>`;
+            html += `<span class="cred-factor-val">${f.value}/${f.max}</span>`;
+            html += `</div>`;
+        }
+        html += `</div></div>`;
+    }
+    html += `</div>`;
+    container.innerHTML = html;
+}
+//# sourceMappingURL=credibility.js.map
+
+// ── claimgraph.js ──
+/* ── Claim Dependency Graph ────────────────────────────── */
+/* Interactive SVG graph showing how claims depend on each    */
+/* other and which sources back each claim                    */
+
+function renderClaimGraph(claims, allSources, container) {
+    if (!claims.length) {
+        container.innerHTML = `<div class="empty-state"><span class="es-icon">🔗</span><h3>No Claims</h3><p>Run a research query to see claim dependencies</p></div>`;
+        return;
+    }
+    const W = container.clientWidth || 700;
+    const H = 500;
+    const R = 24;
+    // Build nodes
+    const nodes = claims.map((c, i) => ({
+        id: i,
+        text: c.text.length > 60 ? c.text.slice(0, 57) + "…" : c.text,
+        sources: c.sources.map(s => allSources.findIndex(src => src.url === s || src.title === s)).filter(x => x >= 0),
+        x: W / 2 + (Math.random() - 0.5) * W * 0.6,
+        y: H / 2 + (Math.random() - 0.5) * H * 0.6,
+        vx: 0,
+        vy: 0
+    }));
+    // Build edges: claims sharing sources are connected
+    const edges = [];
+    for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+            const shared = nodes[i].sources.filter(s => nodes[j].sources.includes(s));
+            if (shared.length > 0) {
+                edges.push({ from: i, to: j, type: "supports" });
+            }
+        }
+    }
+    // Force simulation
+    for (let iter = 0; iter < 60; iter++) {
+        // Repulsion
+        for (let i = 0; i < nodes.length; i++) {
+            for (let j = i + 1; j < nodes.length; j++) {
+                let dx = nodes[j].x - nodes[i].x;
+                let dy = nodes[j].y - nodes[i].y;
+                const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
+                const force = 8000 / (dist * dist);
+                const fx = (dx / dist) * force;
+                const fy = (dy / dist) * force;
+                nodes[i].vx -= fx;
+                nodes[i].vy -= fy;
+                nodes[j].vx += fx;
+                nodes[j].vy += fy;
+            }
+        }
+        // Edge attraction
+        for (const e of edges) {
+            const a = nodes[e.from];
+            const b = nodes[e.to];
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const force = (dist - 120) * 0.02;
+            const fx = (dx / (dist || 1)) * force;
+            const fy = (dy / (dist || 1)) * force;
+            a.vx += fx;
+            a.vy += fy;
+            b.vx -= fx;
+            b.vy -= fy;
+        }
+        // Center gravity
+        for (const n of nodes) {
+            n.vx += (W / 2 - n.x) * 0.005;
+            n.vy += (H / 2 - n.y) * 0.005;
+            n.x += n.vx * 0.3;
+            n.y += n.vy * 0.3;
+            n.vx *= 0.85;
+            n.vy *= 0.85;
+            n.x = Math.max(R + 10, Math.min(W - R - 10, n.x));
+            n.y = Math.max(R + 10, Math.min(H - R - 10, n.y));
+        }
+    }
+    // Render SVG
+    const colors = ["var(--accent)", "var(--green)", "var(--amber)", "#e879f9", "#38bdf8", "#fb923c"];
+    let svg = `<svg class="claim-graph-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+    svg += `<defs><filter id="cg-glow"><feGaussianBlur stdDeviation="3" result="blur"/>`;
+    svg += `<feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
+    // Edges
+    for (const e of edges) {
+        const a = nodes[e.from];
+        const b = nodes[e.to];
+        svg += `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.6"/>`;
+    }
+    // Nodes
+    for (const n of nodes) {
+        const col = colors[n.id % colors.length];
+        const srcCount = n.sources.length;
+        const r = R + srcCount * 3;
+        svg += `<g class="cg-node" data-id="${n.id}">`;
+        svg += `<circle cx="${n.x}" cy="${n.y}" r="${r}" fill="${col}" opacity="0.15" stroke="${col}" stroke-width="2" filter="url(#cg-glow)"/>`;
+        svg += `<circle cx="${n.x}" cy="${n.y}" r="${r - 4}" fill="var(--surface)" opacity="0.9"/>`;
+        svg += `<text x="${n.x}" y="${n.y - 4}" text-anchor="middle" fill="var(--text)" font-size="9" font-weight="600">C${n.id + 1}</text>`;
+        svg += `<text x="${n.x}" y="${n.y + 8}" text-anchor="middle" fill="var(--text3)" font-size="7">${srcCount} src</text>`;
+        // Tooltip
+        svg += `<title>${esc(n.text)} (${srcCount} sources)</title>`;
+        svg += `</g>`;
+    }
+    svg += `</svg>`;
+    // Legend
+    let html = `<div class="claim-graph">`;
+    html += svg;
+    html += `<div class="cg-legend">`;
+    html += `<span class="cg-legend-item">● Node = Claim</span>`;
+    html += `<span class="cg-legend-item">--- Shared sources</span>`;
+    html += `<span class="cg-legend-item">Size = Source count</span>`;
+    html += `</div>`;
+    // Claim list
+    html += `<div class="cg-claims">`;
+    for (const n of nodes) {
+        const col = colors[n.id % colors.length];
+        html += `<div class="cg-claim-item">`;
+        html += `<span class="cg-claim-id" style="background:${col}">C${n.id + 1}</span>`;
+        html += `<span class="cg-claim-text">${esc(n.text)}</span>`;
+        html += `</div>`;
+    }
+    html += `</div></div>`;
+    container.innerHTML = html;
+}
+//# sourceMappingURL=claimgraph.js.map
+
+// ── bookmarks.js ──
+/* ── Research Session Bookmarks ────────────────────────── */
+/* Save and restore research sessions from localStorage      */
+/* Includes session naming, tagging, and quick recall         */
+
+
+const STORAGE_KEY = "ai-research-bookmarks";
+function loadBookmarks() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+    }
+    catch {
+        return [];
+    }
+}
+function saveBookmarks(bookmarks) {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(bookmarks));
+    }
+    catch { /* quota exceeded */ }
+}
+function addBookmark(query, report, sourceCount, claimCount, score) {
+    const bookmarks = loadBookmarks();
+    const preview = report.replace(/[#*_`>]/g, "").slice(0, 150);
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    bookmarks.unshift({
+        id,
+        query,
+        title: query.slice(0, 80),
+        tags: extractTags(query),
+        timestamp: Date.now(),
+        reportPreview: preview,
+        sourceCount,
+        claimCount,
+        score
+    });
+    // Keep max 50
+    if (bookmarks.length > 50)
+        bookmarks.length = 50;
+    saveBookmarks(bookmarks);
+    toast("Research bookmarked ★", "info", 2000);
+}
+function removeBookmark(id) {
+    const bookmarks = loadBookmarks().filter(b => b.id !== id);
+    saveBookmarks(bookmarks);
+}
+function extractTags(query) {
+    const tags = [];
+    const words = query.toLowerCase().split(/\s+/);
+    const tagWords = ["ai", "ml", "science", "health", "tech", "finance", "crypto", "climate", "politics", "security", "education", "research"];
+    for (const w of words) {
+        if (tagWords.includes(w) && !tags.includes(w))
+            tags.push(w);
+    }
+    return tags.slice(0, 3);
+}
+function renderBookmarksPanel(container, onLoad) {
+    const bookmarks = loadBookmarks();
+    if (!bookmarks.length) {
+        container.innerHTML = `<div class="empty-state"><span class="es-icon">★</span><h3>No Bookmarks</h3><p>Bookmark research sessions for quick recall</p></div>`;
+        return;
+    }
+    let html = `<div class="bm-panel">`;
+    html += `<div class="bm-header"><span class="bm-count">${bookmarks.length} saved</span></div>`;
+    for (const b of bookmarks) {
+        const date = new Date(b.timestamp);
+        const ago = formatAgo(date);
+        html += `<div class="bm-card" data-id="${b.id}">`;
+        html += `<div class="bm-card-top">`;
+        html += `<span class="bm-title">${esc(b.title)}</span>`;
+        html += `<button class="bm-delete" data-del="${b.id}" title="Remove">✕</button>`;
+        html += `</div>`;
+        html += `<div class="bm-preview">${esc(b.reportPreview)}…</div>`;
+        html += `<div class="bm-meta">`;
+        html += `<span class="bm-time">${ago}</span>`;
+        html += `<span class="bm-stat">${b.sourceCount} sources</span>`;
+        html += `<span class="bm-stat">${b.claimCount} claims</span>`;
+        html += `<span class="bm-score">${b.score}/100</span>`;
+        html += `</div>`;
+        if (b.tags.length) {
+            html += `<div class="bm-tags">`;
+            for (const t of b.tags)
+                html += `<span class="bm-tag">${t}</span>`;
+            html += `</div>`;
+        }
+        html += `<button class="bm-load" data-query="${esc(b.query)}">Load Research →</button>`;
+        html += `</div>`;
+    }
+    html += `</div>`;
+    container.innerHTML = html;
+    // Event delegation
+    container.addEventListener("click", (e) => {
+        const target = e.target;
+        if (target.classList.contains("bm-load")) {
+            const query = target.getAttribute("data-query") || "";
+            onLoad(query);
+        }
+        if (target.classList.contains("bm-delete")) {
+            const id = target.getAttribute("data-del") || "";
+            removeBookmark(id);
+            renderBookmarksPanel(container, onLoad);
+        }
+    });
+}
+function formatAgo(date) {
+    const diff = Date.now() - date.getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60)
+        return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24)
+        return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 30)
+        return `${days}d ago`;
+    return date.toLocaleDateString();
+}
+function getBookmarkCount() {
+    return loadBookmarks().length;
+}
+//# sourceMappingURL=bookmarks.js.map
+
+// ── transitions.js ──
+/* ── Animated Transitions System ───────────────────────── */
+/* Smooth page transitions, panel morphing, and micro-        */
+/* animations for all interactive elements                    */
+function fadeIn(el, duration = 300) {
+    return new Promise(resolve => {
+        el.style.opacity = "0";
+        el.style.transform = "translateY(8px)";
+        el.style.transition = `opacity ${duration}ms ease, transform ${duration}ms ease`;
+        el.offsetHeight; // force reflow
+        el.style.opacity = "1";
+        el.style.transform = "translateY(0)";
+        setTimeout(resolve, duration);
+    });
+}
+function fadeOut(el, duration = 200) {
+    return new Promise(resolve => {
+        el.style.transition = `opacity ${duration}ms ease, transform ${duration}ms ease`;
+        el.style.opacity = "0";
+        el.style.transform = "translateY(-4px)";
+        setTimeout(resolve, duration);
+    });
+}
+function slideIn(el, direction = "left", duration = 300) {
+    const transforms = {
+        left: "translateX(-20px)",
+        right: "translateX(20px)",
+        up: "translateY(-20px)",
+        down: "translateY(20px)"
+    };
+    return new Promise(resolve => {
+        el.style.opacity = "0";
+        el.style.transform = transforms[direction];
+        el.style.transition = `opacity ${duration}ms ease, transform ${duration}ms cubic-bezier(0.22,1,0.36,1)`;
+        el.offsetHeight;
+        el.style.opacity = "1";
+        el.style.transform = "translate(0,0)";
+        setTimeout(resolve, duration);
+    });
+}
+function scaleIn(el, duration = 250) {
+    return new Promise(resolve => {
+        el.style.opacity = "0";
+        el.style.transform = "scale(0.92)";
+        el.style.transition = `opacity ${duration}ms ease, transform ${duration}ms cubic-bezier(0.34,1.56,0.64,1)`;
+        el.offsetHeight;
+        el.style.opacity = "1";
+        el.style.transform = "scale(1)";
+        setTimeout(resolve, duration);
+    });
+}
+function morphPanel(from, to, duration = 350) {
+    return new Promise(resolve => {
+        const fromRect = from.getBoundingClientRect();
+        from.style.transition = `opacity ${duration / 2}ms ease, transform ${duration / 2}ms ease`;
+        from.style.opacity = "0";
+        from.style.transform = "scale(0.96)";
+        setTimeout(() => {
+            from.style.display = "none";
+            to.style.display = "";
+            to.style.opacity = "0";
+            to.style.transform = "scale(1.02)";
+            to.style.transition = `opacity ${duration / 2}ms ease, transform ${duration / 2}ms ease`;
+            to.offsetHeight;
+            to.style.opacity = "1";
+            to.style.transform = "scale(1)";
+            setTimeout(resolve, duration / 2);
+        }, duration / 2);
+    });
+}
+function staggerChildren(parent, selector, delay = 50) {
+    const children = parent.querySelectorAll(selector);
+    children.forEach((child, i) => {
+        const el = child;
+        el.style.opacity = "0";
+        el.style.transform = "translateY(10px)";
+        el.style.transition = `opacity 300ms ease ${i * delay}ms, transform 300ms ease ${i * delay}ms`;
+        requestAnimationFrame(() => {
+            el.style.opacity = "1";
+            el.style.transform = "translateY(0)";
+        });
+    });
+}
+function pulseElement(el) {
+    el.style.transition = "transform 150ms ease";
+    el.style.transform = "scale(1.05)";
+    setTimeout(() => {
+        el.style.transform = "scale(1)";
+    }, 150);
+}
+function shakeElement(el) {
+    el.style.animation = "none";
+    el.offsetHeight;
+    el.style.animation = "shake 0.4s ease";
+    setTimeout(() => { el.style.animation = ""; }, 400);
+}
+// CSS keyframes injected once
+let injected = false;
+function injectTransitionStyles() {
+    if (injected)
+        return;
+    injected = true;
+    const style = document.createElement("style");
+    style.textContent = `
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-4px); }
+      40% { transform: translateX(4px); }
+      60% { transform: translateX(-2px); }
+      80% { transform: translateX(2px); }
+    }
+    @keyframes ripple {
+      to { transform: scale(2); opacity: 0; }
+    }
+    .ripple-effect {
+      position: absolute;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: 0.3;
+      pointer-events: none;
+      animation: ripple 0.5s ease-out forwards;
+    }
+  `;
+    document.head.appendChild(style);
+}
+function addRipple(el, event) {
+    const rect = el.getBoundingClientRect();
+    const ripple = document.createElement("span");
+    ripple.className = "ripple-effect";
+    const size = Math.max(rect.width, rect.height);
+    ripple.style.width = ripple.style.height = size + "px";
+    ripple.style.left = (event.clientX - rect.left - size / 2) + "px";
+    ripple.style.top = (event.clientY - rect.top - size / 2) + "px";
+    el.style.position = "relative";
+    el.style.overflow = "hidden";
+    el.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 500);
+}
+//# sourceMappingURL=transitions.js.map
+
+// ── notifications.js ──
+/* ── Notification Center ──────────────────────────────── */
+/* Collects research events into a dismissable feed panel    */
+/* Supports priorities, grouping, and auto-dismiss           */
+
+const notifications = [];
+let onUpdate = null;
+const ICONS = {
+    info: "ℹ️",
+    success: "✅",
+    warn: "⚠️",
+    error: "❌"
+};
+function notify(title, message, priority = "info") {
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    notifications.unshift({
+        id,
+        title,
+        message,
+        priority,
+        timestamp: Date.now(),
+        read: false,
+        icon: ICONS[priority]
+    });
+    // Keep max 100
+    if (notifications.length > 100)
+        notifications.length = 100;
+    if (onUpdate)
+        onUpdate();
+}
+function markRead(id) {
+    const n = notifications.find(x => x.id === id);
+    if (n)
+        n.read = true;
+    if (onUpdate)
+        onUpdate();
+}
+function markAllRead() {
+    for (const n of notifications)
+        n.read = true;
+    if (onUpdate)
+        onUpdate();
+}
+function clearNotifications() {
+    notifications.length = 0;
+    if (onUpdate)
+        onUpdate();
+}
+function getUnreadCount() {
+    return notifications.filter(n => !n.read).length;
+}
+function setNotificationListener(fn) {
+    onUpdate = fn;
+}
+function renderNotificationCenter(container) {
+    const unread = getUnreadCount();
+    if (!notifications.length) {
+        container.innerHTML = `<div class="empty-state"><span class="es-icon">🔔</span><h3>No Notifications</h3><p>Events will appear here during research</p></div>`;
+        return;
+    }
+    let html = `<div class="notif-center">`;
+    html += `<div class="notif-toolbar">`;
+    html += `<span class="notif-count">${unread} unread</span>`;
+    html += `<div class="notif-actions">`;
+    html += `<button class="notif-btn notif-mark-all">Mark all read</button>`;
+    html += `<button class="notif-btn notif-clear-all">Clear all</button>`;
+    html += `</div></div>`;
+    html += `<div class="notif-list">`;
+    for (const n of notifications) {
+        const cls = n.read ? "notif-item notif-read" : "notif-item notif-unread";
+        const ago = formatTimeAgo(n.timestamp);
+        html += `<div class="${cls} notif-${n.priority}" data-nid="${n.id}">`;
+        html += `<span class="notif-icon">${n.icon}</span>`;
+        html += `<div class="notif-body">`;
+        html += `<div class="notif-title">${esc(n.title)}</div>`;
+        html += `<div class="notif-msg">${esc(n.message)}</div>`;
+        html += `<div class="notif-time">${ago}</div>`;
+        html += `</div></div>`;
+    }
+    html += `</div></div>`;
+    container.innerHTML = html;
+    // Events
+    container.querySelector(".notif-mark-all")?.addEventListener("click", () => {
+        markAllRead();
+        renderNotificationCenter(container);
+    });
+    container.querySelector(".notif-clear-all")?.addEventListener("click", () => {
+        clearNotifications();
+        renderNotificationCenter(container);
+    });
+    container.querySelectorAll(".notif-item").forEach(el => {
+        el.addEventListener("click", () => {
+            const id = el.getAttribute("data-nid") || "";
+            markRead(id);
+            renderNotificationCenter(container);
+        });
+    });
+}
+function formatTimeAgo(ts) {
+    const diff = Date.now() - ts;
+    const secs = Math.floor(diff / 1000);
+    if (secs < 60)
+        return "just now";
+    const mins = Math.floor(secs / 60);
+    if (mins < 60)
+        return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    return `${hrs}h ago`;
+}
+//# sourceMappingURL=notifications.js.map
+
+// ── print.js ──
+/* ── Print-Optimized Layout ────────────────────────────── */
+/* Generates a clean, printer-friendly version of reports     */
+/* with proper page breaks, headers, and styling              */
+
+function printReport(title, markdown, sources, score) {
+    const html = renderMarkdown(markdown);
+    const now = new Date().toLocaleDateString("en-US", {
+        year: "numeric", month: "long", day: "numeric"
+    });
+    const sourceList = sources.map((s, i) => `<li class="print-source">
+      <span class="print-src-num">[${i + 1}]</span>
+      <span class="print-src-title">${s.title}</span>
+      <span class="print-src-url">${s.url}</span>
+      <span class="print-src-cred">${s.credibility}%</span>
+    </li>`).join("");
+    const printDoc = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>${title} — AI Research Agent</title>
+<style>
+  @page {
+    margin: 2cm 2.5cm;
+    @top-right { content: "AI Research Agent"; font-size: 9pt; color: #888; }
+    @bottom-center { content: "Page " counter(page) " of " counter(pages); font-size: 9pt; color: #888; }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Georgia", "Times New Roman", serif;
+    font-size: 11pt;
+    line-height: 1.6;
+    color: #1a1a1a;
+    max-width: 100%;
+  }
+  .print-header {
+    border-bottom: 2px solid #333;
+    padding-bottom: 12pt;
+    margin-bottom: 18pt;
+  }
+  .print-title {
+    font-size: 22pt;
+    font-weight: 700;
+    margin-bottom: 4pt;
+    color: #111;
+  }
+  .print-meta {
+    font-size: 9pt;
+    color: #666;
+    display: flex;
+    gap: 16pt;
+  }
+  .print-score {
+    display: inline-block;
+    padding: 2pt 8pt;
+    border: 1px solid #333;
+    border-radius: 3pt;
+    font-weight: 700;
+  }
+  .print-body h1 { font-size: 16pt; margin-top: 18pt; margin-bottom: 8pt; page-break-after: avoid; }
+  .print-body h2 { font-size: 14pt; margin-top: 14pt; margin-bottom: 6pt; page-break-after: avoid; }
+  .print-body h3 { font-size: 12pt; margin-top: 10pt; margin-bottom: 4pt; page-break-after: avoid; }
+  .print-body p { margin-bottom: 8pt; text-align: justify; }
+  .print-body ul, .print-body ol { margin: 6pt 0 6pt 20pt; }
+  .print-body li { margin-bottom: 3pt; }
+  .print-body blockquote {
+    border-left: 3pt solid #ccc;
+    padding-left: 10pt;
+    color: #555;
+    margin: 8pt 0;
+    font-style: italic;
+  }
+  .print-body code {
+    font-family: "Courier New", monospace;
+    font-size: 10pt;
+    background: #f0f0f0;
+    padding: 1pt 3pt;
+    border-radius: 2pt;
+  }
+  .print-body pre {
+    background: #f5f5f5;
+    padding: 8pt;
+    border: 1px solid #ddd;
+    border-radius: 3pt;
+    overflow-x: auto;
+    margin: 8pt 0;
+    page-break-inside: avoid;
+  }
+  .print-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8pt 0;
+    page-break-inside: avoid;
+  }
+  .print-body th, .print-body td {
+    border: 1px solid #ccc;
+    padding: 4pt 8pt;
+    text-align: left;
+    font-size: 10pt;
+  }
+  .print-body th { background: #f0f0f0; font-weight: 700; }
+  .print-sources {
+    page-break-before: always;
+    border-top: 1px solid #333;
+    padding-top: 12pt;
+  }
+  .print-sources h2 { font-size: 14pt; margin-bottom: 10pt; }
+  .print-source {
+    list-style: none;
+    padding: 4pt 0;
+    border-bottom: 1px solid #eee;
+    font-size: 9pt;
+    display: flex;
+    gap: 8pt;
+    align-items: baseline;
+  }
+  .print-src-num { font-weight: 700; min-width: 24pt; }
+  .print-src-title { flex: 1; }
+  .print-src-url { color: #666; word-break: break-all; max-width: 200pt; font-size: 8pt; }
+  .print-src-cred { font-weight: 700; }
+  .print-footer {
+    margin-top: 24pt;
+    padding-top: 8pt;
+    border-top: 1px solid #ccc;
+    font-size: 8pt;
+    color: #999;
+    text-align: center;
+  }
+  @media print {
+    body { font-size: 11pt; }
+    a { color: inherit; text-decoration: none; }
+    .no-print { display: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="print-header">
+    <div class="print-title">${title}</div>
+    <div class="print-meta">
+      <span>Generated: ${now}</span>
+      <span>Quality Score: <span class="print-score">${score}/100</span></span>
+      <span>${sources.length} Sources</span>
+    </div>
+  </div>
+  <div class="print-body">${html}</div>
+  ${sources.length ? `
+  <div class="print-sources">
+    <h2>Sources &amp; References</h2>
+    <ol>${sourceList}</ol>
+  </div>` : ""}
+  <div class="print-footer">
+    Generated by AI Research Agent — Multi-source automated research with verification
+  </div>
+  <script>window.print();</script>
+</body>
+</html>`;
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+        printWindow.document.write(printDoc);
+        printWindow.document.close();
+    }
+}
+//# sourceMappingURL=print.js.map
+
 // ── app.js ──
 /* ── Main Application Controller ──────────────────────── */
 /* Wires: theme, commands, particles, pipeline, timeline, */
 /*        inspector, perf monitor, toasts, graph, chat    */
+
+
+
+
+
+
+
+
 
 
 
@@ -2254,8 +3181,18 @@ function init() {
     initTraceFilter();
     initI18n();
     initReadingProgress();
+    initVoiceInput();
+    injectTransitionStyles();
+    // Notification badge listener
+    setNotificationListener(updateNotifBadge);
     // Welcome toast
     toast("Press Ctrl+K for command palette · ? for shortcuts", "info", 3000);
+}
+function updateNotifBadge() {
+    const count = getUnreadCount();
+    const btn = document.querySelector('[data-t="notifications"]');
+    if (btn)
+        btn.textContent = count > 0 ? `🔔 Alerts (${count})` : "🔔 Alerts";
 }
 // ── Register commands ─────────────────────────────────
 function registerAllCommands() {
@@ -2335,6 +3272,36 @@ function registerAllCommands() {
             action: () => { setLang("es"); toast("Idioma: Español", "info"); } },
         { id: "lang-te", label: "Language: తెలుగు", icon: "🇮🇳", category: "Language",
             action: () => { setLang("te"); toast("భాష: తెలుగు", "info"); } },
+        { id: "credibility-tab", label: "Show source trust scores", icon: "🛡", category: "Navigation",
+            action: () => switchTab("credibility") },
+        { id: "claimgraph-tab", label: "Show claim dependencies", icon: "🔗", category: "Navigation",
+            action: () => switchTab("claimgraph") },
+        { id: "diff-tab", label: "Compare reports", icon: "⇄", category: "Navigation",
+            action: () => switchTab("diff") },
+        { id: "bookmarks-tab", label: "Show bookmarks", icon: "★", category: "Navigation",
+            action: () => switchTab("bookmarks") },
+        { id: "notifications-tab", label: "Show notifications", icon: "🔔", category: "Navigation",
+            action: () => switchTab("notifications") },
+        { id: "bookmark-save", label: "Bookmark this research", icon: "★", category: "Actions",
+            action: () => {
+                if (current) {
+                    const credNum = Math.round((current.score?.citation_precision || 0) * 100);
+                    addBookmark(current.question || "Untitled", current.markdown || "", current.sources?.length || 0, current.claims?.length || 0, credNum);
+                }
+                else
+                    toast("No report to bookmark", "warn");
+            }
+        },
+        { id: "print-report", label: "Print-optimized report", icon: "🖨", category: "Export",
+            action: () => {
+                if (current) {
+                    const credSources = current.sources.map(s => ({ url: s.url, title: s.title, credibility: s.credibility === "high" ? 90 : s.credibility === "medium" ? 60 : 30 }));
+                    printReport(current.question || "Research Report", current.markdown || "", credSources, Math.round((current.score?.citation_precision || 0) * 100));
+                }
+                else
+                    toast("No report to print", "warn");
+            }
+        },
     ]);
 }
 // ── Scroll progress indicator ─────────────────────────
@@ -2425,7 +3392,7 @@ function addKeyboardShortcuts() {
     });
 }
 // ── Tabs ──────────────────────────────────────────────
-const TAB_IDS = ["report", "graph", "inspector", "timelinePanel", "analyticsPanel", "heatmapPanel", "confidencePanel", "wordcloudPanel", "sourcemapPanel"];
+const TAB_IDS = ["report", "graph", "inspector", "timelinePanel", "analyticsPanel", "heatmapPanel", "confidencePanel", "wordcloudPanel", "sourcemapPanel", "credibilityPanel", "claimgraphPanel", "diffPanel", "bookmarksPanel", "notificationsPanel"];
 function switchTab(target) {
     document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("on", x.dataset.t === target));
     for (const id of TAB_IDS) {
@@ -2447,6 +3414,26 @@ function switchTab(target) {
         renderWordCloud(current, $("wordcloudPanel"));
     if (target === "sourcemap" && current)
         renderSourceMap(current, $("sourcemapPanel"));
+    if (target === "credibility" && current) {
+        const cs = current.sources.map(s => ({ url: s.url, title: s.title, credibility: s.credibility === "high" ? 90 : s.credibility === "medium" ? 60 : 30 }));
+        renderCredibilityPanel(cs, $("credibilityPanel"));
+    }
+    if (target === "claimgraph" && current) {
+        const cl = current.claims.map(c => ({ text: c.text, sources: c.cites.map(id => { const s = current.sources.find(x => x.id === id); return s ? s.title : ""; }).filter(Boolean) }));
+        renderClaimGraph(cl, current.sources.map(s => ({ url: s.url, title: s.title })), $("claimgraphPanel"));
+    }
+    if (target === "diff") {
+        const hist = getReportHistory();
+        if (hist.length >= 2)
+            renderDiff(hist[hist.length - 2], hist[hist.length - 1], $("diffPanel"));
+    }
+    if (target === "bookmarks")
+        renderBookmarksPanel($("bookmarksPanel"), (q) => {
+            $("q").value = q;
+            $("f").dispatchEvent(new Event("submit", { cancelable: true }));
+        });
+    if (target === "notifications")
+        renderNotificationCenter($("notificationsPanel"));
     announce(`Switched to ${target} tab`);
 }
 function matchTab(id, target) {
@@ -2455,6 +3442,9 @@ function matchTab(id, target) {
         timelinePanel: "timeline", analyticsPanel: "analytics",
         heatmapPanel: "heatmap", confidencePanel: "confidence",
         wordcloudPanel: "wordcloud", sourcemapPanel: "sourcemap",
+        credibilityPanel: "credibility", claimgraphPanel: "claimgraph",
+        diffPanel: "diff", bookmarksPanel: "bookmarks",
+        notificationsPanel: "notifications",
     };
     return map[id] === target;
 }
@@ -2532,6 +3522,7 @@ function startResearch() {
     timeline = new ResearchTimeline($("timelinePanel"));
     timeline.add("init", "🚀", "Research started");
     toast(`Researching: "${question.slice(0, 50)}${question.length > 50 ? "…" : ""}"`, "info");
+    notify("Research Started", `Query: "${question.slice(0, 80)}"`, "info");
     const depth = $("depth").value;
     const tokens = uploads.map((u) => u.token);
     let lastEventTime = Date.now();
@@ -2618,10 +3609,12 @@ function startResearch() {
         $("report").classList.add("empty");
         done();
         toast("Research failed: " + d.message, "error");
+        notify("Research Failed", d.message, "error");
     })
         .onError(() => {
         done();
         toast("Connection lost", "error");
+        notify("Connection Lost", "SSE stream disconnected", "error");
     });
     function recordLatency() {
         const now = Date.now();
@@ -2696,6 +3689,22 @@ function showReport(d) {
         renderWordCloud(d, $("wordcloudPanel"));
     if (!$("sourcemapPanel").classList.contains("hidden"))
         renderSourceMap(d, $("sourcemapPanel"));
+    // Update new panels if visible
+    if (!$("credibilityPanel").classList.contains("hidden")) {
+        const cs = d.sources.map(s => ({ url: s.url, title: s.title, credibility: s.credibility === "high" ? 90 : s.credibility === "medium" ? 60 : 30 }));
+        renderCredibilityPanel(cs, $("credibilityPanel"));
+    }
+    if (!$("claimgraphPanel").classList.contains("hidden")) {
+        const cl = d.claims.map(c => ({ text: c.text, sources: c.cites.map(id => { const src = d.sources.find(x => x.id === id); return src ? src.title : ""; }).filter(Boolean) }));
+        renderClaimGraph(cl, d.sources.map(s => ({ url: s.url, title: s.title })), $("claimgraphPanel"));
+    }
+    // Push to diff history
+    pushReport(d.markdown);
+    // Notify
+    notify("Research Complete", `"${(d.question || "").slice(0, 50)}" — ${d.sources.length} sources, precision ${pct(d.score.citation_precision)}`, "success");
+    // Animate report in
+    fadeIn($("report"));
+    staggerChildren($("score"), ".pill", 60);
     // Reading progress
     setReadingContent(words);
     announce(`Research report loaded: ${d.question}`);

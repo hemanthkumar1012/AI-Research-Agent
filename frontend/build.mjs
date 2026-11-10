@@ -46,7 +46,9 @@ try {
     "perfmon.ts", "pipeline.ts", "analytics.ts", "heatmap.ts",
     "focus.ts", "confidence.ts", "autosuggest.ts", "accessibility.ts",
     "wordcloud.ts", "shortcuts.ts", "share.ts", "i18n.ts",
-    "sourcemap.ts", "reading.ts", "app.ts"
+    "sourcemap.ts", "reading.ts", "voice.ts", "diff.ts", "credibility.ts",
+    "claimgraph.ts", "bookmarks.ts", "transitions.ts", "notifications.ts",
+    "print.ts", "app.ts"
   ];
   for (const f of tsFiles) {
     const src = readFileSync(join(FRONTEND, "src", f), "utf8");
@@ -65,7 +67,9 @@ const MODULE_ORDER = [
   "perfmon.js", "pipeline.js", "analytics.js", "heatmap.js",
   "focus.js", "confidence.js", "autosuggest.js", "accessibility.js",
   "wordcloud.js", "shortcuts.js", "share.js", "i18n.js",
-  "sourcemap.js", "reading.js", "app.js"
+  "sourcemap.js", "reading.js", "voice.js", "diff.js", "credibility.js",
+  "claimgraph.js", "bookmarks.js", "transitions.js", "notifications.js",
+  "print.js", "app.js"
 ];
 
 let bundle = `"use strict";\n(() => {\n`;
@@ -125,7 +129,7 @@ function stripTypes(code) {
     // Remove single-line type aliases
     .replace(/^(export\s+)?type\s+\w+\s*=\s*[^;]+;/gm, "")
     // Remove `: Type` annotations (parameters, variables, returns)
-    .replace(/:\s*(?:string|number|boolean|void|null|undefined|any|never|HTMLElement|Element|Event|MouseEvent|KeyboardEvent|DragEvent|SVGElement|SVGGElement|SVGCircleElement|HTMLInputElement|HTMLButtonElement|HTMLSelectElement|HTMLCanvasElement|HTMLDetailsElement|HTMLDivElement|HTMLAnchorElement|HTMLSpanElement|CanvasRenderingContext2D|ReportData|UploadResult|HistoryItem|AgentEventMap|Source|Claim|Command|ParticleMode|ThemeName|AnalyticsData|HeatCell|MapNode|MapEdge|WordEntry|ShortcutGroup|Lang|Translations|Record<[^>]+>)\s*(?=[,)\]{}=;])/g, "")
+    .replace(/:\s*(?:string|number|boolean|void|null|undefined|any|never|HTMLElement|Element|Event|MouseEvent|KeyboardEvent|DragEvent|SVGElement|SVGGElement|SVGCircleElement|HTMLInputElement|HTMLButtonElement|HTMLSelectElement|HTMLCanvasElement|HTMLDetailsElement|HTMLDivElement|HTMLAnchorElement|HTMLSpanElement|HTMLFormElement|CanvasRenderingContext2D|ReportData|UploadResult|HistoryItem|AgentEventMap|Source|Claim|Command|ParticleMode|ThemeName|AnalyticsData|HeatCell|MapNode|MapEdge|WordEntry|ShortcutGroup|Lang|Translations|DiffLine|CredibilityScore|ClaimNode|ClaimEdge|Bookmark|Notification|NotifPriority|Record<[^>]+>)\s*(?=[,)\]{}=;])/g, "")
     // Remove `: Type[]` annotations
     .replace(/:\s*\w+\[\]\s*(?=[,)\]{}=;])/g, "")
     // Remove `<Type>` generic params on function calls
@@ -133,7 +137,7 @@ function stripTypes(code) {
     // Remove `as Type` casts
     .replace(/\s+as\s+(?:string|number|boolean|HTML\w+|SVG\w+|Element|any|unknown)\s*/g, " ")
     // Remove function return types
-    .replace(/\):\s*(?:string|number|boolean|void|Promise<[^>]+>|HTMLElement|HTMLDivElement|null|Command\[\]|WordEntry\[\]|AnalyticsData|Lang)\s*(?=[{])/g, ") ")
+    .replace(/\):\s*(?:string|number|boolean|void|Promise<[^>]+>|HTMLElement|HTMLDivElement|null|Command\[\]|WordEntry\[\]|AnalyticsData|Lang|DiffLine\[\]|CredibilityScore|Bookmark\[\]|ClaimNode\[\]|ClaimEdge\[\])\s*(?=[{])/g, ") ")
     // Remove `!` non-null assertions
     .replace(/!\./g, ".")
     .replace(/!(?=[,);}\]])/g, "");
