@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="860" viewBox="0 0 1280 860" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0a0e1a"/><stop offset="1" stop-color="#121a33"/></linearGradient>
+<linearGradient id="acc" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6ea8ff"/><stop offset="1" stop-color="#c08cff"/></linearGradient>
+<linearGradient id="core" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2550"/><stop offset="1" stop-color="#151c3a"/></linearGradient>
+<pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#fff" stroke-opacity="0.03"/></pattern>
+<marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#7d8fc4"/></marker>
+<filter id="sh" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.45"/></filter>
+</defs>
+<rect width="1280" height="860" rx="24" fill="url(#bg)"/><rect width="1280" height="860" rx="24" fill="url(#grid)"/>
+<text x="60" y="64" font-size="30" font-weight="800" fill="#f2f5ff">System architecture</text>
+<text x="60" y="94" font-size="16" fill="#8f9ab8">Three layers: interfaces, the agent core with its specialised modules, and infrastructure.</text>
+<rect x="40" y="120" width="1200" height="120" rx="18" fill="#ffffff" fill-opacity="0.018" stroke="#6ea8ff" stroke-opacity="0.35" stroke-dasharray="6 6"/>
+<text x="60" y="146" font-size="12" letter-spacing="2.5" font-weight="700" fill="#6ea8ff">INTERFACES</text>
+<g filter="url(#sh)"><rect x="60.0" y="156" width="360" height="66" rx="14" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="60.0" y="156" width="5" height="66" rx="2.5" fill="#6ea8ff"/>
+<circle cx="90.0" cy="189.0" r="15" fill="#6ea8ff" fill-opacity="0.15"/>
+<g transform="translate(90.0 189.0)" stroke="#6ea8ff" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="-8" y="-6" width="16" height="12" rx="2"/><path d="M-5 -2l3 2l-3 2M0 3h4"/></g>
+<text x="116.0" y="186.0" font-size="15.5" font-weight="700" fill="#eef2ff">Command line</text>
+<text x="116.0" y="205.0" font-size="12.5" fill="#8f9ab8">research · ask · list · --depth · --files</text>
+<g filter="url(#sh)"><rect x="460.0" y="156" width="360" height="66" rx="14" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="460.0" y="156" width="5" height="66" rx="2.5" fill="#6ea8ff"/>
+<circle cx="490.0" cy="189.0" r="15" fill="#6ea8ff" fill-opacity="0.15"/>
+<g transform="translate(490.0 189.0)" stroke="#6ea8ff" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="-8" y="-6" width="16" height="12" rx="2"/><path d="M-8 -2h16"/></g>
+<text x="516.0" y="186.0" font-size="15.5" font-weight="700" fill="#eef2ff">Streaming web UI</text>
+<text x="516.0" y="205.0" font-size="12.5" fill="#8f9ab8">SSE live trace · chat · uploads · history</text>
+<g filter="url(#sh)"><rect x="860.0" y="156" width="360" height="66" rx="14" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="860.0" y="156" width="5" height="66" rx="2.5" fill="#6ea8ff"/>
+<circle cx="890.0" cy="189.0" r="15" fill="#6ea8ff" fill-opacity="0.15"/>
+<g transform="translate(890.0 189.0)" stroke="#6ea8ff" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M-7 6V-1M-2 6V-5M3 6V1M8 6V-3"/></g>
+<text x="916.0" y="186.0" font-size="15.5" font-weight="700" fill="#eef2ff">Evaluation harness</text>
+<text x="916.0" y="205.0" font-size="12.5" fill="#8f9ab8">precision · ablation · LLM-as-judge</text>
+<path d="M240.0 240 V 286" stroke="#7d8fc4" stroke-width="1.8" marker-end="url(#ar)"/>
+<path d="M640.0 240 V 286" stroke="#7d8fc4" stroke-width="1.8" marker-end="url(#ar)"/>
+<path d="M1040.0 240 V 286" stroke="#7d8fc4" stroke-width="1.8" marker-end="url(#ar)"/>
+<rect x="40" y="270" width="1200" height="380" rx="18" fill="#ffffff" fill-opacity="0.018" stroke="#c08cff" stroke-opacity="0.35" stroke-dasharray="6 6"/>
+<text x="60" y="296" font-size="12" letter-spacing="2.5" font-weight="700" fill="#c08cff">AGENT CORE</text>
+<g filter="url(#sh)"><rect x="60" y="306" width="1160" height="58" rx="14" fill="url(#core)" stroke="url(#acc)" stroke-width="1.6"/></g>
+<text x="640" y="332" text-anchor="middle" font-size="17" font-weight="800" fill="#f2f5ff">ResearchAgent orchestrator</text>
+<text x="640" y="352" text-anchor="middle" font-size="13" fill="#a9b4d6">event bus (plan · search · source · conflicts · verify · revise · done) → CLI / SSE / eval</text>
+<g filter="url(#sh)"><rect x="60.0" y="392" width="370" height="66" rx="14" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="60.0" y="392" width="5" height="66" rx="2.5" fill="#6ea8ff"/>
+<circle cx="90.0" cy="425.0" r="15" fill="#6ea8ff" fill-opacity="0.15"/>
+<g transform="translate(90.0 425.0)" stroke="#6ea8ff" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M-6 -6h12M-6 0h12M-6 6h7"/></g>
+<text x="116.0" y="422.0" font-size="15.5" font-weight="700" fill="#eef2ff">Planner</text>
+<text x="116.0" y="441.0" font-size="12.5" fill="#8f9ab8">sub-questions + routing</text>
+<g filter="url(#sh)"><rect x="455.0" y="392" width="370" height="66" rx="14" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="455.0" y="392" width="5" height="66" rx="2.5" fill="#6ea8ff"/>
+<circle cx="485.0" cy="425.0" r="15" fill="#6ea8ff" fill-opacity="0.15"/>
+<g transform="translate(485.0 425.0)" stroke="#6ea8ff" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="-2" cy="-2" r="5"/><path d="M2 2l5 5"/></g>
+<text x="511.0" y="422.0" font-size="15.5" font-weight="700" fill="#eef2ff">Multi-source search</text>
+<text x="511.0" y="441.0" font-size="12.5" fill="#8f9ab8">web · arXiv · Wikipedia</text>
+<g filter="url(#sh)"><rect x="850.0" y="392" width="370" height="66" rx="14" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="850.0" y="392" width="5" height="66" rx="2.5" fill="#6ea8ff"/>
+<circle cx="880.0" cy="425.0" r="15" fill="#6ea8ff" fill-opacity="0.15"/>
+<g transform="translate(880.0 425.0)" stroke="#6ea8ff" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M-5 -7h7l4 4v10h-11z M2 -7v4h4"/></g>
+<text x="906.0" y="422.0" font-size="15.5" font-weight="700" fill="#eef2ff">Reader</text>
+<text x="906.0" y="441.0" font-size="12.5" fill="#8f9ab8">HTML · full PDFs · your files</text>
+<g filter="url(#sh)"><rect x="60.0" y="476" width="370" height="66" rx="14" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="60.0" y="476" width="5" height="66" rx="2.5" fill="#6ea8ff"/>
+<circle cx="90.0" cy="509.0" r="15" fill="#6ea8ff" fill-opacity="0.15"/>
+<g transform="translate(90.0 509.0)" stroke="#6ea8ff" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M-7 -5h14M-5 0h10M-3 5h6"/></g>
+<text x="116.0" y="506.0" font-size="15.5" font-weight="700" fill="#eef2ff">Hybrid retriever</text>
+<text x="116.0" y="525.0" font-size="12.5" fill="#8f9ab8">BM25 + embeddings</text>
+<g filter="url(#sh)"><rect x="455.0" y="476" width="370" height="66" rx="14" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="455.0" y="476" width="5" height="66" rx="2.5" fill="#e5b454"/>
+<circle cx="485.0" cy="509.0" r="15" fill="#e5b454" fill-opacity="0.15"/>
+<g transform="translate(485.0 509.0)" stroke="#e5b454" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M0 -7v14M-7 -3h14M-7 -3l-2 5h4zM7 -3l-2 5h4z"/></g>
+<text x="511.0" y="506.0" font-size="15.5" font-weight="700" fill="#eef2ff">Cross-checker</text>
+<text x="511.0" y="525.0" font-size="12.5" fill="#8f9ab8">contradiction finder</text>
+<g filter="url(#sh)"><rect x="850.0" y="476" width="370" height="66" rx="14" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="850.0" y="476" width="5" height="66" rx="2.5" fill="#c08cff"/>
+<circle cx="880.0" cy="509.0" r="15" fill="#c08cff" fill-opacity="0.15"/>
+<g transform="translate(880.0 509.0)" stroke="#c08cff" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M-6 6l2-6l8-8l4 4l-8 8z"/></g>
+<text x="906.0" y="506.0" font-size="15.5" font-weight="700" fill="#eef2ff">Writer</text>
+<text x="906.0" y="525.0" font-size="12.5" fill="#8f9ab8">cited Markdown report</text>
+<g filter="url(#sh)"><rect x="60.0" y="560" width="370" height="66" rx="14" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="60.0" y="560" width="5" height="66" rx="2.5" fill="#4cc38a"/>
+<circle cx="90.0" cy="593.0" r="15" fill="#4cc38a" fill-opacity="0.15"/>
+<g transform="translate(90.0 593.0)" stroke="#4cc38a" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M-6 0l4 4l8-8"/></g>
+<text x="116.0" y="590.0" font-size="15.5" font-weight="700" fill="#eef2ff">Verifier</text>
+<text x="116.0" y="609.0" font-size="12.5" fill="#8f9ab8">claim ↔ passage check</text>
+<g filter="url(#sh)"><rect x="455.0" y="560" width="370" height="66" rx="14" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="455.0" y="560" width="5" height="66" rx="2.5" fill="#4cc38a"/>
+<circle cx="485.0" cy="593.0" r="15" fill="#4cc38a" fill-opacity="0.15"/>
+<g transform="translate(485.0 593.0)" stroke="#4cc38a" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 -3a7 7 0 1 0 1 5"/><path d="M7 -8v5h-5"/></g>
+<text x="511.0" y="590.0" font-size="15.5" font-weight="700" fill="#eef2ff">Reviser</text>
+<text x="511.0" y="609.0" font-size="12.5" fill="#8f9ab8">self-correction loop</text>
+<g filter="url(#sh)"><rect x="850.0" y="560" width="370" height="66" rx="14" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="850.0" y="560" width="5" height="66" rx="2.5" fill="#c08cff"/>
+<circle cx="880.0" cy="593.0" r="15" fill="#c08cff" fill-opacity="0.15"/>
+<g transform="translate(880.0 593.0)" stroke="#c08cff" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M-7 -6h14v9h-8l-4 4v-4h-2z"/></g>
+<text x="906.0" y="590.0" font-size="15.5" font-weight="700" fill="#eef2ff">Follow-up Q&amp;A</text>
+<text x="906.0" y="609.0" font-size="12.5" fill="#8f9ab8">grounded, verified answers</text>
+<path d="M250 650 V 696" stroke="#7d8fc4" stroke-width="1.8" marker-end="url(#ar)"/>
+<path d="M640 650 V 696" stroke="#7d8fc4" stroke-width="1.8" marker-end="url(#ar)"/>
+<path d="M1030 650 V 696" stroke="#7d8fc4" stroke-width="1.8" marker-end="url(#ar)"/>
+<rect x="40" y="680" width="1200" height="150" rx="18" fill="#ffffff" fill-opacity="0.018" stroke="#4cc38a" stroke-opacity="0.35" stroke-dasharray="6 6"/>
+<text x="60" y="706" font-size="12" letter-spacing="2.5" font-weight="700" fill="#4cc38a">INFRASTRUCTURE</text>
+<g filter="url(#sh)"><rect x="60.0" y="724" width="270" height="70" rx="14" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="60.0" y="724" width="5" height="70" rx="2.5" fill="#4cc38a"/>
+<circle cx="90.0" cy="759.0" r="15" fill="#4cc38a" fill-opacity="0.15"/>
+<g transform="translate(90.0 759.0)" stroke="#4cc38a" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M0 -8l2 6l6 2l-6 2l-2 6l-2-6l-6-2l6-2z"/></g>
+<text x="116.0" y="756.0" font-size="15.5" font-weight="700" fill="#eef2ff">Gemini API</text>
+<text x="116.0" y="775.0" font-size="12.5" fill="#8f9ab8">Flash · Pro · embeddings</text>
+<g filter="url(#sh)"><rect x="356.6666666666667" y="724" width="270" height="70" rx="14" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="356.6666666666667" y="724" width="5" height="70" rx="2.5" fill="#4cc38a"/>
+<circle cx="386.6666666666667" cy="759.0" r="15" fill="#4cc38a" fill-opacity="0.15"/>
+<g transform="translate(386.6666666666667 759.0)" stroke="#4cc38a" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle r="7"/><path d="M-7 0h14M0 -7c3 3 3 11 0 14c-3-3-3-11 0-14"/></g>
+<text x="412.6666666666667" y="756.0" font-size="15.5" font-weight="700" fill="#eef2ff">Search providers</text>
+<text x="412.6666666666667" y="775.0" font-size="12.5" fill="#8f9ab8">Tavily / DuckDuckGo · arXiv · Wiki</text>
+<g filter="url(#sh)"><rect x="653.3333333333334" y="724" width="270" height="70" rx="14" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="653.3333333333334" y="724" width="5" height="70" rx="2.5" fill="#4cc38a"/>
+<circle cx="683.3333333333334" cy="759.0" r="15" fill="#4cc38a" fill-opacity="0.15"/>
+<g transform="translate(683.3333333333334 759.0)" stroke="#4cc38a" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="0" cy="-5" rx="7" ry="3"/><path d="M-7 -5v10c0 2 3 3 7 3s7-1 7-3v-10"/></g>
+<text x="709.3333333333334" y="756.0" font-size="15.5" font-weight="700" fill="#eef2ff">SQLite cache</text>
+<text x="709.3333333333334" y="775.0" font-size="12.5" fill="#8f9ab8">LLM · embeddings · pages</text>
+<g filter="url(#sh)"><rect x="950.0" y="724" width="270" height="70" rx="14" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="950.0" y="724" width="5" height="70" rx="2.5" fill="#4cc38a"/>
+<circle cx="980.0" cy="759.0" r="15" fill="#4cc38a" fill-opacity="0.15"/>
+<g transform="translate(980.0 759.0)" stroke="#4cc38a" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M-7 -4l7-4l7 4v8l-7 4l-7-4z M-7 -4l7 4l7-4M0 0v8"/></g>
+<text x="1006.0" y="756.0" font-size="15.5" font-weight="700" fill="#eef2ff">Report store</text>
+<text x="1006.0" y="775.0" font-size="12.5" fill="#8f9ab8">JSON + Markdown, uploads</text>
+</svg>

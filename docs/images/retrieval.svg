@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="600" viewBox="0 0 1280 600" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0a0e1a"/><stop offset="1" stop-color="#101a33"/></linearGradient>
+<pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#fff" stroke-opacity="0.03"/></pattern>
+<linearGradient id="f1" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6ea8ff" stop-opacity="0.9"/><stop offset="1" stop-color="#c08cff" stop-opacity="0.9"/></linearGradient>
+<filter id="sh" x="-10%" y="-20%" width="120%" height="150%"><feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#000" flood-opacity="0.45"/></filter>
+</defs>
+<rect width="1280" height="600" rx="24" fill="url(#bg)"/><rect width="1280" height="600" rx="24" fill="url(#grid)"/>
+<text x="60" y="64" font-size="30" font-weight="800" fill="#f2f5ff">Hybrid retrieval funnel</text>
+<text x="60" y="94" font-size="16" fill="#8f9ab8">Each stage narrows the evidence; only the strongest passages reach the writer.</text>
+<g filter="url(#sh)"><path d="M100.0 130 H 840.0 L 792.0 192 H 148.0 Z" fill="#6ea8ff" fill-opacity="0.16" stroke="#6ea8ff" stroke-opacity="0.7"/></g>
+<text x="470" y="157" text-anchor="middle" font-size="17" font-weight="800" fill="#f2f5ff">Search results</text>
+<text x="470" y="177" text-anchor="middle" font-size="12.5" fill="#b8c2dc">web · arXiv · Wikipedia · files</text>
+<path d="M854.0 161.0 H 900" stroke="#6ea8ff" stroke-opacity="0.35" stroke-dasharray="3 5"/>
+<rect x="900" y="146.0" width="150" height="30" rx="15" fill="#131a2e" stroke="#6ea8ff" stroke-opacity="0.8"/>
+<text x="975" y="166.0" text-anchor="middle" font-size="13.5" font-weight="700" fill="#6ea8ff">~20 URLs</text>
+<g filter="url(#sh)"><path d="M148.0 204 H 792.0 L 744.0 266 H 196.0 Z" fill="#7c9cff" fill-opacity="0.16" stroke="#7c9cff" stroke-opacity="0.7"/></g>
+<text x="470" y="231" text-anchor="middle" font-size="17" font-weight="800" fill="#f2f5ff">Pages read</text>
+<text x="470" y="251" text-anchor="middle" font-size="12.5" fill="#b8c2dc">HTML cleaned, PDFs parsed (refs cut)</text>
+<path d="M806.0 235.0 H 900" stroke="#7c9cff" stroke-opacity="0.35" stroke-dasharray="3 5"/>
+<rect x="900" y="220.0" width="150" height="30" rx="15" fill="#131a2e" stroke="#7c9cff" stroke-opacity="0.8"/>
+<text x="975" y="240.0" text-anchor="middle" font-size="13.5" font-weight="700" fill="#7c9cff">~15 docs</text>
+<g filter="url(#sh)"><path d="M196.0 278 H 744.0 L 696.0 340 H 244.0 Z" fill="#8c92ff" fill-opacity="0.16" stroke="#8c92ff" stroke-opacity="0.7"/></g>
+<text x="470" y="305" text-anchor="middle" font-size="17" font-weight="800" fill="#f2f5ff">Chunks</text>
+<text x="470" y="325" text-anchor="middle" font-size="12.5" fill="#b8c2dc">~900-char paragraph windows</text>
+<path d="M758.0 309.0 H 900" stroke="#8c92ff" stroke-opacity="0.35" stroke-dasharray="3 5"/>
+<rect x="900" y="294.0" width="150" height="30" rx="15" fill="#131a2e" stroke="#8c92ff" stroke-opacity="0.8"/>
+<text x="975" y="314.0" text-anchor="middle" font-size="13.5" font-weight="700" fill="#8c92ff">~600</text>
+<g filter="url(#sh)"><path d="M244.0 352 H 696.0 L 648.0 414 H 292.0 Z" fill="#9b88ff" fill-opacity="0.16" stroke="#9b88ff" stroke-opacity="0.7"/></g>
+<text x="470" y="379" text-anchor="middle" font-size="17" font-weight="800" fill="#f2f5ff">BM25 candidates</text>
+<text x="470" y="399" text-anchor="middle" font-size="12.5" fill="#b8c2dc">lexical top-6 per source</text>
+<path d="M710.0 383.0 H 900" stroke="#9b88ff" stroke-opacity="0.35" stroke-dasharray="3 5"/>
+<rect x="900" y="368.0" width="150" height="30" rx="15" fill="#131a2e" stroke="#9b88ff" stroke-opacity="0.8"/>
+<text x="975" y="388.0" text-anchor="middle" font-size="13.5" font-weight="700" fill="#9b88ff">~90</text>
+<g filter="url(#sh)"><path d="M292.0 426 H 648.0 L 600.0 488 H 340.0 Z" fill="#ad7dff" fill-opacity="0.16" stroke="#ad7dff" stroke-opacity="0.7"/></g>
+<text x="470" y="453" text-anchor="middle" font-size="17" font-weight="800" fill="#f2f5ff">Embedding rerank</text>
+<text x="470" y="473" text-anchor="middle" font-size="12.5" fill="#b8c2dc">cosine + BM25 rank fusion</text>
+<path d="M662.0 457.0 H 900" stroke="#ad7dff" stroke-opacity="0.35" stroke-dasharray="3 5"/>
+<rect x="900" y="442.0" width="150" height="30" rx="15" fill="#131a2e" stroke="#ad7dff" stroke-opacity="0.8"/>
+<text x="975" y="462.0" text-anchor="middle" font-size="13.5" font-weight="700" fill="#ad7dff">~30</text>
+<g filter="url(#sh)"><path d="M340.0 500 H 600.0 L 600.0 562 H 340.0 Z" fill="#4cc38a" fill-opacity="0.16" stroke="#4cc38a" stroke-opacity="0.7"/></g>
+<text x="470" y="527" text-anchor="middle" font-size="17" font-weight="800" fill="#f2f5ff">Final evidence</text>
+<text x="470" y="547" text-anchor="middle" font-size="12.5" fill="#b8c2dc">off-topic dropped, sorted by credibility</text>
+<path d="M614.0 531.0 H 900" stroke="#4cc38a" stroke-opacity="0.35" stroke-dasharray="3 5"/>
+<rect x="900" y="516.0" width="150" height="30" rx="15" fill="#131a2e" stroke="#4cc38a" stroke-opacity="0.8"/>
+<text x="975" y="536.0" text-anchor="middle" font-size="13.5" font-weight="700" fill="#4cc38a">≤10 src · 3 each</text>
+<text x="1080" y="144" font-size="12" letter-spacing="2" font-weight="700" fill="#8f9ab8">CREDIBILITY</text>
+<rect x="1080" y="170" width="140" height="44" rx="10" fill="#131a2e" stroke="#2a3557"/>
+<circle cx="1098" cy="192" r="6" fill="#6ea8ff"/>
+<text x="1112" y="189" font-size="13.5" font-weight="700" fill="#eef2ff">user</text>
+<text x="1112" y="205" font-size="11.5" fill="#8f9ab8">your files</text>
+<rect x="1080" y="228" width="140" height="44" rx="10" fill="#131a2e" stroke="#2a3557"/>
+<circle cx="1098" cy="250" r="6" fill="#4cc38a"/>
+<text x="1112" y="247" font-size="13.5" font-weight="700" fill="#eef2ff">high</text>
+<text x="1112" y="263" font-size="11.5" fill="#8f9ab8">.gov · journals</text>
+<rect x="1080" y="286" width="140" height="44" rx="10" fill="#131a2e" stroke="#2a3557"/>
+<circle cx="1098" cy="308" r="6" fill="#e5b454"/>
+<text x="1112" y="305" font-size="13.5" font-weight="700" fill="#eef2ff">medium</text>
+<text x="1112" y="321" font-size="11.5" fill="#8f9ab8">news · blogs</text>
+<rect x="1080" y="344" width="140" height="44" rx="10" fill="#131a2e" stroke="#2a3557"/>
+<circle cx="1098" cy="366" r="6" fill="#ef6b6b"/>
+<text x="1112" y="363" font-size="13.5" font-weight="700" fill="#eef2ff">low</text>
+<text x="1112" y="379" font-size="11.5" fill="#8f9ab8">forums · social</text>
+<text x="1080" y="420" font-size="11.5" fill="#8f9ab8">Ordered first in the</text>
+<text x="1080" y="436" font-size="11.5" fill="#8f9ab8">prompt; weak-only</text>
+<text x="1080" y="452" font-size="11.5" fill="#8f9ab8">claims get attributed.</text>
+<text x="60" y="572" font-size="12.5" fill="#6f7a99">Counts are typical for the "standard" depth preset.</text>
+</svg>

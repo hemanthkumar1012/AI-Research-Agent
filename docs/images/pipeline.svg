@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="700" viewBox="0 0 1280 700" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0a0e1a"/><stop offset="1" stop-color="#14123a"/></linearGradient>
+<linearGradient id="flow" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6ea8ff"/><stop offset="0.5" stop-color="#c08cff"/><stop offset="1" stop-color="#4cc38a"/></linearGradient>
+<pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#fff" stroke-opacity="0.03"/></pattern>
+<marker id="ar" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#9aa8d8"/></marker>
+<marker id="arw" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#e5b454"/></marker>
+<marker id="arg" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10z" fill="#4cc38a"/></marker>
+<filter id="sh" x="-15%" y="-15%" width="130%" height="140%"><feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#000" flood-opacity="0.5"/></filter>
+</defs>
+<rect width="1280" height="700" rx="24" fill="url(#bg)"/><rect width="1280" height="700" rx="24" fill="url(#grid)"/>
+<text x="60" y="64" font-size="30" font-weight="800" fill="#f2f5ff">Research pipeline</text>
+<text x="60" y="94" font-size="16" fill="#8f9ab8">From one question to a verified report: eight stages, two feedback loops.</text>
+<g filter="url(#sh)"><rect x="70" y="150" width="250" height="150" rx="18" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="70" y="150" width="250" height="5" rx="2.5" fill="#6ea8ff"/>
+<circle cx="104" cy="192" r="18" fill="#6ea8ff" fill-opacity="0.16" stroke="#6ea8ff" stroke-opacity="0.6"/>
+<text x="104" y="198" text-anchor="middle" font-size="16" font-weight="800" fill="#6ea8ff">1</text>
+<text x="132" y="199" font-size="21" font-weight="800" fill="#f2f5ff">Plan</text>
+<rect x="252.0" y="264" width="54.0" height="22" rx="11" fill="#6ea8ff" fill-opacity="0.12"/>
+<text x="279.0" y="279" text-anchor="middle" font-size="11.5" font-weight="700" fill="#6ea8ff">Flash</text>
+<text x="92" y="238" font-size="14" fill="#b8c2dc">Split into sub-questions,</text>
+<text x="92" y="258" font-size="14" fill="#b8c2dc">route each to a source</text>
+<g filter="url(#sh)"><rect x="360" y="150" width="250" height="150" rx="18" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="360" y="150" width="250" height="5" rx="2.5" fill="#6ea8ff"/>
+<circle cx="394" cy="192" r="18" fill="#6ea8ff" fill-opacity="0.16" stroke="#6ea8ff" stroke-opacity="0.6"/>
+<text x="394" y="198" text-anchor="middle" font-size="16" font-weight="800" fill="#6ea8ff">2</text>
+<text x="422" y="199" font-size="21" font-weight="800" fill="#f2f5ff">Search</text>
+<rect x="520.4" y="264" width="75.6" height="22" rx="11" fill="#6ea8ff" fill-opacity="0.12"/>
+<text x="558.2" y="279" text-anchor="middle" font-size="11.5" font-weight="700" fill="#6ea8ff">parallel</text>
+<text x="382" y="238" font-size="14" fill="#b8c2dc">Web · arXiv · Wikipedia</text>
+<text x="382" y="258" font-size="14" fill="#b8c2dc">+ your uploaded files</text>
+<g filter="url(#sh)"><rect x="650" y="150" width="250" height="150" rx="18" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="650" y="150" width="250" height="5" rx="2.5" fill="#6ea8ff"/>
+<circle cx="684" cy="192" r="18" fill="#6ea8ff" fill-opacity="0.16" stroke="#6ea8ff" stroke-opacity="0.6"/>
+<text x="684" y="198" text-anchor="middle" font-size="16" font-weight="800" fill="#6ea8ff">3</text>
+<text x="712" y="199" font-size="21" font-weight="800" fill="#f2f5ff">Read</text>
+<rect x="803.2" y="264" width="82.8" height="22" rx="11" fill="#6ea8ff" fill-opacity="0.12"/>
+<text x="844.6" y="279" text-anchor="middle" font-size="11.5" font-weight="700" fill="#6ea8ff">8 workers</text>
+<text x="672" y="238" font-size="14" fill="#b8c2dc">HTML + full-text PDFs,</text>
+<text x="672" y="258" font-size="14" fill="#b8c2dc">boilerplate stripped</text>
+<g filter="url(#sh)"><rect x="940" y="150" width="250" height="150" rx="18" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="940" y="150" width="250" height="5" rx="2.5" fill="#6ea8ff"/>
+<circle cx="974" cy="192" r="18" fill="#6ea8ff" fill-opacity="0.16" stroke="#6ea8ff" stroke-opacity="0.6"/>
+<text x="974" y="198" text-anchor="middle" font-size="16" font-weight="800" fill="#6ea8ff">4</text>
+<text x="1002" y="199" font-size="21" font-weight="800" fill="#f2f5ff">Rerank</text>
+<rect x="1114.8" y="264" width="61.2" height="22" rx="11" fill="#6ea8ff" fill-opacity="0.12"/>
+<text x="1145.4" y="279" text-anchor="middle" font-size="11.5" font-weight="700" fill="#6ea8ff">hybrid</text>
+<text x="962" y="238" font-size="14" fill="#b8c2dc">BM25 → embedding fusion,</text>
+<text x="962" y="258" font-size="14" fill="#b8c2dc">credibility ordering</text>
+<g filter="url(#sh)"><rect x="940" y="430" width="250" height="150" rx="18" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="940" y="430" width="250" height="5" rx="2.5" fill="#e5b454"/>
+<circle cx="974" cy="472" r="18" fill="#e5b454" fill-opacity="0.16" stroke="#e5b454" stroke-opacity="0.6"/>
+<text x="974" y="478" text-anchor="middle" font-size="16" font-weight="800" fill="#e5b454">5</text>
+<text x="1002" y="479" font-size="21" font-weight="800" fill="#f2f5ff">Cross-check</text>
+<rect x="1122.0" y="544" width="54.0" height="22" rx="11" fill="#e5b454" fill-opacity="0.12"/>
+<text x="1149.0" y="559" text-anchor="middle" font-size="11.5" font-weight="700" fill="#e5b454">Flash</text>
+<text x="962" y="518" font-size="14" fill="#b8c2dc">Find contradicting</text>
+<text x="962" y="538" font-size="14" fill="#b8c2dc">numbers and claims</text>
+<g filter="url(#sh)"><rect x="650" y="430" width="250" height="150" rx="18" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="650" y="430" width="250" height="5" rx="2.5" fill="#c08cff"/>
+<circle cx="684" cy="472" r="18" fill="#c08cff" fill-opacity="0.16" stroke="#c08cff" stroke-opacity="0.6"/>
+<text x="684" y="478" text-anchor="middle" font-size="16" font-weight="800" fill="#c08cff">6</text>
+<text x="712" y="479" font-size="21" font-weight="800" fill="#f2f5ff">Write</text>
+<rect x="846.4" y="544" width="39.6" height="22" rx="11" fill="#c08cff" fill-opacity="0.12"/>
+<text x="866.2" y="559" text-anchor="middle" font-size="11.5" font-weight="700" fill="#c08cff">Pro</text>
+<text x="672" y="518" font-size="14" fill="#b8c2dc">Every sentence cited [n],</text>
+<text x="672" y="538" font-size="14" fill="#b8c2dc">disagreements weighed</text>
+<g filter="url(#sh)"><rect x="360" y="430" width="250" height="150" rx="18" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="360" y="430" width="250" height="5" rx="2.5" fill="#4cc38a"/>
+<circle cx="394" cy="472" r="18" fill="#4cc38a" fill-opacity="0.16" stroke="#4cc38a" stroke-opacity="0.6"/>
+<text x="394" y="478" text-anchor="middle" font-size="16" font-weight="800" fill="#4cc38a">7</text>
+<text x="422" y="479" font-size="21" font-weight="800" fill="#f2f5ff">Verify</text>
+<rect x="542.0" y="544" width="54.0" height="22" rx="11" fill="#4cc38a" fill-opacity="0.12"/>
+<text x="569.0" y="559" text-anchor="middle" font-size="11.5" font-weight="700" fill="#4cc38a">Flash</text>
+<text x="382" y="518" font-size="14" fill="#b8c2dc">Each claim vs. its</text>
+<text x="382" y="538" font-size="14" fill="#b8c2dc">cited passages</text>
+<g filter="url(#sh)"><rect x="70" y="430" width="250" height="150" rx="18" fill="#131a2e" stroke="#2a3557"/></g>
+<rect x="70" y="430" width="250" height="5" rx="2.5" fill="#4cc38a"/>
+<circle cx="104" cy="472" r="18" fill="#4cc38a" fill-opacity="0.16" stroke="#4cc38a" stroke-opacity="0.6"/>
+<text x="104" y="478" text-anchor="middle" font-size="16" font-weight="800" fill="#4cc38a">8</text>
+<text x="132" y="479" font-size="21" font-weight="800" fill="#f2f5ff">Revise</text>
+<rect x="266.4" y="544" width="39.6" height="22" rx="11" fill="#4cc38a" fill-opacity="0.12"/>
+<text x="286.2" y="559" text-anchor="middle" font-size="11.5" font-weight="700" fill="#4cc38a">Pro</text>
+<text x="92" y="518" font-size="14" fill="#b8c2dc">Fix flagged claims,</text>
+<text x="92" y="538" font-size="14" fill="#b8c2dc">keep only if better</text>
+<path d="M320 225.0 H 354" stroke="#9aa8d8" stroke-width="2.5" marker-end="url(#ar)"/>
+<path d="M610 225.0 H 644" stroke="#9aa8d8" stroke-width="2.5" marker-end="url(#ar)"/>
+<path d="M900 225.0 H 934" stroke="#9aa8d8" stroke-width="2.5" marker-end="url(#ar)"/>
+<path d="M1065.0 300 V 422" stroke="#9aa8d8" stroke-width="2.5" fill="none" marker-end="url(#ar)"/>
+<path d="M940 505.0 H 906" stroke="#9aa8d8" stroke-width="2.5" marker-end="url(#ar)"/>
+<path d="M650 505.0 H 616" stroke="#9aa8d8" stroke-width="2.5" marker-end="url(#ar)"/>
+<path d="M360 505.0 H 326" stroke="#9aa8d8" stroke-width="2.5" marker-end="url(#ar)"/>
+<path d="M1065.0 150 C 1065.0 104, 485.0 104, 485.0 144" stroke="#e5b454" stroke-width="2" stroke-dasharray="7 6" fill="none" marker-end="url(#arw)"/>
+<rect x="635.0" y="98" width="280" height="26" rx="13" fill="#2a2412" stroke="#e5b454" stroke-opacity="0.6"/>
+<text x="775.0" y="116" text-anchor="middle" font-size="12.5" font-weight="700" fill="#f3cf7a">gap check → new queries (multi-round)</text>
+<path d="M195.0 424 C 195.0 370, 485.0 370, 485.0 420" stroke="#4cc38a" stroke-width="2" stroke-dasharray="7 6" fill="none" marker-end="url(#arg)"/>
+<rect x="218.0" y="368" width="244" height="26" rx="13" fill="#0f2a22" stroke="#4cc38a" stroke-opacity="0.6"/>
+<text x="340.0" y="386" text-anchor="middle" font-size="12.5" font-weight="700" fill="#8ff0bd">re-verify, keep only if better</text>
+<g filter="url(#sh)"><rect x="70" y="606" width="250" height="56" rx="14" fill="#122019" stroke="#4cc38a" stroke-opacity="0.7"/></g>
+<path d="M195.0 580 V 600" stroke="#4cc38a" stroke-width="2.5" marker-end="url(#arg)"/>
+<text x="195" y="630" text-anchor="middle" font-size="15" font-weight="800" fill="#d8ffe9">Verified report + score</text>
+<text x="195" y="650" text-anchor="middle" font-size="12" fill="#8fc9a8">.md · .json · follow-up Q&amp;A</text>
+</svg>

@@ -22,7 +22,7 @@
   main{display:grid;grid-template-columns:330px 1fr;gap:16px;padding:0 24px 40px}
   @media(max-width:1200px){main{grid-template-columns:1fr}}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
-  .card h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin:0 0 10px;display:flex;justify-content:space-between;align-items:center}
+  .card > h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin:0 0 10px;display:flex;justify-content:space-between;align-items:center}
   #log{max-height:70vh;overflow:auto}#log div{padding:4px 0;border-bottom:1px dashed var(--line);font-size:13.5px;word-break:break-word}
   .score{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
   .pill{padding:4px 10px;border-radius:99px;font-size:13px;background:#1d2433}.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
@@ -68,7 +68,18 @@
 const $=id=>document.getElementById(id), log=$('log');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const pct=x=>Math.round((x||0)*100)+'%';
-const md=s=>{const d=document.createElement('div');d.innerHTML=marked.parse(s||'');d.querySelectorAll('a').forEach(a=>{a.target='_blank';a.rel='noopener'});return d.innerHTML};
+function miniMd(src){const out=[];let list=false;
+  const inline=t=>{const links=[];
+    t=t.replace(/\[([^\]]+)\]\((https?:[^)\s]+|file:[^)\s]+)\)/g,(_,txt,url)=>{links.push(`<a href="${esc(url)}">${esc(txt)}</a>`);return `\u0000${links.length-1}\u0000`});
+    return esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\*(.+?)\*/g,'<i>$1</i>').replace(/(^|\s)_(.+?)_(?=\s|$)/g,'$1<i>$2</i>')
+      .replace(/\u0000(\d+)\u0000/g,(_,i)=>links[+i])};
+  for(const line of (src||'').split('\n')){const m=line.match(/^(#{1,4})\s+(.*)/), li=line.match(/^\s*(?:[-*]|\d+\.)\s+(.*)/);
+    if(!li&&list){out.push('</ul>');list=false}
+    if(m)out.push(`<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`);
+    else if(li){if(!list){out.push('<ul>');list=true}out.push(`<li>${inline(li[1])}</li>`)}
+    else if(line.trim())out.push(`<p>${inline(line)}</p>`)}
+  if(list)out.push('</ul>');return out.join('')}
+const md=s=>{const d=document.createElement('div');d.innerHTML=window.marked?marked.parse(s||''):miniMd(s);d.querySelectorAll('a').forEach(a=>{a.target='_blank';a.rel='noopener'});return d.innerHTML};
 let current=null, chatHistory=[], uploads=[];
 $('files').onchange=async()=>{
   for(const f of $('files').files){

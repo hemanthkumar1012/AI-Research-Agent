@@ -1,156 +1,174 @@
-# AI Research Agent
+<p align="center">
+  <img src="docs/images/banner.svg" alt="AI Research Agent" width="100%">
+</p>
 
-![tests](https://github.com/hemanthkumar1012/AI-Research-Agent/actions/workflows/tests.yml/badge.svg)
+<p align="center">
+  <a href="https://github.com/hemanthkumar1012/AI-Research-Agent/actions/workflows/tests.yml"><img src="https://github.com/hemanthkumar1012/AI-Research-Agent/actions/workflows/tests.yml/badge.svg" alt="tests"></a>
+  <img src="https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white" alt="python">
+  <img src="https://img.shields.io/badge/LLM-Gemini%202.5-8E75FF?logo=googlegemini&logoColor=white" alt="gemini">
+  <img src="https://img.shields.io/badge/dependencies-3-4cc38a" alt="deps">
+  <img src="https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white" alt="docker">
+</p>
 
-An autonomous research agent that **plans, searches the web, reads sources, writes a cited
-report — and then fact-checks its own citations.** Built in Python on the Gemini API.
+An autonomous research agent that **plans, searches the web, arXiv and Wikipedia, reads full
+papers and your own documents, writes a cited report, and then fact-checks and corrects its own
+citations.** Built in Python on the Gemini API.
 
-Most "research agents" stop at summarising search results. This one treats hallucinated
-citations as the main failure mode: after writing, every cited sentence is checked against
-the exact passages it cites and labelled *supported*, *partial* or *unsupported*. The report
-ends with a **citation precision** score and flags the weak claims — and if anything is
-flagged, the agent **rewrites its own report** and re-verifies it.
+Most "research agents" stop at summarising search results. This one treats **hallucinated
+citations** as the main failure mode: every cited sentence is checked against the exact passages
+it cites, flagged claims are rewritten, and each report ships with a measurable
+**citation-precision** score.
 
-### Highlights
+<p align="center">
+  <img src="docs/images/ui.png" alt="Web UI: live agent trace, scored report, source credibility" width="100%">
+  <br><sub>Web UI: the live agent trace (left) and the verified report with its score (right). Demo data.</sub>
+</p>
 
-- **Self-correcting:** verify → rewrite flagged claims → re-verify, keeping a revision only if
-  precision doesn't drop. Reports show draft → final precision.
-- **Hybrid retrieval:** BM25 picks candidate passages, then Gemini embeddings rerank them
-  semantically (score fusion), and off-topic sources are dropped.
-- **Source credibility:** sources are tagged high / medium / low (gov, edu, journals, wire
-  services vs. forums and social media), ordered by strength, and the writer is told to
-  attribute weak-source claims.
-- **Multi-source search:** the planner routes each sub-question to the right provider —
-  **arXiv** for scientific evidence, **Wikipedia** for background, the open web for news and
-  figures — and searches run in parallel.
-- **Contradiction detection:** sources are cross-examined for conflicting numbers, dates and
-  conclusions; the report gets a "Where sources disagree" section weighing each side.
-- **Follow-up Q&A:** reports are saved; ask follow-up questions grounded in the same sources,
-  with the answers citation-checked too (CLI or chat panel in the UI).
-- **Depth modes:** `quick` / `standard` / `deep` presets trade cost for thoroughness.
-- **Multi-round gap filling:** the agent asks itself what's missing and searches again.
-- **Cost-aware:** SQLite cache for LLM calls, embeddings and pages; token usage reported per run.
-- **Measured:** an eval harness reports citation precision and unsupported-claim rate, with a
-  `--revisions 0` ablation to quantify what self-correction buys.
-- **Lightweight:** only `requests` + `beautifulsoup4`; Gemini via REST, web UI on the standard library.
+## ✨ Highlights
 
-## How it works
+| | |
+|---|---|
+| ✅ **Claim-level verification** | Each cited sentence is checked against its cited passages and labelled *supported*, *partial* or *unsupported*. |
+| 🔁 **Self-correction** | Flagged claims are rewritten and re-verified. A revision is kept only if precision doesn't drop. |
+| 🌐 **Multi-source search** | The planner routes each sub-question to **arXiv**, **Wikipedia** or the **open web**, and the searches run in parallel. |
+| 📄 **Full-text PDFs** | Reads whole arXiv papers (references stripped), not just abstracts, plus your own PDFs and notes. |
+| 🧲 **Hybrid retrieval** | BM25 shortlists passages, Gemini embeddings rerank them, and off-topic sources are dropped. |
+| ⚖️ **Contradiction finder** | Sources are cross-examined for conflicting numbers and claims, and the report weighs each side. |
+| 🏷️ **Credibility scoring** | Sources are ranked user > high > medium > low, and claims backed only by weak sources are attributed. |
+| 💬 **Follow-up Q&A** | Chat with a finished report. Answers come from the same sources and are citation-checked too. |
+| 📊 **Evaluation harness** | Measures citation precision, unsupported rate and LLM-as-judge quality, with an ablation mode. |
+| ⚡ **Cost-aware** | A SQLite cache for LLM calls, embeddings and pages, plus per-run token accounting and depth presets. |
 
-```
-question
-   │
-   ▼
- Plan ──► sub-questions + search queries          (Gemini Flash, JSON mode)
-   │
-   ▼
- Search ──► per sub-question: web (Tavily / DuckDuckGo) · arXiv · Wikipedia   (parallel)
-   │
-   ▼
- Read ──► fetch pages in parallel, strip boilerplate,
-          rank passages with BM25 against the question
-   │
-   ▼
- Gap check ──► "what's still missing?" → new queries → search again   (multi-round)
-   │
-   ▼
- Rerank ──► Gemini embeddings + BM25 fusion, credibility tagging, drop off-topic sources
-   │
-   ▼
- Cross-check ──► find contradictions between sources, assess which side is stronger
-   │
-   ▼
- Write ──► Markdown report, every sentence cited [n]  (Gemini Pro)
-   │
-   ▼
- Verify ──► each claim vs. its cited passages → supported / partial / unsupported
-   │        ▲
-   ▼        │  (flagged claims)
- Revise ────┘  rewrite, re-verify, keep only if precision improves
-   │
-   ▼
- report.md + report.json (sources, claims, labels, score, conflicts)
-   │
-   ▼
- Follow-up Q&A ──► grounded answers over the same sources, also citation-checked
-```
+## 🏗️ Architecture
 
-## Quick start
+<p align="center"><img src="docs/images/architecture.svg" alt="System architecture" width="100%"></p>
+
+The orchestrator emits a typed event for every step (`plan`, `search`, `source`, `conflicts`,
+`verify`, `revise`, `done`). The same agent drives the CLI progress log, the browser's
+Server-Sent-Events stream and the evaluation harness, with no duplicated logic.
+
+## 🔬 Research pipeline
+
+<p align="center"><img src="docs/images/pipeline.svg" alt="Eight-stage research pipeline with gap-filling and self-correction loops" width="100%"></p>
+
+Two feedback loops make it agentic rather than a fixed chain:
+- **Gap filling:** after reading, the agent asks itself what's still missing and searches again (multi-round).
+- **Self-correction:** after verification, flagged claims are rewritten and re-checked.
+
+## 🧲 Hybrid retrieval
+
+<p align="center"><img src="docs/images/retrieval.svg" alt="Retrieval funnel from search results to final evidence" width="100%"></p>
+
+## ✅ Verification & self-correction
+
+<p align="center"><img src="docs/images/verification.svg" alt="Claim cards labelled supported, partial and unsupported, with draft vs final precision" width="100%"></p>
+
+**Citation precision** = (supported + ½ × partial) / cited claims. The verifier only sees the
+passages a sentence actually cites, so a correct fact that cites the wrong source still counts as
+a failure. That is deliberate.
+
+## 🚀 Quick start
 
 ```bash
 git clone https://github.com/hemanthkumar1012/AI-Research-Agent
 cd AI-Research-Agent
 pip install -r requirements.txt
-cp .env.example .env        # add your GEMINI_API_KEY (free at aistudio.google.com)
+cp .env.example .env        # add GEMINI_API_KEY (free at aistudio.google.com)
+```
 
+**Web UI**
+
+```bash
+python -m research_agent.server        # → http://localhost:8000
+```
+
+**Command line**
+
+```bash
 python -m research_agent "What is the current state of solid-state batteries for EVs?"
 python -m research_agent "How safe are GLP-1 drugs?" --depth deep
+python -m research_agent "Summarise the risks in this contract" --files contract.pdf notes.md
 
 python -m research_agent list                 # saved reports
 python -m research_agent ask <report-id>      # interactive follow-up questions
 ```
 
-Options: `--depth quick|standard|deep`, `--rounds 3` (more gap-filling), `--sources 15`, `--revisions 2`,
-`--no-embeddings`, `--no-conflicts`, `--no-cache`, `--out my_reports`.
-
-Or with Docker: `docker build -t research-agent . && docker run -p 8000:8000 --env-file .env research-agent`
-
-### Web UI (live agent trace)
+**Docker**
 
 ```bash
-python -m research_agent.server      # open http://localhost:8000
+docker build -t research-agent . && docker run -p 8000:8000 --env-file .env research-agent
 ```
 
-A sidebar lists past reports; the middle streams every step over Server-Sent Events (plan, searches, sources found,
-gap-filling, verification progress); the right renders the report with its citation score,
-a "where sources disagree" panel, a download button, and a chat box for follow-up questions. No web framework needed — it runs on the standard library.
+### Options
 
-### Evaluation harness
+| Flag | Default | What it does |
+|---|---|---|
+| `--depth quick\|standard\|deep` | `standard` | Preset for sub-questions, sources, rounds and revisions |
+| `--files PATH…` | – | Your PDFs / Markdown / HTML / text as primary sources |
+| `--rounds N` | 2 | Research rounds (gap filling) |
+| `--sources N` | 10 | Maximum sources |
+| `--revisions N` | 1 | Self-correction passes (`0` = off) |
+| `--no-embeddings` | – | BM25 only |
+| `--no-conflicts` | – | Skip contradiction analysis |
+| `--no-cache` | – | Bypass the SQLite cache |
+
+| Depth | Sub-questions | Sources | Rounds | Revisions | Full papers | Conflicts |
+|---|---|---|---|---|---|---|
+| quick | 3 | 6 | 1 | 0 | – | – |
+| standard | 4 | 10 | 2 | 1 | ✓ | ✓ |
+| deep | 6 | 16 | 3 | 2 | ✓ | ✓ |
+
+## 📊 Evaluation
 
 ```bash
-python -m research_agent.evaluate evals/questions.json --limit 3
-python -m research_agent.evaluate --revisions 0 --out evals/no_revise   # ablation
+python -m research_agent.evaluate --limit 3                               # full system
+python -m research_agent.evaluate --limit 3 --revisions 0 --out evals/no_revise   # ablation
 ```
 
-Runs the agent over a fixed question set and writes `evals/results/results.md` with
-micro-averaged **citation precision**, **unsupported-claim rate**, sources and latency per
-question — so prompt or model changes can be compared with numbers instead of vibes.
+This writes `evals/results/results.md` with, per question and overall:
+- **citation precision**: draft → final
+- **unsupported-claim rate**
+- **LLM-as-judge quality**: coverage, depth, balance and clarity (1–10)
+- sources used and latency
 
-## Project layout
+Comparing the two runs shows how much self-correction improves grounding.
+
+## 🗂️ Project layout
 
 | File | Role |
-|------|------|
-| `research_agent/agent.py` | The research loop, claim extraction, verification, scoring |
-| `research_agent/llm.py` | Dependency-free Gemini REST client with retries and JSON mode |
+|---|---|
+| `research_agent/agent.py` | Orchestrator: plan, gather, rerank, cross-check, write, verify, revise, ask |
 | `research_agent/search.py` | Web (Tavily / DuckDuckGo), arXiv and Wikipedia providers |
-| `research_agent/fetch.py` | Page fetching, text extraction, BM25 passage ranking |
+| `research_agent/fetch.py` | HTML and PDF extraction, local files, BM25 passage ranking |
+| `research_agent/llm.py` | Dependency-free Gemini REST client: retries, JSON mode, embeddings, usage |
 | `research_agent/prompts.py` | All prompts in one place |
 | `research_agent/credibility.py` | Domain-based source credibility |
-| `research_agent/store.py` | Saved reports for history and follow-ups |
 | `research_agent/cache.py` | SQLite cache for LLM, embedding and page results |
-| `research_agent/cli.py` | Command-line interface with live progress |
-| `research_agent/server.py` + `static/index.html` | Streaming web UI (SSE) |
+| `research_agent/store.py` | Saved reports for history and follow-ups |
+| `research_agent/server.py` + `static/` | Streaming web UI (SSE), uploads, chat |
 | `research_agent/evaluate.py` + `evals/` | Evaluation harness and question set |
-| `tests/` | Offline tests using fake LLM and search |
+| `tests/` | 24 offline tests with fake LLM and search (no API key needed) |
 
-## Tests
+## 🧪 Tests
 
 ```bash
 pip install pytest && pytest -q
 ```
 
-## Roadmap
+Everything runs offline: the LLM, the search engine and the network are replaced with fakes,
+including a hand-built PDF and a live in-process HTTP server for the SSE, upload and chat endpoints.
 
-- [x] Plan → search → read → write → verify pipeline
-- [x] Multi-round gap filling
-- [x] Citation precision scoring
-- [x] Web UI with live streaming of the agent's steps
-- [x] Evaluation harness over a fixed question set
-- [x] Self-correction of unsupported claims
-- [x] Hybrid BM25 + embedding retrieval
-- [x] Source credibility scoring
-- [x] Caching, token accounting, CI, Docker
-- [x] Follow-up Q&A over gathered sources
-- [x] Contradiction detection across sources
-- [x] arXiv + Wikipedia providers with planner routing
-- [x] Depth presets, report history
-- [ ] PDF ingestion (papers, reports)
+## 🛣️ Roadmap
+
+- [x] Plan → search → read → write → verify pipeline, multi-round gap filling
+- [x] Self-correction loop with regression guard
+- [x] Hybrid BM25 + embedding retrieval, credibility scoring
+- [x] arXiv full-text PDFs, Wikipedia, user document uploads
+- [x] Contradiction detection, follow-up Q&A, report history
+- [x] Eval harness with ablation and LLM-as-judge, CI, Docker
+- [ ] Public hosted demo
+- [ ] Citation-graph view of sources ↔ claims
+
+---
+
+<sub>Built by <a href="https://github.com/hemanthkumar1012">V. Hemanth Kumar</a>.</sub>
