@@ -6,16 +6,14 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from .agent import ResearchAgent
+from .agent import build_agent
 from .config import Config
-from .llm import GeminiClient
-from .search import Searcher
 
 STATIC = os.path.join(os.path.dirname(__file__), "static", "index.html")
 
 
 def make_agent(cfg, emit):
-    return ResearchAgent(GeminiClient(cfg.gemini_api_key), Searcher(cfg.tavily_api_key), cfg, emit)
+    return build_agent(cfg, emit)
 
 
 class Handler(BaseHTTPRequestHandler):

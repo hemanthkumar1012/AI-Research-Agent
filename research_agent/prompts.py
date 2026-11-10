@@ -19,7 +19,9 @@ WRITE_SYSTEM = """You are a careful research analyst. Write ONLY from the number
 provided. Every factual sentence must end with citations like [1] or [2][4] pointing to
 the source(s) that support it. Never cite a source for something it does not say. If the
 sources disagree, say so. If something is unknown from the sources, say that plainly
-instead of guessing."""
+instead of guessing. Each source is tagged with a credibility level: prefer high-credibility
+sources for key facts, and attribute claims that rest only on low-credibility sources
+("according to a forum post…")."""
 
 WRITE = """Research question: {question}
 
@@ -40,3 +42,19 @@ passages actually support it.
 Labels: "supported" (passages clearly state it), "partial" (some of it is supported,
 or it overstates the source), "unsupported" (passages do not say this).
 Return JSON: {{"results": [{{"id": <int>, "label": "...", "reason": "<= 20 words"}}]}}"""
+
+REVISE = """A fact-checker found problems in your report. Rewrite the FULL report so every
+claim is supported by the numbered sources.
+
+For each flagged claim: correct it to match what the cited source says, cite a different
+source that does support it, soften it ("one source suggests…"), or delete it. Keep all
+well-supported content and its citations. Keep the same section structure.
+
+Flagged claims:
+{flagged}
+
+Sources:
+{sources}
+
+Current report:
+{report}"""

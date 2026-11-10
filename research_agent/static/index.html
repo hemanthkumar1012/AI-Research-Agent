@@ -19,7 +19,8 @@
   #log a{color:var(--acc)} .score{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
   .pill{padding:4px 10px;border-radius:99px;font-size:13px;background:#1d2433}.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
   #report a{color:var(--acc)} #report h2{border-bottom:1px solid var(--line);padding-bottom:4px}
-  .empty{color:var(--dim)}
+  .empty{color:var(--dim)} .cred{font-size:11px;padding:1px 6px;border-radius:6px;margin-left:4px;background:#1d2433}
+  .cred.high{color:var(--ok)}.cred.low{color:var(--bad)}.cred.medium{color:var(--warn)} .usage{color:var(--dim);font-size:12.5px;margin-top:6px}
 </style>
 </head>
 <body>
@@ -42,12 +43,15 @@ $('f').onsubmit=e=>{
   on('status',d=>add('• '+esc(d.message)));
   on('plan',d=>add('🧭 <b>Plan</b><br>'+d.subquestions.map(s=>'– '+esc(s.question)).join('<br>')));
   on('search',d=>add('🔎 '+esc(d.query)));
-  on('source',d=>add(`📄 [${d.id}] <a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.title)}</a>`));
+  on('source',d=>add(`📄 [${d.id}] <a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.title)}</a><span class="cred ${esc(d.credibility)}">${esc(d.credibility)}</span>`));
+  on('revise',d=>add(`✍️ Self-correcting ${d.flagged} flagged claims (round ${d.round})`));
   on('gaps',d=>add('🕳️ Filling gaps: '+d.queries.map(esc).join('; ')));
   on('verify',d=>add(`✅ Checked ${d.checked}/${d.total} claims`));
   on('report',d=>{const s=d.score;
     $('score').innerHTML=`<div class="score"><span class="pill">Precision <b>${Math.round(s.citation_precision*100)}%</b></span>
-      <span class="pill ok">${s.supported} supported</span><span class="pill warn">${s.partial} partial</span><span class="pill bad">${s.unsupported} unsupported</span></div>`;
+      <span class="pill ok">${s.supported} supported</span><span class="pill warn">${s.partial} partial</span><span class="pill bad">${s.unsupported} unsupported</span>
+      ${d.history.length>1?`<span class="pill">Draft ${Math.round(d.history[0].citation_precision*100)}% → final ${Math.round(s.citation_precision*100)}%</span>`:''}</div>
+      ${d.usage&&d.usage.calls!==undefined?`<div class="usage">${d.usage.calls} LLM calls · ${d.usage.cached} cached · ${(d.usage.input_tokens+d.usage.output_tokens).toLocaleString()} tokens</div>`:''}`;
     $('report').classList.remove('empty');$('report').innerHTML=marked.parse(d.markdown);
     $('report').querySelectorAll('a').forEach(a=>{a.target='_blank';a.rel='noopener'});done()});
   on('error',d=>{add('<span class="bad">✖ '+esc(d.message)+'</span>');$('report').innerHTML='';done()});

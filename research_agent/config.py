@@ -28,6 +28,10 @@ class Config:
     passage_chars: int = 900
     max_rounds: int = 2                      # research rounds (gap-filling)
     request_timeout: int = 20
+    max_revisions: int = 1                   # self-correction passes after verification
+    use_embeddings: bool = True              # hybrid BM25 + semantic reranking
+    candidate_passages: int = 6              # BM25 candidates per source before reranking
+    use_cache: bool = True
     extra: dict = field(default_factory=dict)
 
     @classmethod
@@ -39,4 +43,7 @@ class Config:
             fast_model=os.getenv("FAST_MODEL", cls.fast_model),
             writer_model=os.getenv("WRITER_MODEL", cls.writer_model),
             max_rounds=int(os.getenv("MAX_ROUNDS", cls.max_rounds)),
+            max_revisions=int(os.getenv("MAX_REVISIONS", cls.max_revisions)),
+            use_embeddings=os.getenv("USE_EMBEDDINGS", "1") != "0",
+            use_cache=os.getenv("USE_CACHE", "1") != "0",
         )

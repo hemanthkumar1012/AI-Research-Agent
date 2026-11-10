@@ -5,7 +5,10 @@ import time
 
 import requests
 
-API = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+from .cache import NullCache
+
+BASE = "https://generativelanguage.googleapis.com/v1beta/models/"
+API = BASE + "{model}:generateContent"
 
 
 class LLMError(RuntimeError):
@@ -13,12 +16,16 @@ class LLMError(RuntimeError):
 
 
 class GeminiClient:
-    def __init__(self, api_key: str, timeout: int = 90, retries: int = 3):
+    def __init__(self, api_key: str, timeout: int = 90, retries: int = 3, cache=None,
+                 embed_model: str = "gemini-embedding-001"):
         if not api_key:
             raise LLMError("GEMINI_API_KEY is not set. Get one at https://aistudio.google.com/apikey")
         self.api_key = api_key
         self.timeout = timeout
         self.retries = retries
+        self.cache = cache or NullCache()
+        self.embed_model = embed_model
+        self.usage = {"calls": 0, "cached": 0, "input_tokens": 0, "output_tokens": 0}
 
     def generate(self, prompt: str, model: str, *, json_mode: bool = False,
                  system: str | None = None, temperature: float = 0.3) -> str:
@@ -31,17 +38,53 @@ class GeminiClient:
         if json_mode:
             body["generationConfig"]["responseMimeType"] = "application/json"
 
+        ck = self.cache.key("gen", model, body)
+        if (hit := self.cache.get(ck)) is not None:
+            self.usage["cached"] += 1
+            return hit
+        text = self._post(API.format(model=model), body, self._parse_text)
+        self.cache.set(ck, text)
+        return text
+
+    def _parse_text(self, data: dict) -> str:
+        meta = data.get("usageMetadata", {})
+        self.usage["calls"] += 1
+        self.usage["input_tokens"] += meta.get("promptTokenCount", 0)
+        self.usage["output_tokens"] += meta.get("candidatesTokenCount", 0)
+        parts = data["candidates"][0]["content"]["parts"]
+        return "".join(p.get("text", "") for p in parts)
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        """Batch embeddings (cached per text)."""
+        out: list = [None] * len(texts)
+        todo = []
+        for i, t in enumerate(texts):
+            hit = self.cache.get(self.cache.key("emb", self.embed_model, t))
+            if hit is not None:
+                out[i] = hit
+            else:
+                todo.append(i)
+        for start in range(0, len(todo), 100):
+            idx = todo[start:start + 100]
+            body = {"requests": [{"model": f"models/{self.embed_model}",
+                                  "content": {"parts": [{"text": texts[i][:8000]}]}} for i in idx]}
+            vecs = self._post(BASE + f"{self.embed_model}:batchEmbedContents", body,
+                              lambda d: [e["values"] for e in d["embeddings"]])
+            for i, v in zip(idx, vecs):
+                out[i] = v
+                self.cache.set(self.cache.key("emb", self.embed_model, texts[i]), v)
+        return out
+
+    def _post(self, url: str, body: dict, parse):
         last = None
         for attempt in range(self.retries):
             try:
-                r = requests.post(API.format(model=model), json=body, timeout=self.timeout,
+                r = requests.post(url, json=body, timeout=self.timeout,
                                   headers={"x-goog-api-key": self.api_key})
                 if r.status_code in (429, 500, 503):
                     raise LLMError(f"Gemini {r.status_code}: {r.text[:200]}")
                 r.raise_for_status()
-                data = r.json()
-                parts = data["candidates"][0]["content"]["parts"]
-                return "".join(p.get("text", "") for p in parts)
+                return parse(r.json())
             except (requests.RequestException, LLMError, KeyError, IndexError) as e:
                 last = e
                 time.sleep(2 ** attempt)

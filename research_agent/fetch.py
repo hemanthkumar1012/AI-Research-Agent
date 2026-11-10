@@ -13,7 +13,24 @@ as at from what which who how why when where does do did can could should would 
 into than then them their there these those its not no yes""".split())
 
 
+_cache = None
+
+
+def set_cache(cache) -> None:
+    global _cache
+    _cache = cache
+
+
 def fetch_text(url: str, timeout: int = 20, max_chars: int = 60_000) -> str:
+    if _cache is not None and (hit := _cache.get(_cache.key("page", url))) is not None:
+        return hit
+    text = _fetch(url, timeout, max_chars)
+    if _cache is not None and text:
+        _cache.set(_cache.key("page", url), text)
+    return text
+
+
+def _fetch(url: str, timeout: int, max_chars: int) -> str:
     try:
         r = requests.get(url, headers=UA, timeout=timeout)
         r.raise_for_status()
