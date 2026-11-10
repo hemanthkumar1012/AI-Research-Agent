@@ -3185,6 +3185,25 @@ function init() {
     injectTransitionStyles();
     // Notification badge listener
     setNotificationListener(updateNotifBadge);
+    // Wire topbar buttons
+    const themeBtn = document.getElementById("themeToggle");
+    if (themeBtn)
+        themeBtn.addEventListener("click", () => { theme?.cycle(); toast(`Theme: ${theme.theme}`, "info"); });
+    const focusBtnEl = document.getElementById("focusBtn");
+    if (focusBtnEl)
+        focusBtnEl.addEventListener("click", () => toggleFocus());
+    const shortcutsBtnEl = document.getElementById("shortcutsBtn");
+    if (shortcutsBtnEl)
+        shortcutsBtnEl.addEventListener("click", () => toggleShortcuts());
+    const cmdTriggerEl = document.getElementById("cmdTrigger");
+    if (cmdTriggerEl)
+        cmdTriggerEl.addEventListener("click", () => openPalette());
+    const notifTriggerEl = document.getElementById("notifTrigger");
+    if (notifTriggerEl)
+        notifTriggerEl.addEventListener("click", () => switchTab("notifications"));
+    const sidebarToggleEl = document.getElementById("sidebarToggle");
+    if (sidebarToggleEl)
+        sidebarToggleEl.addEventListener("click", () => toggleSidebar());
     // Welcome toast
     toast("Press Ctrl+K for command palette · ? for shortcuts", "info", 3000);
 }
@@ -3192,7 +3211,10 @@ function updateNotifBadge() {
     const count = getUnreadCount();
     const btn = document.querySelector('[data-t="notifications"]');
     if (btn)
-        btn.textContent = count > 0 ? `🔔 Alerts (${count})` : "🔔 Alerts";
+        btn.textContent = count > 0 ? `Alerts (${count})` : "Alerts";
+    const dot = document.getElementById("notifDot");
+    if (dot)
+        dot.classList.toggle("hidden", count === 0);
 }
 // ── Register commands ─────────────────────────────────
 function registerAllCommands() {
