@@ -58,7 +58,7 @@
               <input id="files" type="file" multiple>
             </label>
             <span id="filelist" class="filelist"></span>
-            <span class="kbd-hint"><kbd>/</kbd> focus · <kbd>⌘K</kbd> commands · <kbd>T</kbd> theme</span>
+            <span class="kbd-hint"><kbd>/</kbd> focus · <kbd>⌘K</kbd> commands · <kbd>T</kbd> theme · <kbd>R</kbd> focus mode</span>
           </div>
         </form>
       </div>
@@ -83,9 +83,14 @@
       <!-- Tabs -->
       <div class="tabs">
         <button class="tab on" data-t="report">📄 Report</button>
-        <button class="tab" data-t="graph">🕸 Citation Graph</button>
+        <button class="tab" data-t="graph">🕸 Graph</button>
         <button class="tab" data-t="inspector">🔍 Inspector</button>
         <button class="tab" data-t="timeline">⏱ Timeline</button>
+        <button class="tab" data-t="analytics">📊 Analytics</button>
+        <button class="tab" data-t="heatmap">🗺 Heatmap</button>
+        <button class="tab" data-t="confidence">🎯 Confidence</button>
+        <button class="tab" data-t="wordcloud">☁ Words</button>
+        <button class="tab" data-t="sourcemap">🗺 Map</button>
       </div>
 
       <!-- Score -->
@@ -124,6 +129,51 @@
           <div class="empty-icon">⏱</div>
           <div class="empty-title">Research Timeline</div>
           <div class="empty-sub">The timeline will show each step of the research process</div>
+        </div>
+      </div>
+
+      <!-- Analytics -->
+      <div id="analyticsPanel" class="analytics-container hidden">
+        <div class="empty-state">
+          <div class="empty-icon">📊</div>
+          <div class="empty-title">Report Analytics</div>
+          <div class="empty-sub">Run a research query to see word count, reading time, and depth metrics</div>
+        </div>
+      </div>
+
+      <!-- Heatmap -->
+      <div id="heatmapPanel" class="heatmap-container hidden">
+        <div class="empty-state">
+          <div class="empty-icon">🗺</div>
+          <div class="empty-title">Source Heatmap</div>
+          <div class="empty-sub">Visualize source credibility and citation density</div>
+        </div>
+      </div>
+
+      <!-- Confidence -->
+      <div id="confidencePanel" class="confidence-container hidden">
+        <div class="empty-state">
+          <div class="empty-icon">🎯</div>
+          <div class="empty-title">AI Confidence Meter</div>
+          <div class="empty-sub">See how confident the AI is in the research findings</div>
+        </div>
+      </div>
+
+      <!-- Word Cloud -->
+      <div id="wordcloudPanel" class="wordcloud-container hidden">
+        <div class="empty-state">
+          <div class="empty-icon">☁</div>
+          <div class="empty-title">Word Cloud</div>
+          <div class="empty-sub">Key terms from the research report visualized by frequency</div>
+        </div>
+      </div>
+
+      <!-- Source Map -->
+      <div id="sourcemapPanel" class="sourcemap-container hidden">
+        <div class="empty-state">
+          <div class="empty-icon">🗺</div>
+          <div class="empty-title">Source Relationship Map</div>
+          <div class="empty-sub">Force-directed graph showing co-citation links between sources</div>
         </div>
       </div>
 

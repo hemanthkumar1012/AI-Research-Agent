@@ -976,10 +976,1234 @@ class PipelineIndicator {
 }
 //# sourceMappingURL=pipeline.js.map
 
+// ── analytics.js ──
+/* ── Analytics Dashboard ───────────────────────────────── */
+/* Reading time, word stats, source breakdown, depth gauge  */
+
+const WPM = 230; // average reading speed
+function computeAnalytics(d) {
+    const words = d.markdown.split(/\s+/).filter(Boolean);
+    const sentences = d.markdown.split(/[.!?]+/).filter((s) => s.trim().length > 5);
+    const wordCount = words.length;
+    const credMap = { high: 0, medium: 0, low: 0, user: 0 };
+    for (const s of d.sources)
+        credMap[s.credibility] = (credMap[s.credibility] || 0) + 1;
+    const claimMap = { supported: 0, partial: 0, unsupported: 0, unchecked: 0 };
+    for (const c of d.claims)
+        claimMap[c.label] = (claimMap[c.label] || 0) + 1;
+    // Depth score: combination of sources, claims, word count
+    const srcScore = Math.min(d.sources.length / 20, 1) * 30;
+    const claimScore = Math.min(d.claims.length / 30, 1) * 30;
+    const wordScore = Math.min(wordCount / 3000, 1) * 25;
+    const precScore = d.score.citation_precision * 15;
+    return {
+        wordCount,
+        readingMinutes: Math.ceil(wordCount / WPM),
+        sentenceCount: sentences.length,
+        avgSentenceLen: sentences.length ? Math.round(wordCount / sentences.length) : 0,
+        sourceBreakdown: [
+            { label: "High", count: credMap.high, color: "var(--green)" },
+            { label: "Medium", count: credMap.medium, color: "var(--amber)" },
+            { label: "Low", count: credMap.low, color: "var(--red)" },
+            { label: "User", count: credMap.user, color: "#6d9fff" },
+        ].filter((x) => x.count > 0),
+        claimBreakdown: [
+            { label: "Supported", count: claimMap.supported, color: "var(--green)" },
+            { label: "Partial", count: claimMap.partial, color: "var(--amber)" },
+            { label: "Unsupported", count: claimMap.unsupported, color: "var(--red)" },
+            { label: "Unchecked", count: claimMap.unchecked, color: "var(--text3)" },
+        ].filter((x) => x.count > 0),
+        depthScore: Math.round(srcScore + claimScore + wordScore + precScore),
+    };
+}
+function renderAnalytics(d, container) {
+    const a = computeAnalytics(d);
+    const barHTML = (items) => {
+        const total = items.reduce((s, x) => s + x.count, 0);
+        if (!total)
+            return '<div class="ana-bar-empty">No data</div>';
+        return `<div class="ana-bar">${items
+            .map((x) => `<div class="ana-bar-seg" style="width:${(x.count / total) * 100}%;background:${x.color}" title="${x.label}: ${x.count}"></div>`)
+            .join("")}</div>
+    <div class="ana-bar-legend">${items
+            .map((x) => `<span style="color:${x.color}">● ${x.label} (${x.count})</span>`)
+            .join(" ")}</div>`;
+    };
+    const gaugeAngle = (a.depthScore / 100) * 180;
+    container.innerHTML = `
+    <div class="analytics">
+      <div class="ana-header">
+        <h3>📊 Report Analytics</h3>
+        <span class="ana-badge">${a.readingMinutes} min read</span>
+      </div>
+
+      <div class="ana-grid">
+        <div class="ana-stat">
+          <div class="ana-stat-val">${a.wordCount.toLocaleString()}</div>
+          <div class="ana-stat-label">Words</div>
+        </div>
+        <div class="ana-stat">
+          <div class="ana-stat-val">${a.sentenceCount}</div>
+          <div class="ana-stat-label">Sentences</div>
+        </div>
+        <div class="ana-stat">
+          <div class="ana-stat-val">${a.avgSentenceLen}</div>
+          <div class="ana-stat-label">Avg words/sentence</div>
+        </div>
+        <div class="ana-stat">
+          <div class="ana-stat-val">${d.sources.length}</div>
+          <div class="ana-stat-label">Sources</div>
+        </div>
+        <div class="ana-stat">
+          <div class="ana-stat-val">${d.claims.length}</div>
+          <div class="ana-stat-label">Claims</div>
+        </div>
+        <div class="ana-stat">
+          <div class="ana-stat-val">${pct(d.score.citation_precision)}</div>
+          <div class="ana-stat-label">Precision</div>
+        </div>
+      </div>
+
+      <div class="ana-section">
+        <h4>Research Depth</h4>
+        <div class="ana-gauge-wrap">
+          <svg class="ana-gauge" viewBox="0 0 200 110">
+            <path d="M 10 100 A 90 90 0 0 1 190 100" fill="none" stroke="var(--border)" stroke-width="12" stroke-linecap="round"/>
+            <path d="M 10 100 A 90 90 0 0 1 190 100" fill="none" stroke="url(#gaugeGrad)" stroke-width="12" stroke-linecap="round"
+              stroke-dasharray="${(gaugeAngle / 180) * 283} 283" class="ana-gauge-fill"/>
+            <defs><linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="var(--red)"/><stop offset="50%" stop-color="var(--amber)"/><stop offset="100%" stop-color="var(--green)"/>
+            </linearGradient></defs>
+            <text x="100" y="90" text-anchor="middle" fill="var(--text)" font-size="28" font-weight="700">${a.depthScore}</text>
+            <text x="100" y="108" text-anchor="middle" fill="var(--text3)" font-size="11">/ 100</text>
+          </svg>
+        </div>
+      </div>
+
+      <div class="ana-section">
+        <h4>Source Credibility</h4>
+        ${barHTML(a.sourceBreakdown)}
+      </div>
+
+      <div class="ana-section">
+        <h4>Claim Verification</h4>
+        ${barHTML(a.claimBreakdown)}
+      </div>
+    </div>
+  `;
+}
+//# sourceMappingURL=analytics.js.map
+
+// ── heatmap.js ──
+/* ── Source Credibility Heatmap ─────────────────────────── */
+/* Treemap-style visualization of source trust & citation   */
+
+const CRED_COLORS = {
+    high: { bg: "rgba(0,206,201,0.15)", border: "var(--green)" },
+    medium: { bg: "rgba(253,203,110,0.15)", border: "var(--amber)" },
+    low: { bg: "rgba(255,118,117,0.12)", border: "var(--red)" },
+    user: { bg: "rgba(109,159,255,0.12)", border: "#6d9fff" },
+};
+function renderHeatmap(d, container) {
+    // Build claim count per source
+    const map = new Map();
+    for (const c of d.claims) {
+        for (const sid of c.cites) {
+            const entry = map.get(sid) || { total: 0, supported: 0 };
+            entry.total++;
+            if (c.label === "supported")
+                entry.supported++;
+            map.set(sid, entry);
+        }
+    }
+    const cells = d.sources.map((s) => {
+        const m = map.get(s.id) || { total: 0, supported: 0 };
+        return {
+            source: s,
+            claimCount: m.total,
+            supportedPct: m.total ? m.supported / m.total : 0,
+        };
+    }).sort((a, b) => b.claimCount - a.claimCount);
+    const maxClaims = Math.max(1, ...cells.map((c) => c.claimCount));
+    container.innerHTML = `
+    <div class="heatmap">
+      <div class="heatmap-header">
+        <h3>🗺 Source Credibility Heatmap</h3>
+        <span class="heatmap-hint">Size = citations · Color = credibility · Opacity = support rate</span>
+      </div>
+      <div class="heatmap-grid">
+        ${cells.map((c) => {
+        const colors = CRED_COLORS[c.source.credibility] || CRED_COLORS.medium;
+        const size = 0.5 + (c.claimCount / maxClaims) * 0.5;
+        const opacity = 0.4 + c.supportedPct * 0.6;
+        return `<div class="heatmap-cell" style="
+            flex: ${Math.max(1, Math.round(size * 3))};
+            background: ${colors.bg};
+            border-color: ${colors.border};
+            opacity: ${opacity};
+          " title="${esc(c.source.title)} — ${c.claimCount} citations, ${Math.round(c.supportedPct * 100)}% supported">
+            <div class="heatmap-cell-id">[${c.source.id}]</div>
+            <div class="heatmap-cell-title">${esc(c.source.title.slice(0, 30))}${c.source.title.length > 30 ? "…" : ""}</div>
+            <div class="heatmap-cell-stats">
+              <span class="heatmap-cred ${c.source.credibility}">${c.source.credibility}</span>
+              <span>${c.claimCount} cites</span>
+            </div>
+          </div>`;
+    }).join("")}
+      </div>
+      <div class="heatmap-legend">
+        <span>🟢 High</span>
+        <span>🟡 Medium</span>
+        <span>🔴 Low</span>
+        <span>🔵 User-provided</span>
+        <span style="margin-left:auto">Larger = more citations</span>
+      </div>
+    </div>
+  `;
+}
+//# sourceMappingURL=heatmap.js.map
+
+// ── focus.js ──
+/* ── Focus Mode (Distraction-Free Reading) ─────────────── */
+/* Hides chrome, centers report, adds reading progress bar  */
+
+let active = false;
+let overlay = null;
+function toggleFocus() {
+    active = !active;
+    if (active)
+        enterFocus();
+    else
+        exitFocus();
+    return active;
+}
+function isFocusActive() { return active; }
+function enterFocus() {
+    overlay = document.createElement("div");
+    overlay.className = "focus-overlay";
+    // Close button
+    const close = document.createElement("button");
+    close.className = "focus-close";
+    close.innerHTML = "✕ Exit Focus";
+    close.addEventListener("click", () => toggleFocus());
+    overlay.appendChild(close);
+    // Reading progress
+    const progress = document.createElement("div");
+    progress.className = "focus-progress";
+    const bar = document.createElement("div");
+    bar.className = "focus-progress-bar";
+    progress.appendChild(bar);
+    overlay.appendChild(progress);
+    // Content wrapper
+    const wrap = document.createElement("div");
+    wrap.className = "focus-content";
+    // Clone report
+    const report = $("report");
+    wrap.innerHTML = report.innerHTML;
+    overlay.appendChild(wrap);
+    // Scroll tracking
+    wrap.addEventListener("scroll", () => {
+        const pct = wrap.scrollTop / (wrap.scrollHeight - wrap.clientHeight);
+        bar.style.width = `${Math.min(100, pct * 100)}%`;
+    });
+    // Keyboard: Escape to close
+    const onKey = (e) => {
+        if (e.key === "Escape") {
+            toggleFocus();
+            document.removeEventListener("keydown", onKey);
+        }
+    };
+    document.addEventListener("keydown", onKey);
+    document.body.appendChild(overlay);
+    document.body.classList.add("focus-active");
+    // Animate in
+    requestAnimationFrame(() => overlay?.classList.add("focus-visible"));
+}
+function exitFocus() {
+    if (overlay) {
+        overlay.classList.remove("focus-visible");
+        setTimeout(() => {
+            overlay?.remove();
+            overlay = null;
+        }, 300);
+    }
+    document.body.classList.remove("focus-active");
+}
+//# sourceMappingURL=focus.js.map
+
+// ── confidence.js ──
+/* ── AI Confidence Meter ───────────────────────────────── */
+/* Animated radial gauge showing overall research confidence */
+
+function renderConfidence(d, container) {
+    const prec = d.score.citation_precision;
+    const srcCount = d.sources.length;
+    const claimCount = d.claims.length;
+    const highCred = d.sources.filter((s) => s.credibility === "high").length;
+    // Composite confidence: precision (40%), source diversity (20%), claim coverage (20%), high-cred ratio (20%)
+    const srcDiv = Math.min(srcCount / 15, 1);
+    const coverage = claimCount > 0 ? (d.score.supported + d.score.partial) / claimCount : 0;
+    const credRatio = srcCount > 0 ? highCred / srcCount : 0;
+    const confidence = prec * 0.4 + srcDiv * 0.2 + coverage * 0.2 + credRatio * 0.2;
+    const level = confidence >= 0.8 ? "high" : confidence >= 0.5 ? "medium" : "low";
+    const levelLabel = confidence >= 0.8 ? "High Confidence" : confidence >= 0.5 ? "Moderate" : "Low Confidence";
+    const levelColor = confidence >= 0.8 ? "var(--green)" : confidence >= 0.5 ? "var(--amber)" : "var(--red)";
+    const circumference = 2 * Math.PI * 70;
+    const dashOffset = circumference * (1 - confidence);
+    container.innerHTML = `
+    <div class="confidence">
+      <div class="conf-gauge">
+        <svg viewBox="0 0 160 160" class="conf-svg">
+          <circle cx="80" cy="80" r="70" fill="none" stroke="var(--border)" stroke-width="8"/>
+          <circle cx="80" cy="80" r="70" fill="none" stroke="${levelColor}" stroke-width="8"
+            stroke-linecap="round" stroke-dasharray="${circumference}" stroke-dashoffset="${dashOffset}"
+            transform="rotate(-90 80 80)" class="conf-ring"/>
+          <text x="80" y="72" text-anchor="middle" fill="var(--text)" font-size="28" font-weight="700">
+            ${Math.round(confidence * 100)}
+          </text>
+          <text x="80" y="92" text-anchor="middle" fill="${levelColor}" font-size="11" font-weight="500">
+            ${levelLabel}
+          </text>
+        </svg>
+      </div>
+
+      <div class="conf-factors">
+        <div class="conf-header">Confidence Breakdown</div>
+        ${renderFactor("Citation Precision", prec, 0.4)}
+        ${renderFactor("Source Diversity", srcDiv, 0.2)}
+        ${renderFactor("Claim Coverage", coverage, 0.2)}
+        ${renderFactor("High-Cred Ratio", credRatio, 0.2)}
+      </div>
+    </div>
+  `;
+    // Animate ring on load
+    const ring = container.querySelector(".conf-ring");
+    if (ring) {
+        ring.style.strokeDashoffset = String(circumference);
+        requestAnimationFrame(() => {
+            ring.style.transition = "stroke-dashoffset 1.2s ease-out";
+            ring.style.strokeDashoffset = String(dashOffset);
+        });
+    }
+}
+function renderFactor(label, value, weight) {
+    const color = value >= 0.8 ? "var(--green)" : value >= 0.5 ? "var(--amber)" : "var(--red)";
+    return `
+    <div class="conf-factor">
+      <div class="conf-factor-head">
+        <span class="conf-factor-label">${label}</span>
+        <span class="conf-factor-val" style="color:${color}">${pct(value)}</span>
+        <span class="conf-factor-weight">×${weight}</span>
+      </div>
+      <div class="conf-factor-bar">
+        <div class="conf-factor-fill" style="width:${value * 100}%;background:${color}"></div>
+      </div>
+    </div>
+  `;
+}
+//# sourceMappingURL=confidence.js.map
+
+// ── autosuggest.js ──
+/* ── Auto-Suggest for Search Input ──────────────────────── */
+/* Shows suggestion dropdown based on history + templates   */
+
+const TEMPLATES = [
+    "What are the latest developments in {topic}?",
+    "Compare {A} vs {B}: comprehensive analysis",
+    "Explain how {topic} works with real-world examples",
+    "What are the pros and cons of {topic}?",
+    "Current state of {field} research in 2025",
+    "Historical timeline of {topic}",
+    "Best practices for {topic}",
+    "Impact of {topic} on {industry}",
+];
+let dropdown = null;
+let selectedIdx = -1;
+function initAutoSuggest() {
+    const input = $("q");
+    if (!input)
+        return;
+    // Create dropdown
+    dropdown = document.createElement("div");
+    dropdown.className = "suggest-dropdown hidden";
+    input.parentElement?.appendChild(dropdown);
+    const update = debounce(() => showSuggestions(input.value.trim()), 200);
+    input.addEventListener("input", update);
+    input.addEventListener("focus", () => {
+        if (input.value.trim())
+            update();
+    });
+    // Close on outside click
+    document.addEventListener("click", (e) => {
+        if (!e.target.closest(".search-input-wrap")) {
+            hideSuggestions();
+        }
+    });
+    // Keyboard nav
+    input.addEventListener("keydown", (e) => {
+        if (!dropdown || dropdown.classList.contains("hidden"))
+            return;
+        const items = dropdown.querySelectorAll(".suggest-item");
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            selectedIdx = Math.min(selectedIdx + 1, items.length - 1);
+            highlightItem(items);
+        }
+        else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            selectedIdx = Math.max(selectedIdx - 1, -1);
+            highlightItem(items);
+        }
+        else if (e.key === "Enter" && selectedIdx >= 0) {
+            e.preventDefault();
+            const sel = items[selectedIdx];
+            if (sel) {
+                input.value = sel.dataset.value || "";
+                hideSuggestions();
+            }
+        }
+        else if (e.key === "Escape") {
+            hideSuggestions();
+        }
+    });
+}
+function showSuggestions(query) {
+    if (!dropdown)
+        return;
+    selectedIdx = -1;
+    const suggestions = [];
+    // History-based suggestions
+    const histItems = document.querySelectorAll(".hist");
+    histItems.forEach((h) => {
+        const title = h.querySelector(".hist-title")?.textContent || "";
+        if (title.toLowerCase().includes(query.toLowerCase())) {
+            suggestions.push({ text: title, kind: "history" });
+        }
+    });
+    // Template suggestions
+    if (query.length >= 2) {
+        for (const tmpl of TEMPLATES) {
+            const filled = tmpl.replace(/\{[^}]+\}/g, query);
+            if (!suggestions.some((s) => s.text === filled)) {
+                suggestions.push({ text: filled, kind: "template" });
+            }
+        }
+    }
+    if (!suggestions.length || !query) {
+        hideSuggestions();
+        return;
+    }
+    const shown = suggestions.slice(0, 6);
+    dropdown.innerHTML = shown
+        .map((s, i) => `<div class="suggest-item" data-value="${esc(s.text)}">
+          <span class="suggest-icon">${s.kind === "history" ? "🕐" : "💡"}</span>
+          <span class="suggest-text">${highlightMatch(s.text, query)}</span>
+          <span class="suggest-kind">${s.kind}</span>
+        </div>`)
+        .join("");
+    dropdown.classList.remove("hidden");
+    // Click to select
+    dropdown.querySelectorAll(".suggest-item").forEach((item) => {
+        item.addEventListener("click", () => {
+            $("q").value = item.dataset.value || "";
+            hideSuggestions();
+            $("q").focus();
+        });
+    });
+}
+function hideSuggestions() {
+    dropdown?.classList.add("hidden");
+    selectedIdx = -1;
+}
+function highlightItem(items) {
+    items.forEach((it, i) => it.classList.toggle("suggest-sel", i === selectedIdx));
+}
+function highlightMatch(text, query) {
+    if (!query)
+        return esc(text);
+    const idx = text.toLowerCase().indexOf(query.toLowerCase());
+    if (idx < 0)
+        return esc(text);
+    return (esc(text.slice(0, idx)) +
+        `<mark>${esc(text.slice(idx, idx + query.length))}</mark>` +
+        esc(text.slice(idx + query.length)));
+}
+//# sourceMappingURL=autosuggest.js.map
+
+// ── accessibility.js ──
+/* ── Accessibility Enhancements ─────────────────────────── */
+/* ARIA labels, focus traps, reduced motion, screen reader  */
+function initAccessibility() {
+    addAriaLabels();
+    addSkipLink();
+    setupReducedMotion();
+    addLiveRegion();
+    setupFocusVisible();
+}
+function addAriaLabels() {
+    const pairs = [
+        ["q", "role", "searchbox"],
+        ["q", "aria-label", "Research question input"],
+        ["f", "role", "search"],
+        ["history", "role", "navigation"],
+        ["history", "aria-label", "Research history"],
+        ["report", "role", "article"],
+        ["report", "aria-label", "Research report"],
+        ["log", "role", "log"],
+        ["log", "aria-label", "Research trace log"],
+        ["chat", "role", "log"],
+        ["chat", "aria-label", "Follow-up conversation"],
+    ];
+    for (const [id, attr, val] of pairs) {
+        const el = document.getElementById(id);
+        if (el)
+            el.setAttribute(attr, val);
+    }
+    // Tab buttons
+    document.querySelectorAll(".tab").forEach((t) => {
+        t.setAttribute("role", "tab");
+        t.setAttribute("aria-selected", t.classList.contains("on") ? "true" : "false");
+    });
+    document.querySelector(".tabs")?.setAttribute("role", "tablist");
+}
+function addSkipLink() {
+    const link = document.createElement("a");
+    link.href = "#q";
+    link.className = "skip-link";
+    link.textContent = "Skip to search";
+    document.body.insertBefore(link, document.body.firstChild);
+}
+function setupReducedMotion() {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const apply = (matches) => {
+        document.body.classList.toggle("reduced-motion", matches);
+    };
+    apply(mq.matches);
+    mq.addEventListener("change", (e) => apply(e.matches));
+}
+function addLiveRegion() {
+    // Screen reader announcements for dynamic content
+    const region = document.createElement("div");
+    region.id = "sr-announce";
+    region.setAttribute("role", "status");
+    region.setAttribute("aria-live", "polite");
+    region.setAttribute("aria-atomic", "true");
+    region.className = "sr-only";
+    document.body.appendChild(region);
+}
+function announce(message) {
+    const region = document.getElementById("sr-announce");
+    if (region) {
+        region.textContent = "";
+        requestAnimationFrame(() => { region.textContent = message; });
+    }
+}
+function setupFocusVisible() {
+    // Show focus rings only for keyboard navigation
+    let usingKeyboard = false;
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Tab") {
+            usingKeyboard = true;
+            document.body.classList.add("keyboard-nav");
+        }
+    });
+    document.addEventListener("mousedown", () => {
+        usingKeyboard = false;
+        document.body.classList.remove("keyboard-nav");
+    });
+}
+//# sourceMappingURL=accessibility.js.map
+
+// ── wordcloud.js ──
+/* ── Word Cloud Visualizer ──────────────────────────────── */
+/* Extracts key terms from report and renders an interactive  */
+/* word cloud with hover highlights and click-to-search       */
+
+const STOP_WORDS = new Set([
+    "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with",
+    "by", "from", "is", "are", "was", "were", "be", "been", "being", "have", "has",
+    "had", "do", "does", "did", "will", "would", "could", "should", "may", "might",
+    "shall", "can", "that", "this", "these", "those", "it", "its", "not", "no",
+    "than", "into", "about", "also", "such", "more", "most", "very", "just", "only",
+    "some", "any", "all", "each", "every", "both", "few", "many", "much", "own",
+    "other", "new", "old", "first", "last", "same", "well", "even", "still", "out",
+    "up", "one", "two", "three", "our", "we", "they", "their", "them", "which",
+    "what", "when", "where", "how", "who", "whom", "whose", "between", "through",
+    "during", "before", "after", "above", "below", "while", "however", "although",
+    "because", "since", "until", "over", "under", "here", "there", "then", "so",
+]);
+function extractWords(markdown) {
+    const text = markdown
+        .replace(/#+\s/g, "")
+        .replace(/\[.*?\]\(.*?\)/g, "")
+        .replace(/[*_`~]/g, "")
+        .replace(/\d+/g, " ");
+    const freq = new Map();
+    for (const w of text.split(/\s+/)) {
+        const lower = w.toLowerCase().replace(/[^a-z'-]/g, "");
+        if (lower.length < 3 || STOP_WORDS.has(lower))
+            continue;
+        freq.set(lower, (freq.get(lower) || 0) + 1);
+    }
+    const sorted = [...freq.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 60);
+    if (!sorted.length)
+        return [];
+    const maxCount = sorted[0][1];
+    const minCount = sorted[sorted.length - 1][1];
+    const range = maxCount - minCount || 1;
+    return sorted.map(([word, count]) => ({
+        word,
+        count,
+        size: 0.6 + ((count - minCount) / range) * 2.4, // 0.6rem to 3rem
+    }));
+}
+const CLOUD_COLORS = [
+    "var(--accent)", "var(--accent2)", "var(--green)", "var(--amber)",
+    "#6d9fff", "#a78bfa", "#f472b6", "#34d399",
+];
+function renderWordCloud(d, container) {
+    const words = extractWords(d.markdown);
+    if (!words.length) {
+        container.innerHTML = `<div class="empty-state"><div class="empty-icon">☁</div>
+      <div class="empty-title">No Keywords</div>
+      <div class="empty-sub">Report too short for word cloud</div></div>`;
+        return;
+    }
+    // Shuffle for visual variety
+    for (let i = words.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [words[i], words[j]] = [words[j], words[i]];
+    }
+    container.innerHTML = `
+    <div class="wordcloud">
+      <div class="wc-header">
+        <h3>☁ Key Terms Word Cloud</h3>
+        <span class="wc-count">${words.length} terms extracted</span>
+      </div>
+      <div class="wc-canvas" role="img" aria-label="Word cloud of key research terms">
+        ${words.map((w, i) => {
+        const color = CLOUD_COLORS[i % CLOUD_COLORS.length];
+        const rotation = (Math.random() - 0.5) * 20;
+        return `<span class="wc-word" style="
+            font-size: ${w.size}rem;
+            color: ${color};
+            transform: rotate(${rotation}deg);
+            opacity: ${0.6 + (w.size / 3) * 0.4};
+          " data-word="${esc(w.word)}" data-count="${w.count}"
+            title="${w.word} (${w.count} occurrences)">${esc(w.word)}</span>`;
+    }).join("")}
+      </div>
+      <div class="wc-legend">Click a word to search · Size = frequency</div>
+    </div>
+  `;
+    // Click to search
+    container.querySelectorAll(".wc-word").forEach((el) => {
+        el.addEventListener("click", () => {
+            const q = document.getElementById("q");
+            if (q) {
+                q.value = el.dataset.word || "";
+                q.focus();
+            }
+        });
+        el.addEventListener("mouseenter", () => el.style.textShadow = `0 0 20px currentColor`);
+        el.addEventListener("mouseleave", () => el.style.textShadow = "none");
+    });
+}
+//# sourceMappingURL=wordcloud.js.map
+
+// ── shortcuts.js ──
+/* ── Keyboard Shortcut Cheat Sheet ──────────────────────── */
+/* Toggleable overlay showing all keyboard shortcuts          */
+let overlay = null;
+let visible = false;
+const GROUPS = [
+    {
+        title: "Navigation",
+        items: [
+            { key: "/", label: "Focus search input" },
+            { key: "⌘K", label: "Open command palette" },
+            { key: "[", label: "Toggle sidebar" },
+            { key: "?", label: "Show this cheat sheet" },
+        ],
+    },
+    {
+        title: "Appearance",
+        items: [
+            { key: "T", label: "Cycle theme (dark → light → midnight)" },
+            { key: "R", label: "Toggle focus / reading mode" },
+            { key: "F", label: "Toggle fullscreen" },
+            { key: "P", label: "Toggle performance monitor" },
+        ],
+    },
+    {
+        title: "Actions",
+        items: [
+            { key: "Enter", label: "Submit research question" },
+            { key: "Esc", label: "Close overlay / blur input" },
+            { key: "↑↓", label: "Navigate suggestions / commands" },
+        ],
+    },
+    {
+        title: "Export",
+        items: [
+            { key: "⌘K → md", label: "Export Markdown" },
+            { key: "⌘K → json", label: "Export JSON" },
+            { key: "⌘K → html", label: "Export HTML" },
+            { key: "⌘K → print", label: "Print report" },
+        ],
+    },
+];
+function toggleShortcuts() {
+    visible = !visible;
+    if (visible)
+        showSheet();
+    else
+        hideSheet();
+    return visible;
+}
+function showSheet() {
+    overlay = document.createElement("div");
+    overlay.className = "shortcuts-overlay";
+    const card = document.createElement("div");
+    card.className = "shortcuts-card";
+    card.innerHTML = `
+    <div class="shortcuts-header">
+      <h2>⌨ Keyboard Shortcuts</h2>
+      <button class="shortcuts-close">✕</button>
+    </div>
+    <div class="shortcuts-grid">
+      ${GROUPS.map((g) => `
+        <div class="shortcuts-group">
+          <h3>${g.title}</h3>
+          ${g.items.map((i) => `
+            <div class="shortcut-row">
+              <kbd class="shortcut-key">${i.key}</kbd>
+              <span class="shortcut-label">${i.label}</span>
+            </div>
+          `).join("")}
+        </div>
+      `).join("")}
+    </div>
+    <div class="shortcuts-footer">Press <kbd>?</kbd> or <kbd>Esc</kbd> to close</div>
+  `;
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    // Animate in
+    requestAnimationFrame(() => overlay?.classList.add("shortcuts-visible"));
+    // Close handlers
+    overlay.querySelector(".shortcuts-close")?.addEventListener("click", () => toggleShortcuts());
+    overlay.addEventListener("click", (e) => {
+        if (e.target === overlay)
+            toggleShortcuts();
+    });
+}
+function hideSheet() {
+    if (overlay) {
+        overlay.classList.remove("shortcuts-visible");
+        setTimeout(() => { overlay?.remove(); overlay = null; }, 300);
+    }
+}
+//# sourceMappingURL=shortcuts.js.map
+
+// ── share.js ──
+/* ── Share Report ───────────────────────────────────────── */
+/* Copy shareable link, copy to clipboard, or share via       */
+/* Web Share API. Generates a self-contained data URL.        */
+
+
+
+function shareReport(d, method) {
+    if (method === "copy") {
+        copyToClipboard(d);
+    }
+    else if (method === "link") {
+        copyShareLink(d);
+    }
+    else if (method === "share") {
+        webShare(d);
+    }
+}
+async function copyToClipboard(d) {
+    const text = `# ${d.question}\n\n${d.markdown}\n\n---\n` +
+        `Sources: ${d.sources.length} · Precision: ${pct(d.score.citation_precision)}\n` +
+        `Generated by AI Research Agent`;
+    try {
+        await navigator.clipboard.writeText(text);
+        toast("Report copied to clipboard!", "success");
+    }
+    catch {
+        // Fallback
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.cssText = "position:fixed;left:-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+        toast("Report copied!", "success");
+    }
+}
+function copyShareLink(d) {
+    // Generate a self-contained HTML data URI
+    const html = buildShareHTML(d);
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    // Open in new tab for now (actual link sharing would need a backend)
+    window.open(url, "_blank");
+    toast("Report opened in new tab", "info");
+}
+async function webShare(d) {
+    if (!navigator.share) {
+        toast("Web Share not supported — copied to clipboard instead", "warn");
+        copyToClipboard(d);
+        return;
+    }
+    try {
+        await navigator.share({
+            title: `Research: ${d.question}`,
+            text: `AI Research Report: ${d.question}\n\n${d.markdown.slice(0, 200)}…`,
+        });
+        toast("Shared successfully!", "success");
+    }
+    catch (e) {
+        if (e.name !== "AbortError")
+            toast("Share cancelled", "info");
+    }
+}
+function buildShareHTML(d) {
+    return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Research: ${esc(d.question)}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;max-width:800px;margin:0 auto;padding:32px 20px;
+  line-height:1.7;color:#e0e0e0;background:#0a0a0f}
+h1{font-size:1.8rem;margin-bottom:8px;background:linear-gradient(135deg,#6c5ce7,#00cec9);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.meta{color:#888;font-size:.85rem;margin-bottom:32px;font-family:monospace}
+h2{font-size:1.3rem;margin:28px 0 12px;color:#e8e8e8;border-bottom:1px solid #222;padding-bottom:6px}
+h3{font-size:1.1rem;margin:20px 0 8px;color:#d0d0d0}
+p{margin:12px 0}
+a{color:#6c5ce7}
+code{background:#161622;padding:2px 6px;border-radius:4px;font-size:.88em}
+pre{background:#161622;padding:16px;border-radius:8px;overflow-x:auto;margin:16px 0}
+blockquote{border-left:3px solid #6c5ce7;padding-left:16px;color:#999;margin:12px 0}
+ul,ol{padding-left:24px;margin:8px 0}
+li{margin:4px 0}
+.badge{display:inline-block;padding:3px 10px;border-radius:100px;font-size:.78rem;margin:2px}
+.badge-ok{background:rgba(0,206,201,0.15);color:#00cec9}
+.badge-warn{background:rgba(253,203,110,0.15);color:#fdcb6e}
+.badge-bad{background:rgba(255,118,117,0.12);color:#ff7675}
+.footer{margin-top:40px;padding-top:16px;border-top:1px solid #222;font-size:.78rem;color:#666;font-family:monospace}
+</style></head><body>
+<h1>${esc(d.question)}</h1>
+<div class="meta">
+  <span class="badge badge-ok">Precision: ${pct(d.score.citation_precision)}</span>
+  <span class="badge">${d.sources.length} sources</span>
+  <span class="badge">${d.claims.length} claims</span>
+  <span class="badge badge-ok">${d.score.supported} supported</span>
+  <span class="badge badge-warn">${d.score.partial} partial</span>
+  <span class="badge badge-bad">${d.score.unsupported} unsupported</span>
+</div>
+${renderMarkdown(d.markdown)}
+<div class="footer">Generated by AI Research Agent · ${new Date().toLocaleDateString()}</div>
+</body></html>`;
+}
+function initShareButtons() {
+    // Will be wired in app.ts
+}
+//# sourceMappingURL=share.js.map
+
+// ── i18n.js ──
+/* ── Internationalization Framework ─────────────────────── */
+/* Simple i18n with language detection, localStorage persist  */
+const TRANSLATIONS = {
+    en: {
+        "app.title": "AI Research Agent",
+        "app.subtitle": "Multi-source verified research · Citation graphs · Claim verification",
+        "search.placeholder": "Ask a research question…",
+        "search.button": "⚡ Research",
+        "search.depth.standard": "⚡ Standard",
+        "search.depth.deep": "🔬 Deep",
+        "search.depth.deeper": "🏔 Deeper",
+        "search.attach": "📎 Attach files",
+        "search.hint": "(or drag & drop)",
+        "history.title": "Research History",
+        "history.empty": "No past research yet",
+        "trace.title": "Research Trace",
+        "trace.waiting": "Waiting for a query…",
+        "tab.report": "📄 Report",
+        "tab.graph": "🕸 Graph",
+        "tab.inspector": "🔍 Inspector",
+        "tab.timeline": "⏱ Timeline",
+        "tab.analytics": "📊 Analytics",
+        "tab.heatmap": "🗺 Heatmap",
+        "tab.confidence": "🎯 Confidence",
+        "tab.wordcloud": "☁ Words",
+        "empty.report.title": "Ready to Research",
+        "empty.report.sub": "Enter a question above to generate a verified research report",
+        "chat.title": "💬 Follow-up Questions",
+        "chat.placeholder": "Ask a follow-up…",
+        "chat.button": "Ask",
+        "export.md": "⬇ Markdown",
+        "export.json": "📦 JSON",
+        "export.html": "🌐 HTML",
+        "toast.researching": "Researching",
+        "toast.complete": "Research complete!",
+        "toast.error": "Research failed",
+        "toast.copied": "Copied to clipboard!",
+        "toast.noReport": "No report to export",
+    },
+    es: {
+        "app.title": "Agente de Investigación IA",
+        "app.subtitle": "Investigación verificada · Grafos de citación · Verificación de afirmaciones",
+        "search.placeholder": "Haz una pregunta de investigación…",
+        "search.button": "⚡ Investigar",
+        "history.title": "Historial",
+        "history.empty": "Sin investigaciones previas",
+        "toast.complete": "¡Investigación completa!",
+        "toast.copied": "¡Copiado al portapapeles!",
+        "empty.report.title": "Listo para Investigar",
+        "empty.report.sub": "Ingresa una pregunta para generar un informe verificado",
+    },
+    fr: {
+        "app.title": "Agent de Recherche IA",
+        "search.placeholder": "Posez une question de recherche…",
+        "search.button": "⚡ Rechercher",
+        "history.title": "Historique",
+        "toast.complete": "Recherche terminée !",
+        "empty.report.title": "Prêt à Rechercher",
+    },
+    de: {
+        "app.title": "KI-Forschungsagent",
+        "search.placeholder": "Stellen Sie eine Forschungsfrage…",
+        "search.button": "⚡ Forschen",
+        "toast.complete": "Forschung abgeschlossen!",
+        "empty.report.title": "Bereit zur Forschung",
+    },
+    ja: {
+        "app.title": "AI研究エージェント",
+        "search.placeholder": "研究の質問を入力…",
+        "search.button": "⚡ 研究",
+        "toast.complete": "研究完了！",
+        "empty.report.title": "研究準備完了",
+    },
+    zh: {
+        "app.title": "AI研究代理",
+        "search.placeholder": "输入研究问题…",
+        "search.button": "⚡ 研究",
+        "toast.complete": "研究完成！",
+        "empty.report.title": "准备就绪",
+    },
+    hi: {
+        "app.title": "AI अनुसंधान एजेंट",
+        "search.placeholder": "एक शोध प्रश्न पूछें…",
+        "search.button": "⚡ शोध करें",
+        "toast.complete": "शोध पूरा!",
+    },
+    te: {
+        "app.title": "AI పరిశోధన ఏజెంట్",
+        "search.placeholder": "పరిశోధన ప్రశ్న అడగండి…",
+        "search.button": "⚡ పరిశోధన",
+        "toast.complete": "పరిశోధన పూర్తయింది!",
+    },
+};
+let currentLang = "en";
+function initI18n() {
+    // Detect from localStorage, then browser
+    const stored = localStorage.getItem("ra-lang");
+    if (stored && stored in TRANSLATIONS) {
+        currentLang = stored;
+    }
+    else {
+        const browserLang = navigator.language.split("-")[0];
+        if (browserLang in TRANSLATIONS)
+            currentLang = browserLang;
+    }
+}
+function t(key) {
+    return TRANSLATIONS[currentLang]?.[key] || TRANSLATIONS.en[key] || key;
+}
+function setLang(lang) {
+    currentLang = lang;
+    localStorage.setItem("ra-lang", lang);
+}
+function getLang() { return currentLang; }
+function getAvailableLangs() {
+    return [
+        { code: "en", name: "English" },
+        { code: "es", name: "Español" },
+        { code: "fr", name: "Français" },
+        { code: "de", name: "Deutsch" },
+        { code: "ja", name: "日本語" },
+        { code: "zh", name: "中文" },
+        { code: "hi", name: "हिन्दी" },
+        { code: "te", name: "తెలుగు" },
+    ];
+}
+//# sourceMappingURL=i18n.js.map
+
+// ── sourcemap.js ──
+/* ── Source Relationship Map (Force-Directed) ──────────── */
+/* Interactive SVG graph showing source co-citation links     */
+/* Sources that cite the same claims are connected            */
+const CRED_COLORS = {
+    high: "var(--green)",
+    medium: "var(--amber)",
+    low: "var(--red)",
+    user: "#6d9fff",
+};
+function renderSourceMap(d, container) {
+    if (d.sources.length < 2) {
+        container.innerHTML = `<div class="empty-state"><div class="empty-icon">🗺</div>
+      <div class="empty-title">Not Enough Sources</div>
+      <div class="empty-sub">Need at least 2 sources for relationship map</div></div>`;
+        return;
+    }
+    // Build co-citation edges
+    const edgeMap = new Map();
+    for (const claim of d.claims) {
+        const cites = claim.cites;
+        for (let i = 0; i < cites.length; i++) {
+            for (let j = i + 1; j < cites.length; j++) {
+                const key = `${Math.min(cites[i], cites[j])}-${Math.max(cites[i], cites[j])}`;
+                edgeMap.set(key, (edgeMap.get(key) || 0) + 1);
+            }
+        }
+    }
+    // Count claims per source
+    const claimCounts = new Map();
+    for (const c of d.claims) {
+        for (const sid of c.cites) {
+            claimCounts.set(sid, (claimCounts.get(sid) || 0) + 1);
+        }
+    }
+    const W = 600, H = 400;
+    const maxClaims = Math.max(1, ...d.sources.map((s) => claimCounts.get(s.id) || 0));
+    // Create nodes
+    const nodes = d.sources.map((s, i) => {
+        const cc = claimCounts.get(s.id) || 0;
+        const angle = (i / d.sources.length) * Math.PI * 2;
+        const r = 120 + Math.random() * 40;
+        return {
+            id: s.id,
+            title: s.title.slice(0, 25),
+            credibility: s.credibility,
+            claimCount: cc,
+            x: W / 2 + Math.cos(angle) * r,
+            y: H / 2 + Math.sin(angle) * r,
+            vx: 0, vy: 0,
+            radius: 6 + (cc / maxClaims) * 14,
+        };
+    });
+    const edges = [];
+    for (const [key, weight] of edgeMap) {
+        const [a, b] = key.split("-").map(Number);
+        edges.push({ a, b, weight });
+    }
+    // Simple force simulation (50 iterations)
+    const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+    for (let iter = 0; iter < 50; iter++) {
+        // Repulsion between all nodes
+        for (let i = 0; i < nodes.length; i++) {
+            for (let j = i + 1; j < nodes.length; j++) {
+                const dx = nodes[j].x - nodes[i].x;
+                const dy = nodes[j].y - nodes[i].y;
+                const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+                const force = 800 / (dist * dist);
+                const fx = (dx / dist) * force;
+                const fy = (dy / dist) * force;
+                nodes[i].vx -= fx;
+                nodes[i].vy -= fy;
+                nodes[j].vx += fx;
+                nodes[j].vy += fy;
+            }
+        }
+        // Attraction along edges
+        for (const e of edges) {
+            const na = nodeMap.get(e.a);
+            const nb = nodeMap.get(e.b);
+            if (!na || !nb)
+                continue;
+            const dx = nb.x - na.x;
+            const dy = nb.y - na.y;
+            const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+            const force = (dist - 80) * 0.005 * e.weight;
+            const fx = (dx / dist) * force;
+            const fy = (dy / dist) * force;
+            na.vx += fx;
+            na.vy += fy;
+            nb.vx -= fx;
+            nb.vy -= fy;
+        }
+        // Center gravity
+        for (const n of nodes) {
+            n.vx += (W / 2 - n.x) * 0.01;
+            n.vy += (H / 2 - n.y) * 0.01;
+            n.x += n.vx * 0.3;
+            n.y += n.vy * 0.3;
+            n.vx *= 0.8;
+            n.vy *= 0.8;
+            n.x = Math.max(30, Math.min(W - 30, n.x));
+            n.y = Math.max(30, Math.min(H - 30, n.y));
+        }
+    }
+    const maxEdgeW = Math.max(1, ...edges.map((e) => e.weight));
+    container.innerHTML = `
+    <div class="srcmap">
+      <div class="srcmap-header">
+        <h3>🗺 Source Relationship Map</h3>
+        <span class="srcmap-hint">Lines = shared claims · Size = citation count</span>
+      </div>
+      <svg class="srcmap-svg" viewBox="0 0 ${W} ${H}">
+        <defs>
+          <filter id="srcglow"><feGaussianBlur stdDeviation="3" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        ${edges.map((e) => {
+        const na = nodeMap.get(e.a);
+        const nb = nodeMap.get(e.b);
+        if (!na || !nb)
+            return "";
+        const opacity = 0.15 + (e.weight / maxEdgeW) * 0.45;
+        return `<line x1="${na.x}" y1="${na.y}" x2="${nb.x}" y2="${nb.y}"
+            stroke="var(--accent)" stroke-width="${0.5 + e.weight * 0.8}" opacity="${opacity}"/>`;
+    }).join("")}
+        ${nodes.map((n) => `
+          <g class="srcmap-node" data-id="${n.id}">
+            <circle cx="${n.x}" cy="${n.y}" r="${n.radius}" fill="${CRED_COLORS[n.credibility] || "var(--text3)"}"
+              opacity="0.8" filter="url(#srcglow)" stroke="var(--bg)" stroke-width="1.5"/>
+            <text x="${n.x}" y="${n.y + n.radius + 12}" text-anchor="middle" fill="var(--text3)"
+              font-size="8" font-family="var(--sans)">[${n.id}]</text>
+          </g>
+        `).join("")}
+      </svg>
+      <div class="srcmap-legend">
+        <span style="color:var(--green)">● High</span>
+        <span style="color:var(--amber)">● Medium</span>
+        <span style="color:var(--red)">● Low</span>
+        <span style="color:#6d9fff">● User</span>
+      </div>
+    </div>
+  `;
+    // Hover tooltip
+    container.querySelectorAll(".srcmap-node").forEach((g) => {
+        g.addEventListener("mouseenter", () => {
+            const circle = g.querySelector("circle");
+            if (circle) {
+                circle.setAttribute("opacity", "1");
+                circle.setAttribute("r", String(parseFloat(circle.getAttribute("r") || "8") * 1.3));
+            }
+        });
+        g.addEventListener("mouseleave", () => {
+            const circle = g.querySelector("circle");
+            if (circle) {
+                const n = nodes.find((x) => x.id === Number(g.dataset.id));
+                circle.setAttribute("opacity", "0.8");
+                circle.setAttribute("r", String(n?.radius || 8));
+            }
+        });
+    });
+}
+//# sourceMappingURL=sourcemap.js.map
+
+// ── reading.js ──
+/* ── Reading Progress & Estimated Time ─────────────────── */
+/* Floating progress indicator with reading time estimate     */
+
+let progressEl = null;
+let timerEl = null;
+let percentEl = null;
+let barEl = null;
+let active = false;
+let totalWords = 0;
+const WPM = 230;
+function initReadingProgress() {
+    // Create floating indicator
+    progressEl = document.createElement("div");
+    progressEl.className = "reading-progress-float hidden";
+    progressEl.innerHTML = `
+    <div class="rpf-bar-wrap"><div class="rpf-bar"></div></div>
+    <span class="rpf-percent">0%</span>
+    <span class="rpf-divider">·</span>
+    <span class="rpf-time">0 min left</span>
+  `;
+    document.body.appendChild(progressEl);
+    barEl = progressEl.querySelector(".rpf-bar");
+    percentEl = progressEl.querySelector(".rpf-percent");
+    timerEl = progressEl.querySelector(".rpf-time");
+    // Listen to scroll
+    const main = document.querySelector(".main");
+    if (main) {
+        main.addEventListener("scroll", () => updateProgress(main));
+    }
+}
+function setReadingContent(wordCount) {
+    totalWords = wordCount;
+    active = wordCount > 50;
+    if (progressEl)
+        progressEl.classList.toggle("hidden", !active);
+}
+function updateProgress(scrollContainer) {
+    if (!active || !barEl || !percentEl || !timerEl)
+        return;
+    const report = $("report");
+    if (!report || report.classList.contains("empty")) {
+        if (progressEl)
+            progressEl.classList.add("hidden");
+        return;
+    }
+    // Calculate how far the report is scrolled
+    const rect = report.getBoundingClientRect();
+    const containerRect = scrollContainer.getBoundingClientRect();
+    const reportTop = rect.top - containerRect.top;
+    const reportHeight = rect.height;
+    const viewHeight = containerRect.height;
+    // Progress: how much of the report has scrolled past top
+    let progress = 0;
+    if (reportTop >= 0) {
+        progress = 0;
+    }
+    else if (reportTop + reportHeight <= viewHeight) {
+        progress = 1;
+    }
+    else {
+        progress = Math.abs(reportTop) / (reportHeight - viewHeight);
+    }
+    progress = Math.max(0, Math.min(1, progress));
+    const pctVal = Math.round(progress * 100);
+    const wordsLeft = Math.round(totalWords * (1 - progress));
+    const minsLeft = Math.ceil(wordsLeft / WPM);
+    barEl.style.width = `${pctVal}%`;
+    percentEl.textContent = `${pctVal}%`;
+    timerEl.textContent = progress >= 1
+        ? "Done ✓"
+        : `${minsLeft} min left`;
+    if (progressEl) {
+        progressEl.classList.toggle("hidden", !active);
+        progressEl.classList.toggle("rpf-done", progress >= 1);
+    }
+}
+//# sourceMappingURL=reading.js.map
+
 // ── app.js ──
 /* ── Main Application Controller ──────────────────────── */
 /* Wires: theme, commands, particles, pipeline, timeline, */
 /*        inspector, perf monitor, toasts, graph, chat    */
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1025,8 +2249,13 @@ function init() {
     registerAllCommands();
     initScrollProgress();
     initResizeHandle();
+    initAutoSuggest();
+    initAccessibility();
+    initTraceFilter();
+    initI18n();
+    initReadingProgress();
     // Welcome toast
-    toast("Press Ctrl+K for command palette", "info", 3000);
+    toast("Press Ctrl+K for command palette · ? for shortcuts", "info", 3000);
 }
 // ── Register commands ─────────────────────────────────
 function registerAllCommands() {
@@ -1066,6 +2295,46 @@ function registerAllCommands() {
                 toggleSidebar(); } },
         { id: "cmd-palette", label: "Command palette", icon: "⌨", shortcut: "⌘K", category: "Navigation",
             action: () => openPalette() },
+        { id: "focus", label: "Toggle focus mode", icon: "👁", shortcut: "R", category: "View",
+            action: () => { const on = toggleFocus(); toast(on ? "Focus mode on" : "Focus mode off", "info"); } },
+        { id: "analytics-tab", label: "Show analytics", icon: "📊", category: "Navigation",
+            action: () => switchTab("analytics") },
+        { id: "heatmap-tab", label: "Show heatmap", icon: "🗺", category: "Navigation",
+            action: () => switchTab("heatmap") },
+        { id: "confidence-tab", label: "Show confidence meter", icon: "🎯", category: "Navigation",
+            action: () => switchTab("confidence") },
+        { id: "print", label: "Print report", icon: "🖨", category: "Export",
+            action: () => { if (current)
+                window.print();
+            else
+                toast("No report to print", "warn"); } },
+        { id: "share-copy", label: "Copy report to clipboard", icon: "📋", category: "Share",
+            action: () => { if (current)
+                shareReport(current, "copy");
+            else
+                toast("No report", "warn"); } },
+        { id: "share-link", label: "Open report in new tab", icon: "🔗", category: "Share",
+            action: () => { if (current)
+                shareReport(current, "link");
+            else
+                toast("No report", "warn"); } },
+        { id: "share-web", label: "Share via system share", icon: "📤", category: "Share",
+            action: () => { if (current)
+                shareReport(current, "share");
+            else
+                toast("No report", "warn"); } },
+        { id: "shortcuts", label: "Keyboard shortcuts", icon: "⌨", shortcut: "?", category: "Help",
+            action: () => toggleShortcuts() },
+        { id: "wordcloud-tab", label: "Show word cloud", icon: "☁", category: "Navigation",
+            action: () => switchTab("wordcloud") },
+        { id: "sourcemap-tab", label: "Show source map", icon: "🗺", category: "Navigation",
+            action: () => switchTab("sourcemap") },
+        { id: "lang-en", label: "Language: English", icon: "🇬🇧", category: "Language",
+            action: () => { setLang("en"); toast("Language: English", "info"); } },
+        { id: "lang-es", label: "Language: Español", icon: "🇪🇸", category: "Language",
+            action: () => { setLang("es"); toast("Idioma: Español", "info"); } },
+        { id: "lang-te", label: "Language: తెలుగు", icon: "🇮🇳", category: "Language",
+            action: () => { setLang("te"); toast("భాష: తెలుగు", "info"); } },
     ]);
 }
 // ── Scroll progress indicator ─────────────────────────
@@ -1147,22 +2416,53 @@ function addKeyboardShortcuts() {
             else
                 document.documentElement.requestFullscreen();
         }
+        if (e.key === "r" && !e.ctrlKey && !e.metaKey) {
+            toggleFocus();
+        }
+        if (e.key === "?") {
+            toggleShortcuts();
+        }
     });
 }
 // ── Tabs ──────────────────────────────────────────────
+const TAB_IDS = ["report", "graph", "inspector", "timelinePanel", "analyticsPanel", "heatmapPanel", "confidencePanel", "wordcloudPanel", "sourcemapPanel"];
+function switchTab(target) {
+    document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("on", x.dataset.t === target));
+    for (const id of TAB_IDS) {
+        const el = document.getElementById(id);
+        if (el)
+            el.classList.toggle("hidden", !matchTab(id, target));
+    }
+    if (target === "graph" && current)
+        drawGraph(current, $("graph"));
+    if (target === "inspector" && current)
+        renderInspector(current, $("inspector"));
+    if (target === "analytics" && current)
+        renderAnalytics(current, $("analyticsPanel"));
+    if (target === "heatmap" && current)
+        renderHeatmap(current, $("heatmapPanel"));
+    if (target === "confidence" && current)
+        renderConfidence(current, $("confidencePanel"));
+    if (target === "wordcloud" && current)
+        renderWordCloud(current, $("wordcloudPanel"));
+    if (target === "sourcemap" && current)
+        renderSourceMap(current, $("sourcemapPanel"));
+    announce(`Switched to ${target} tab`);
+}
+function matchTab(id, target) {
+    const map = {
+        report: "report", graph: "graph", inspector: "inspector",
+        timelinePanel: "timeline", analyticsPanel: "analytics",
+        heatmapPanel: "heatmap", confidencePanel: "confidence",
+        wordcloudPanel: "wordcloud", sourcemapPanel: "sourcemap",
+    };
+    return map[id] === target;
+}
 function initTabs() {
     document.querySelectorAll(".tab").forEach((t) => {
         t.addEventListener("click", () => {
-            document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("on", x === t));
             const target = t.dataset.t || "report";
-            $("report").classList.toggle("hidden", target !== "report");
-            $("graph").classList.toggle("hidden", target !== "graph");
-            $("inspector").classList.toggle("hidden", target !== "inspector");
-            $("timelinePanel").classList.toggle("hidden", target !== "timeline");
-            if (target === "graph" && current)
-                drawGraph(current, $("graph"));
-            if (target === "inspector" && current)
-                renderInspector(current, $("inspector"));
+            switchTab(target);
         });
     });
 }
@@ -1381,11 +2681,24 @@ function showReport(d) {
     $("chatCard").classList.toggle("hidden", !d.id);
     $("dl").classList.remove("hidden");
     $("exportMenu").classList.remove("hidden");
-    // Update inspector & graph if visible
+    // Update visible panels
     if (!$("graph").classList.contains("hidden"))
         drawGraph(d, $("graph"));
     if (!$("inspector").classList.contains("hidden"))
         renderInspector(d, $("inspector"));
+    if (!$("analyticsPanel").classList.contains("hidden"))
+        renderAnalytics(d, $("analyticsPanel"));
+    if (!$("heatmapPanel").classList.contains("hidden"))
+        renderHeatmap(d, $("heatmapPanel"));
+    if (!$("confidencePanel").classList.contains("hidden"))
+        renderConfidence(d, $("confidencePanel"));
+    if (!$("wordcloudPanel").classList.contains("hidden"))
+        renderWordCloud(d, $("wordcloudPanel"));
+    if (!$("sourcemapPanel").classList.contains("hidden"))
+        renderSourceMap(d, $("sourcemapPanel"));
+    // Reading progress
+    setReadingContent(words);
+    announce(`Research report loaded: ${d.question}`);
 }
 // ── Export options ─────────────────────────────────────
 function initExportMenu() {
@@ -1540,6 +2853,24 @@ function initChat() {
 // ── Download ──────────────────────────────────────────
 function initDownload() {
     // Handled in initExportMenu
+}
+// ── Trace filter buttons ─────────────────────────────
+function initTraceFilter() {
+    document.querySelectorAll(".trace-filter-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const filter = btn.dataset.filter || "all";
+            document.querySelectorAll(".trace-filter-btn").forEach((b) => b.classList.remove("active"));
+            btn.classList.add("active");
+            document.querySelectorAll(".trace-entry").forEach((entry) => {
+                if (filter === "all") {
+                    entry.style.display = "";
+                }
+                else {
+                    entry.style.display = entry.dataset.type === filter ? "" : "none";
+                }
+            });
+        });
+    });
 }
 // ── History sidebar ───────────────────────────────────
 async function loadHistory() {

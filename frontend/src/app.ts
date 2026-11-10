@@ -14,6 +14,18 @@ import { initCommandPalette, registerCommands, openPalette, toast } from "./comm
 import { renderInspector } from "./inspector.js";
 import { ResearchTimeline } from "./timeline.js";
 import { PerfMonitor } from "./perfmon.js";
+import { renderAnalytics } from "./analytics.js";
+import { renderHeatmap } from "./heatmap.js";
+import { toggleFocus } from "./focus.js";
+import { renderConfidence } from "./confidence.js";
+import { initAutoSuggest } from "./autosuggest.js";
+import { initAccessibility, announce } from "./accessibility.js";
+import { renderWordCloud } from "./wordcloud.js";
+import { toggleShortcuts } from "./shortcuts.js";
+import { shareReport } from "./share.js";
+import { initI18n, t, setLang, getLang, getAvailableLangs } from "./i18n.js";
+import { renderSourceMap } from "./sourcemap.js";
+import { initReadingProgress, setReadingContent } from "./reading.js";
 
 // ── State ─────────────────────────────────────────────
 let current: ReportData | null = null;
@@ -54,8 +66,15 @@ export function init(): void {
   initScrollProgress();
   initResizeHandle();
 
+  initAutoSuggest();
+  initAccessibility();
+  initTraceFilter();
+
+  initI18n();
+  initReadingProgress();
+
   // Welcome toast
-  toast("Press Ctrl+K for command palette", "info", 3000);
+  toast("Press Ctrl+K for command palette · ? for shortcuts", "info", 3000);
 }
 
 // ── Register commands ─────────────────────────────────
@@ -93,6 +112,34 @@ function registerAllCommands(): void {
       action: () => { if (sidebarCollapsed) toggleSidebar(); } },
     { id: "cmd-palette", label: "Command palette", icon: "⌨", shortcut: "⌘K", category: "Navigation",
       action: () => openPalette() },
+    { id: "focus", label: "Toggle focus mode", icon: "👁", shortcut: "R", category: "View",
+      action: () => { const on = toggleFocus(); toast(on ? "Focus mode on" : "Focus mode off", "info"); } },
+    { id: "analytics-tab", label: "Show analytics", icon: "📊", category: "Navigation",
+      action: () => switchTab("analytics") },
+    { id: "heatmap-tab", label: "Show heatmap", icon: "🗺", category: "Navigation",
+      action: () => switchTab("heatmap") },
+    { id: "confidence-tab", label: "Show confidence meter", icon: "🎯", category: "Navigation",
+      action: () => switchTab("confidence") },
+    { id: "print", label: "Print report", icon: "🖨", category: "Export",
+      action: () => { if (current) window.print(); else toast("No report to print", "warn"); } },
+    { id: "share-copy", label: "Copy report to clipboard", icon: "📋", category: "Share",
+      action: () => { if (current) shareReport(current, "copy"); else toast("No report", "warn"); } },
+    { id: "share-link", label: "Open report in new tab", icon: "🔗", category: "Share",
+      action: () => { if (current) shareReport(current, "link"); else toast("No report", "warn"); } },
+    { id: "share-web", label: "Share via system share", icon: "📤", category: "Share",
+      action: () => { if (current) shareReport(current, "share"); else toast("No report", "warn"); } },
+    { id: "shortcuts", label: "Keyboard shortcuts", icon: "⌨", shortcut: "?", category: "Help",
+      action: () => toggleShortcuts() },
+    { id: "wordcloud-tab", label: "Show word cloud", icon: "☁", category: "Navigation",
+      action: () => switchTab("wordcloud") },
+    { id: "sourcemap-tab", label: "Show source map", icon: "🗺", category: "Navigation",
+      action: () => switchTab("sourcemap") },
+    { id: "lang-en", label: "Language: English", icon: "🇬🇧", category: "Language",
+      action: () => { setLang("en"); toast("Language: English", "info"); } },
+    { id: "lang-es", label: "Language: Español", icon: "🇪🇸", category: "Language",
+      action: () => { setLang("es"); toast("Idioma: Español", "info"); } },
+    { id: "lang-te", label: "Language: తెలుగు", icon: "🇮🇳", category: "Language",
+      action: () => { setLang("te"); toast("భాష: తెలుగు", "info"); } },
   ]);
 }
 
@@ -169,24 +216,49 @@ function addKeyboardShortcuts(): void {
       if (document.fullscreenElement) document.exitFullscreen();
       else document.documentElement.requestFullscreen();
     }
+    if (e.key === "r" && !e.ctrlKey && !e.metaKey) {
+      toggleFocus();
+    }
+    if (e.key === "?") { toggleShortcuts(); }
   });
 }
 
 // ── Tabs ──────────────────────────────────────────────
+const TAB_IDS = ["report", "graph", "inspector", "timelinePanel", "analyticsPanel", "heatmapPanel", "confidencePanel", "wordcloudPanel", "sourcemapPanel"];
+
+function switchTab(target: string): void {
+  document.querySelectorAll<HTMLButtonElement>(".tab").forEach((x) =>
+    x.classList.toggle("on", x.dataset.t === target)
+  );
+  for (const id of TAB_IDS) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("hidden", !matchTab(id, target));
+  }
+  if (target === "graph" && current) drawGraph(current, $("graph"));
+  if (target === "inspector" && current) renderInspector(current, $("inspector"));
+  if (target === "analytics" && current) renderAnalytics(current, $("analyticsPanel"));
+  if (target === "heatmap" && current) renderHeatmap(current, $("heatmapPanel"));
+  if (target === "confidence" && current) renderConfidence(current, $("confidencePanel"));
+  if (target === "wordcloud" && current) renderWordCloud(current, $("wordcloudPanel"));
+  if (target === "sourcemap" && current) renderSourceMap(current, $("sourcemapPanel"));
+  announce(`Switched to ${target} tab`);
+}
+
+function matchTab(id: string, target: string): boolean {
+  const map: Record<string, string> = {
+    report: "report", graph: "graph", inspector: "inspector",
+    timelinePanel: "timeline", analyticsPanel: "analytics",
+    heatmapPanel: "heatmap", confidencePanel: "confidence",
+    wordcloudPanel: "wordcloud", sourcemapPanel: "sourcemap",
+  };
+  return map[id] === target;
+}
+
 function initTabs(): void {
   document.querySelectorAll<HTMLButtonElement>(".tab").forEach((t) => {
     t.addEventListener("click", () => {
-      document.querySelectorAll(".tab").forEach((x) =>
-        x.classList.toggle("on", x === t)
-      );
       const target = t.dataset.t || "report";
-      $("report").classList.toggle("hidden", target !== "report");
-      $("graph").classList.toggle("hidden", target !== "graph");
-      $("inspector").classList.toggle("hidden", target !== "inspector");
-      $("timelinePanel").classList.toggle("hidden", target !== "timeline");
-
-      if (target === "graph" && current) drawGraph(current, $("graph"));
-      if (target === "inspector" && current) renderInspector(current, $("inspector"));
+      switchTab(target);
     });
   });
 }
@@ -451,9 +523,18 @@ function showReport(d: ReportData): void {
   $("dl").classList.remove("hidden");
   $("exportMenu").classList.remove("hidden");
 
-  // Update inspector & graph if visible
+  // Update visible panels
   if (!$("graph").classList.contains("hidden")) drawGraph(d, $("graph"));
   if (!$("inspector").classList.contains("hidden")) renderInspector(d, $("inspector"));
+  if (!$("analyticsPanel").classList.contains("hidden")) renderAnalytics(d, $("analyticsPanel"));
+  if (!$("heatmapPanel").classList.contains("hidden")) renderHeatmap(d, $("heatmapPanel"));
+  if (!$("confidencePanel").classList.contains("hidden")) renderConfidence(d, $("confidencePanel"));
+  if (!$("wordcloudPanel").classList.contains("hidden")) renderWordCloud(d, $("wordcloudPanel"));
+  if (!$("sourcemapPanel").classList.contains("hidden")) renderSourceMap(d, $("sourcemapPanel"));
+
+  // Reading progress
+  setReadingContent(words);
+  announce(`Research report loaded: ${d.question}`);
 }
 
 // ── Export options ─────────────────────────────────────
@@ -617,6 +698,25 @@ function initChat(): void {
 // ── Download ──────────────────────────────────────────
 function initDownload(): void {
   // Handled in initExportMenu
+}
+
+// ── Trace filter buttons ─────────────────────────────
+function initTraceFilter(): void {
+  document.querySelectorAll<HTMLButtonElement>(".trace-filter-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const filter = btn.dataset.filter || "all";
+      document.querySelectorAll(".trace-filter-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+
+      document.querySelectorAll<HTMLDivElement>(".trace-entry").forEach((entry) => {
+        if (filter === "all") {
+          entry.style.display = "";
+        } else {
+          entry.style.display = entry.dataset.type === filter ? "" : "none";
+        }
+      });
+    });
+  });
 }
 
 // ── History sidebar ───────────────────────────────────
