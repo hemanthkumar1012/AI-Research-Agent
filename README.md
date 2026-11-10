@@ -49,6 +49,26 @@ python -m research_agent "What is the current state of solid-state batteries for
 
 Options: `--rounds 3` (more gap-filling), `--sources 15`, `--out my_reports`.
 
+### Web UI (live agent trace)
+
+```bash
+python -m research_agent.server      # open http://localhost:8000
+```
+
+The left panel streams every step over Server-Sent Events (plan, searches, sources found,
+gap-filling, verification progress); the right panel renders the final report with its
+citation-quality score. No web framework needed — it runs on the standard library.
+
+### Evaluation harness
+
+```bash
+python -m research_agent.evaluate evals/questions.json --limit 3
+```
+
+Runs the agent over a fixed question set and writes `evals/results/results.md` with
+micro-averaged **citation precision**, **unsupported-claim rate**, sources and latency per
+question — so prompt or model changes can be compared with numbers instead of vibes.
+
 ## Project layout
 
 | File | Role |
@@ -59,6 +79,8 @@ Options: `--rounds 3` (more gap-filling), `--sources 15`, `--out my_reports`.
 | `research_agent/fetch.py` | Page fetching, text extraction, BM25 passage ranking |
 | `research_agent/prompts.py` | All prompts in one place |
 | `research_agent/cli.py` | Command-line interface with live progress |
+| `research_agent/server.py` + `static/index.html` | Streaming web UI (SSE) |
+| `research_agent/evaluate.py` + `evals/` | Evaluation harness and question set |
 | `tests/` | Offline tests using fake LLM and search |
 
 ## Tests
@@ -72,6 +94,6 @@ pip install pytest && pytest -q
 - [x] Plan → search → read → write → verify pipeline
 - [x] Multi-round gap filling
 - [x] Citation precision scoring
-- [ ] Web UI with live streaming of the agent's steps
-- [ ] Evaluation harness over a fixed question set
+- [x] Web UI with live streaming of the agent's steps
+- [x] Evaluation harness over a fixed question set
 - [ ] Auto-rewrite of unsupported claims

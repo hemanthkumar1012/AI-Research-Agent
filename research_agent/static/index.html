@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Research Agent</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  :root{--bg:#0d1017;--panel:#151a24;--line:#232b3a;--text:#e6e9ef;--dim:#8a93a6;--acc:#7aa2ff;--ok:#4cc38a;--warn:#e5b454;--bad:#ef6b6b}
+  *{box-sizing:border-box}body{margin:0;font:15px/1.6 system-ui,sans-serif;background:var(--bg);color:var(--text)}
+  header{padding:28px 24px 8px;max-width:1200px;margin:auto}h1{margin:0;font-size:22px}header p{margin:4px 0 0;color:var(--dim)}
+  form{display:flex;gap:8px;max-width:1200px;margin:16px auto;padding:0 24px}
+  input{flex:1;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--text);font-size:15px}
+  button{padding:12px 20px;border:0;border-radius:10px;background:var(--acc);color:#0b1020;font-weight:600;cursor:pointer}button:disabled{opacity:.5}
+  main{display:grid;grid-template-columns:340px 1fr;gap:16px;max-width:1200px;margin:auto;padding:0 24px 40px}
+  @media(max-width:860px){main{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .card h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin:0 0 10px}
+  #log div{padding:4px 0;border-bottom:1px dashed var(--line);font-size:13.5px;word-break:break-word}
+  #log a{color:var(--acc)} .score{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+  .pill{padding:4px 10px;border-radius:99px;font-size:13px;background:#1d2433}.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+  #report a{color:var(--acc)} #report h2{border-bottom:1px solid var(--line);padding-bottom:4px}
+  .empty{color:var(--dim)}
+</style>
+</head>
+<body>
+<header><h1>🔬 AI Research Agent</h1><p>Plans, searches, reads, writes a cited report, then fact-checks every citation.</p></header>
+<form id="f"><input id="q" placeholder="Ask a research question…" required><button id="b">Research</button></form>
+<main>
+  <section class="card"><h2>Agent trace</h2><div id="log" class="empty">Steps will stream here.</div></section>
+  <section class="card"><h2>Report</h2><div id="score"></div><div id="report" class="empty">Your report will appear here.</div></section>
+</main>
+<script>
+const $=id=>document.getElementById(id), log=$('log');
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function add(html){if(log.classList.contains('empty')){log.innerHTML='';log.classList.remove('empty')}
+  const d=document.createElement('div');d.innerHTML=html;log.appendChild(d);log.scrollTop=log.scrollHeight}
+$('f').onsubmit=e=>{
+  e.preventDefault();$('b').disabled=true;log.innerHTML='';$('score').innerHTML='';
+  $('report').innerHTML='<span class="empty">Researching…</span>';
+  const es=new EventSource('/api/research?q='+encodeURIComponent($('q').value));
+  const on=(k,f)=>es.addEventListener(k,ev=>f(JSON.parse(ev.data)));
+  on('status',d=>add('• '+esc(d.message)));
+  on('plan',d=>add('🧭 <b>Plan</b><br>'+d.subquestions.map(s=>'– '+esc(s.question)).join('<br>')));
+  on('search',d=>add('🔎 '+esc(d.query)));
+  on('source',d=>add(`📄 [${d.id}] <a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.title)}</a>`));
+  on('gaps',d=>add('🕳️ Filling gaps: '+d.queries.map(esc).join('; ')));
+  on('verify',d=>add(`✅ Checked ${d.checked}/${d.total} claims`));
+  on('report',d=>{const s=d.score;
+    $('score').innerHTML=`<div class="score"><span class="pill">Precision <b>${Math.round(s.citation_precision*100)}%</b></span>
+      <span class="pill ok">${s.supported} supported</span><span class="pill warn">${s.partial} partial</span><span class="pill bad">${s.unsupported} unsupported</span></div>`;
+    $('report').classList.remove('empty');$('report').innerHTML=marked.parse(d.markdown);
+    $('report').querySelectorAll('a').forEach(a=>{a.target='_blank';a.rel='noopener'});done()});
+  on('error',d=>{add('<span class="bad">✖ '+esc(d.message)+'</span>');$('report').innerHTML='';done()});
+  es.onerror=()=>done();
+  function done(){es.close();$('b').disabled=false}
+};
+</script>
+</body>
+</html>
