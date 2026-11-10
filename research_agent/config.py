@@ -33,7 +33,9 @@ class Config:
     candidate_passages: int = 6              # BM25 candidates per source before reranking
     use_cache: bool = True
     detect_conflicts: bool = True
-    read_full_papers: bool = True            # fetch full arXiv PDFs, not just abstracts            # cross-source contradiction analysis
+    read_full_papers: bool = True
+    stream: bool = True                      # stream the writer's tokens to the UI
+    max_tokens: int = 0                      # token budget per run (0 = unlimited)            # fetch full arXiv PDFs, not just abstracts            # cross-source contradiction analysis
     extra: dict = field(default_factory=dict)
 
     @classmethod
@@ -48,6 +50,7 @@ class Config:
             max_revisions=int(os.getenv("MAX_REVISIONS", cls.max_revisions)),
             use_embeddings=os.getenv("USE_EMBEDDINGS", "1") != "0",
             use_cache=os.getenv("USE_CACHE", "1") != "0",
+            max_tokens=int(os.getenv("MAX_TOKENS", "0")),
         )
 
 

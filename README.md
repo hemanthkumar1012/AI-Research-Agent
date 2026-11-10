@@ -37,6 +37,11 @@ it cites, flagged claims are rewritten, and each report ships with a measurable
 | 🏷️ **Credibility scoring** | Sources are ranked user > high > medium > low, and claims backed only by weak sources are attributed. |
 | 💬 **Follow-up Q&A** | Chat with a finished report. Answers come from the same sources and are citation-checked too. |
 | 📊 **Evaluation harness** | Measures citation precision, unsupported rate and LLM-as-judge quality, with an ablation mode. |
+| 🔬 **Atomic-fact verification** | Each claim is decomposed into atomic facts, individually grounded against source quotes, and scored for **fact precision**. |
+| 📡 **Live streaming** | Watch the report being written token by token in the web UI — no waiting for the complete answer. |
+| 📊 **Interactive citation graph** | Bipartite SVG graph of sources ↔ claims; click any node to see atomic facts with source quotes. |
+| 🕐 **Recency awareness** | Time-sensitive questions sort sources newest-first; publication dates are extracted from HTML meta tags, JSON-LD and `<time>` elements. |
+| 💰 **Token budget guard** | Set `MAX_TOKENS` to cap spend; the agent skips gap-filling, conflicts and self-correction once the budget is reached. |
 | ⚡ **Cost-aware** | A SQLite cache for LLM calls, embeddings and pages, plus per-run token accounting and depth presets. |
 
 ## 🏗️ Architecture
@@ -72,25 +77,27 @@ a failure. That is deliberate.
 ```bash
 git clone https://github.com/hemanthkumar1012/AI-Research-Agent
 cd AI-Research-Agent
-pip install -r requirements.txt
-cp .env.example .env        # add GEMINI_API_KEY (free at aistudio.google.com)
+pip install .                # or: pip install ".[pdf]" for PDF support
+cp .env.example .env         # add GEMINI_API_KEY (free at aistudio.google.com)
 ```
 
 **Web UI**
 
 ```bash
-python -m research_agent.server        # → http://localhost:8000
+research-agent-server                  # → http://localhost:8000
+# or: python -m research_agent.server
 ```
 
 **Command line**
 
 ```bash
-python -m research_agent "What is the current state of solid-state batteries for EVs?"
-python -m research_agent "How safe are GLP-1 drugs?" --depth deep
-python -m research_agent "Summarise the risks in this contract" --files contract.pdf notes.md
+research-agent "What is the current state of solid-state batteries for EVs?"
+research-agent "How safe are GLP-1 drugs?" --depth deep
+research-agent "Summarise the risks in this contract" --files contract.pdf notes.md
+research-agent "Latest EU AI Act updates" --max-tokens 50000   # cap spend
 
-python -m research_agent list                 # saved reports
-python -m research_agent ask <report-id>      # interactive follow-up questions
+research-agent list                 # saved reports
+research-agent ask <report-id>      # interactive follow-up questions
 ```
 
 **Docker**
@@ -111,6 +118,7 @@ docker build -t research-agent . && docker run -p 8000:8000 --env-file .env rese
 | `--no-embeddings` | – | BM25 only |
 | `--no-conflicts` | – | Skip contradiction analysis |
 | `--no-cache` | – | Bypass the SQLite cache |
+| `--max-tokens N` | 0 (off) | Token budget; skips optional stages once reached |
 
 | Depth | Sub-questions | Sources | Rounds | Revisions | Full papers | Conflicts |
 |---|---|---|---|---|---|---|
@@ -147,7 +155,7 @@ Comparing the two runs shows how much self-correction improves grounding.
 | `research_agent/store.py` | Saved reports for history and follow-ups |
 | `research_agent/server.py` + `static/` | Streaming web UI (SSE), uploads, chat |
 | `research_agent/evaluate.py` + `evals/` | Evaluation harness and question set |
-| `tests/` | 24 offline tests with fake LLM and search (no API key needed) |
+| `tests/` | 36 offline tests with fake LLM and search (no API key needed) |
 
 ## 🧪 Tests
 
@@ -166,8 +174,14 @@ including a hand-built PDF and a live in-process HTTP server for the SSE, upload
 - [x] arXiv full-text PDFs, Wikipedia, user document uploads
 - [x] Contradiction detection, follow-up Q&A, report history
 - [x] Eval harness with ablation and LLM-as-judge, CI, Docker
+- [x] Atomic-fact decomposition (FActScore-style) with per-fact source quotes
+- [x] Live token streaming in web UI
+- [x] Interactive citation graph (bipartite sources ↔ claims with drill-down)
+- [x] Recency-aware source ranking for time-sensitive queries
+- [x] Token budget guard (`--max-tokens`)
+- [x] Installable as `pip install .` with `research-agent` CLI
 - [ ] Public hosted demo
-- [ ] Citation-graph view of sources ↔ claims
+- [ ] Multi-agent debate for controversial topics
 
 ---
 

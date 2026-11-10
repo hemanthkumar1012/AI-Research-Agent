@@ -9,7 +9,7 @@ from typing import Callable
 from . import prompts
 from .config import Config
 from .credibility import RANK, credibility
-from .fetch import fetch_text, read_local, top_passages
+from .fetch import fetch_doc, read_local, top_passages
 from .search import Searcher
 
 Event = Callable[[str, dict], None]
@@ -24,6 +24,7 @@ class Source:
     passages: list[str] = field(default_factory=list)
     credibility: str = "medium"
     relevance: float = 0.0
+    date: str = ""
 
 
 @dataclass
@@ -33,6 +34,7 @@ class Claim:
     cites: list[int]
     label: str = "unchecked"
     reason: str = ""
+    facts: list[dict] = field(default_factory=list)   # atomic facts with evidence quotes
 
 
 @dataclass
@@ -47,6 +49,7 @@ class Report:
     conflicts: list[dict] = field(default_factory=list)
     plan: list[dict] = field(default_factory=list)
     body: str = ""                                       # report without appendix
+    time_sensitive: bool = False
 
     @property
     def score(self) -> dict:
@@ -55,6 +58,10 @@ class Report:
              for k in ("supported", "partial", "unsupported")}
         c["citation_precision"] = round((c["supported"] + 0.5 * c["partial"]) / n, 3)
         c["claims"] = len(self.claims)
+        facts = [f for cl in self.claims for f in cl.facts]
+        c["facts"] = len(facts)
+        c["fact_precision"] = round(sum(bool(f.get("supported")) for f in facts) / len(facts), 3) \
+            if facts else None
         return c
 
     def to_dict(self) -> dict:
@@ -62,14 +69,14 @@ class Report:
                 "sources": [asdict(s) for s in self.sources],
                 "claims": [asdict(c) for c in self.claims], "revisions": self.revisions,
                 "history": self.history, "usage": self.usage, "conflicts": self.conflicts,
-                "plan": self.plan, "body": self.body}
+                "plan": self.plan, "body": self.body, "time_sensitive": self.time_sensitive}
 
     @classmethod
     def from_dict(cls, d: dict) -> "Report":
         return cls(d["question"], d["markdown"], [Source(**s) for s in d.get("sources", [])],
                    [Claim(**c) for c in d.get("claims", [])], d.get("revisions", 0),
                    d.get("history", []), d.get("usage", {}), d.get("conflicts", []),
-                   d.get("plan", []), d.get("body", ""))
+                   d.get("plan", []), d.get("body", ""), d.get("time_sensitive", False))
 
 
 def build_agent(cfg: Config, on_event: Event | None = None) -> "ResearchAgent":
@@ -85,16 +92,33 @@ def build_agent(cfg: Config, on_event: Event | None = None) -> "ResearchAgent":
 
 class ResearchAgent:
     def __init__(self, llm, searcher: Searcher, config: Config, on_event: Event | None = None,
-                 fetcher=fetch_text):
+                 fetcher=fetch_doc):
         self.llm, self.searcher, self.cfg = llm, searcher, config
         self.emit = on_event or (lambda kind, data: None)
-        self.fetch = fetcher
+        self._fetcher = fetcher
+        self.time_sensitive = False
+
+    def fetch(self, url: str, timeout: int = 20) -> tuple[str, str]:
+        """Accept fetchers returning either text or (text, date)."""
+        out = self._fetcher(url, timeout=timeout)
+        return out if isinstance(out, tuple) else (out or "", "")
+
+    def over_budget(self) -> bool:
+        used = getattr(self.llm, "tokens_used", 0)
+        return bool(self.cfg.max_tokens) and isinstance(used, int) and used >= self.cfg.max_tokens
+
+    def _skip_for_budget(self, step: str) -> bool:
+        if self.over_budget():
+            self.emit("budget", {"message": f"Token budget reached; skipping {step}",
+                                 "used": self.llm.tokens_used, "limit": self.cfg.max_tokens})
+            return True
+        return False
 
     # ---------- public ----------
     def run(self, question: str, files: list[str] | None = None) -> Report:
         self.emit("status", {"message": "Planning research"})
         plan = self.plan(question)
-        self.emit("plan", {"subquestions": plan})
+        self.emit("plan", {"subquestions": plan, "time_sensitive": self.time_sensitive})
 
         sources: list[Source] = []
         seen: set[str] = set()
@@ -104,6 +128,8 @@ class ResearchAgent:
         for rnd in range(self.cfg.max_rounds):
             self.gather(queries, question, sources, seen)
             if rnd == self.cfg.max_rounds - 1 or len(sources) >= self.cfg.max_sources:
+                break
+            if self._skip_for_budget("gap filling"):
                 break
             gaps = self.find_gaps(question, sources)
             if not gaps:
@@ -115,7 +141,9 @@ class ResearchAgent:
             raise RuntimeError("No usable sources found. Try rephrasing the question.")
 
         sources = self.finalize_sources(question, sources)
-        conflicts = self.find_conflicts(question, sources) if self.cfg.detect_conflicts else []
+        conflicts = (self.find_conflicts(question, sources)
+                     if self.cfg.detect_conflicts and not self._skip_for_budget("conflict analysis")
+                     else [])
 
         self.emit("status", {"message": f"Writing report from {len(sources)} sources"})
         body = self.write(question, sources, conflicts)
@@ -126,7 +154,7 @@ class ResearchAgent:
         revisions = 0
         while revisions < self.cfg.max_revisions:
             flagged = [c for c in claims if c.label in ("partial", "unsupported")]
-            if not flagged:
+            if not flagged or self._skip_for_budget("self-correction"):
                 break
             revisions += 1
             self.emit("revise", {"round": revisions, "flagged": len(flagged)})
@@ -142,7 +170,7 @@ class ResearchAgent:
 
         report = Report(question, self.annotate(body, claims, sources), sources, claims,
                         revisions, history, dict(getattr(self.llm, "usage", {})), conflicts,
-                        plan, body)
+                        plan, body, self.time_sensitive)
         self.emit("done", {"score": report.score, "revisions": revisions, "history": history})
         return report
 
@@ -151,6 +179,7 @@ class ResearchAgent:
         data = self.llm.generate_json(prompts.PLAN.format(
             n=self.cfg.max_subquestions, question=question, today=date.today()),
             self.cfg.fast_model)
+        self.time_sensitive = bool(data.get("time_sensitive"))
         subs = [s for s in data.get("subquestions", []) if s.get("query")]
         for sq in subs:
             if sq.get("source") not in ("web", "academic", "encyclopedic"):
@@ -180,27 +209,33 @@ class ResearchAgent:
 
         def read(item):
             sub_q, r = item
-            text = ""
+            text, date = "", getattr(r, "date", "")
             if r.pdf_url and self.cfg.read_full_papers:
-                text = self.fetch(r.pdf_url, timeout=self.cfg.request_timeout * 2)
+                text, _ = self.fetch(r.pdf_url, timeout=self.cfg.request_timeout * 2)
                 if len(text) > 2000:
                     self.emit("status", {"message": f"Read full paper: {r.title[:60]}"})
                     text = (r.content + "\n" + text) if r.content else text
-            text = text or r.content or self.fetch(r.url, timeout=self.cfg.request_timeout)
+                else:
+                    text = ""
+            if not text and r.content:
+                text = r.content
+            if not text:
+                text, page_date = self.fetch(r.url, timeout=self.cfg.request_timeout)
+                date = date or page_date
             if len(text) < 200:
                 text = (text + "\n" + r.snippet).strip()
             k = self.cfg.candidate_passages if self._can_embed() else self.cfg.passages_per_source
             passages = top_passages(text, f"{question} {sub_q}", k, self.cfg.passage_chars)
-            return r, passages
+            return r, passages, date
 
         with ThreadPoolExecutor(max_workers=8) as pool:
-            for r, passages in pool.map(read, candidates):
+            for r, passages, date in pool.map(read, candidates):
                 if passages and len(sources) < self.cfg.max_sources:
                     src = Source(len(sources) + 1, r.title or r.url, r.url, passages,
-                                 credibility(r.url))
+                                 credibility(r.url), date=date)
                     sources.append(src)
                     self.emit("source", {"id": src.id, "title": src.title, "url": src.url,
-                                         "credibility": src.credibility})
+                                         "credibility": src.credibility, "date": src.date})
 
     def add_local(self, files, question, plan, sources: list[Source], seen: set[str]) -> None:
         """User-supplied documents become first-class sources (credibility: user)."""
@@ -252,7 +287,12 @@ class ResearchAgent:
                 self.emit("status", {"message": f"Embedding rerank skipped ({e})"})
                 for s in sources:
                     s.passages = s.passages[: self.cfg.passages_per_source]
-        sources.sort(key=lambda s: RANK.get(s.credibility, 1))
+        if self.time_sensitive:
+            # newest first within each credibility tier; undated sources last
+            sources.sort(key=lambda s: (RANK.get(s.credibility, 2),
+                                        -int(s.date.replace("-", "") or 0)))
+        else:
+            sources.sort(key=lambda s: RANK.get(s.credibility, 2))
         for i, s in enumerate(sources, 1):
             s.id = i
         return sources
@@ -291,12 +331,12 @@ class ResearchAgent:
 
     def revise(self, body: str, flagged: list[Claim], sources: list[Source]) -> str:
         items = "\n".join(f"- ({c.label}) \"{c.text}\" cites {c.cites}: {c.reason}" for c in flagged)
-        return self.llm.generate(prompts.REVISE.format(
-            flagged=items, sources=self._source_block(sources), report=body),
-            self.cfg.writer_model, system=prompts.WRITE_SYSTEM).strip()
+        return self._compose(prompts.REVISE.format(
+            flagged=items, sources=self._source_block(sources), report=body), "revision")
 
     def _source_block(self, sources: list[Source]) -> str:
-        return "\n\n".join(f"[{s.id}] {s.title} ({s.url}) — credibility: {s.credibility}\n"
+        return "\n\n".join(f"[{s.id}] {s.title} ({s.url}) — credibility: {s.credibility}"
+                            + (f", published {s.date}" if s.date else "") + "\n"
                             + "\n---\n".join(s.passages) for s in sources)
 
     def find_gaps(self, question: str, sources: list[Source]) -> list[str]:
@@ -308,6 +348,18 @@ class ResearchAgent:
         except Exception:
             return []
 
+    def _compose(self, prompt: str, phase: str) -> str:
+        """Writer call; streams tokens to listeners when the client supports it."""
+        stream = getattr(self.llm, "stream", None)
+        if self.cfg.stream and callable(stream):
+            self.emit("writing", {"phase": phase})
+            chunks = []
+            for chunk in stream(prompt, self.cfg.writer_model, system=prompts.WRITE_SYSTEM):
+                chunks.append(chunk)
+                self.emit("token", {"text": chunk})
+            return "".join(chunks).strip()
+        return self.llm.generate(prompt, self.cfg.writer_model, system=prompts.WRITE_SYSTEM).strip()
+
     def write(self, question: str, sources: list[Source], conflicts: list[dict] | None = None) -> str:
         cblock = ""
         if conflicts:
@@ -315,10 +367,9 @@ class ResearchAgent:
                 f"- {c['topic']}: " + "; ".join(f"[{p['source']}] {p['says']}" for p in c["positions"])
                 + (f" (assessment: {c['assessment']})" if c.get("assessment") else "")
                 for c in conflicts) + "\n"
-        return self.llm.generate(prompts.WRITE.format(question=question,
-                                                      sources=self._source_block(sources),
-                                                      conflicts=cblock),
-                                 self.cfg.writer_model, system=prompts.WRITE_SYSTEM).strip()
+        return self._compose(prompts.WRITE.format(question=question,
+                                                  sources=self._source_block(sources),
+                                                  conflicts=cblock), "draft")
 
     def verify(self, body: str, sources: list[Source]) -> list[Claim]:
         claims = extract_claims(body, len(sources))
@@ -341,6 +392,11 @@ class ResearchAgent:
                 r = results.get(c.id)
                 if r and r.get("label") in ("supported", "partial", "unsupported"):
                     c.label, c.reason = r["label"], r.get("reason", "")
+                    c.facts = clean_facts(r.get("facts"), c.cites)
+                    if c.facts:   # derive the label from atomic facts for consistency
+                        ok = sum(f["supported"] for f in c.facts)
+                        c.label = ("supported" if ok == len(c.facts) and c.label != "partial"
+                                   else "unsupported" if ok == 0 else "partial")
             self.emit("verify", {"checked": min(start + 12, len(claims)), "total": len(claims)})
         return claims
 
@@ -350,13 +406,28 @@ class ResearchAgent:
                  "## Citation check",
                  f"{s['supported']} supported · {s['partial']} partial · "
                  f"{s['unsupported']} unsupported out of {s['claims']} cited claims "
-                 f"(citation precision **{s['citation_precision']:.0%}**).", ""]
+                 f"(citation precision **{s['citation_precision']:.0%}**"
+                 + (f", atomic-fact precision **{s['fact_precision']:.0%}** over {s['facts']} facts"
+                    if s.get("fact_precision") is not None else "") + ").", ""]
         flagged = [c for c in claims if c.label in ("partial", "unsupported")]
         for c in flagged:
             lines.append(f"- ⚠️ *{c.label}*: “{c.text[:160]}” — {c.reason}")
         lines += ["", "## Sources"] + [f"{x.id}. [{x.title}]({x.url}) · _{x.credibility} credibility_"
                                        for x in sources]
         return "\n".join(lines)
+
+
+def clean_facts(raw, cites: list[int]) -> list[dict]:
+    """Validate the verifier's atomic facts; drop malformed entries."""
+    out = []
+    for f in raw or []:
+        if not isinstance(f, dict) or not str(f.get("fact", "")).strip():
+            continue
+        src = f.get("source")
+        out.append({"fact": str(f["fact"]).strip()[:300], "supported": bool(f.get("supported")),
+                    "source": src if isinstance(src, int) and src in cites else None,
+                    "quote": str(f.get("quote") or "")[:300]})
+    return out[:6]
 
 
 def cosine(a: list[float], b: list[float]) -> float:

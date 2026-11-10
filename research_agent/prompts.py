@@ -6,7 +6,10 @@ Today's date: {today}.
 
 Question: {question}
 
-Return JSON: {{"subquestions": [{{"question": "...", "query": "...", "source": "web|academic|encyclopedic"}}]}}"""
+Also decide whether the question is time-sensitive (prices, current status, latest
+results, recent events, "now", "this year") so recent sources should be preferred.
+
+Return JSON: {{"time_sensitive": true|false, "subquestions": [{{"question": "...", "query": "...", "source": "web|academic|encyclopedic"}}]}}"""
 
 GAPS = """You are reviewing research notes for the question below.
 Question: {question}
@@ -22,7 +25,9 @@ provided. Every factual sentence must end with citations like [1] or [2][4] poin
 the source(s) that support it. Never cite a source for something it does not say. If the
 sources disagree, say so. If something is unknown from the sources, say that plainly
 instead of guessing. Each source is tagged with a credibility level ("user" means a document the user supplied —
-treat it as primary material and say when web sources agree or disagree with it). Prefer high-credibility
+treat it as primary material and say when web sources agree or disagree with it). Sources may
+carry a publication date: for time-sensitive points prefer the newest source and mention dates
+("as of 2025, …"). Prefer high-credibility
 sources for key facts, and attribute claims that rest only on low-credibility sources
 ("according to a forum post…")."""
 
@@ -39,14 +44,18 @@ Write a well-structured Markdown report:
 - End with "## Open questions" listing what the sources could not settle.
 Do not add a references list; it is appended automatically."""
 
-VERIFY = """You are a strict fact-checker. For each claim, decide whether the cited source
-passages actually support it.
+VERIFY = """You are a strict fact-checker using atomic-fact decomposition.
+For each claim:
+1. Split it into its atomic facts (single, independently checkable statements; usually 1-4).
+2. For each fact, decide if the cited passages support it, and copy the shortest exact
+   supporting quote from a passage (<= 25 words) — or "" if none.
+3. Overall label: "supported" if every fact is supported, "unsupported" if none are,
+   otherwise "partial" (also use "partial" when the claim overstates the source).
 
 {items}
 
-Labels: "supported" (passages clearly state it), "partial" (some of it is supported,
-or it overstates the source), "unsupported" (passages do not say this).
-Return JSON: {{"results": [{{"id": <int>, "label": "...", "reason": "<= 20 words"}}]}}"""
+Return JSON: {{"results": [{{"id": <int>, "label": "...", "reason": "<= 20 words",
+"facts": [{{"fact": "...", "supported": true, "source": <int or null>, "quote": "..."}}]}}]}}"""
 
 REVISE = """A fact-checker found problems in your report. Rewrite the FULL report so every
 claim is supported by the numbered sources.

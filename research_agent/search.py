@@ -22,6 +22,7 @@ class SearchResult:
     snippet: str = ""
     content: str = ""   # Tavily / arXiv / Wikipedia return text directly
     pdf_url: str = ""   # full text to try first (e.g. arXiv papers)
+    date: str = ""      # YYYY-MM-DD when the provider knows it
 
 
 class Searcher:
@@ -74,7 +75,7 @@ class Searcher:
         })
         r.raise_for_status()
         return [SearchResult(x.get("title", ""), x["url"], x.get("content", ""),
-                             x.get("raw_content") or "")
+                             x.get("raw_content") or "", date=(x.get("published_date") or "")[:10])
                 for x in r.json().get("results", [])]
 
     def _duckduckgo(self, query: str, k: int) -> list[SearchResult]:
@@ -117,5 +118,6 @@ def parse_arxiv(xml: str) -> list[SearchResult]:
         if not pdf and "/abs/" in url:
             pdf = url.replace("/abs/", "/pdf/")
         out.append(SearchResult(f"{title} (arXiv {year})", url, summary[:200], content,
-                                pdf.replace("http://", "https://")))
+                                pdf.replace("http://", "https://"),
+                                (e.findtext("a:published", "", ns) or "")[:10]))
     return out

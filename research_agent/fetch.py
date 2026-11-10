@@ -24,26 +24,55 @@ def set_cache(cache) -> None:
 
 
 def fetch_text(url: str, timeout: int = 20, max_chars: int = 60_000) -> str:
-    if _cache is not None and (hit := _cache.get(_cache.key("page", url))) is not None:
-        return hit
-    text = _fetch(url, timeout, max_chars)
-    if _cache is not None and text:
-        _cache.set(_cache.key("page", url), text)
-    return text
+    return fetch_doc(url, timeout, max_chars)[0]
 
 
-def _fetch(url: str, timeout: int, max_chars: int) -> str:
+def fetch_doc(url: str, timeout: int = 20, max_chars: int = 60_000) -> tuple[str, str]:
+    """Return (text, publication date as YYYY-MM-DD or "")."""
+    key = _cache.key("page2", url) if _cache is not None else None
+    if key and (hit := _cache.get(key)) is not None:
+        return hit["text"], hit.get("date", "")
+    text, date = _fetch(url, timeout, max_chars)
+    if key and text:
+        _cache.set(key, {"text": text, "date": date})
+    return text, date
+
+
+def _fetch(url: str, timeout: int, max_chars: int) -> tuple[str, str]:
     try:
         r = requests.get(url, headers=UA, timeout=timeout)
         r.raise_for_status()
         ctype = r.headers.get("content-type", "html").lower()
         if "pdf" in ctype or url.lower().split("?")[0].endswith(".pdf"):
-            return pdf_text(r.content)[:max_chars]
+            return pdf_text(r.content)[:max_chars], ""
         if "html" not in ctype and "text" not in ctype:
-            return ""
-        return extract_text(r.text)[:max_chars]
+            return "", ""
+        return extract_text(r.text)[:max_chars], extract_date(r.text)
     except requests.RequestException:
-        return ""
+        return "", ""
+
+
+_DATE = re.compile(r"(19|20)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])")
+
+
+def extract_date(html: str) -> str:
+    """Best-effort publication date from meta tags, JSON-LD or <time>."""
+    soup = BeautifulSoup(html, "html.parser")
+    for attr, names in (("property", ("article:published_time", "og:published_time")),
+                        ("name", ("date", "pubdate", "publish-date", "citation_publication_date",
+                                  "dc.date", "article:published_time"))):
+        for n in names:
+            tag = soup.find("meta", attrs={attr: n})
+            if tag and (m := _DATE.search(tag.get("content", "").replace("/", "-"))):
+                return m.group(0)
+    for script in soup.find_all("script", type="application/ld+json"):
+        m = re.search(r'"datePublished"\s*:\s*"([^"]+)"', script.string or "")
+        if m and (d := _DATE.search(m.group(1))):
+            return d.group(0)
+    t = soup.find("time", attrs={"datetime": True})
+    if t and (m := _DATE.search(t["datetime"])):
+        return m.group(0)
+    return ""
 
 
 def pdf_text(data: bytes, max_pages: int = 40) -> str:

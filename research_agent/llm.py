@@ -46,6 +46,48 @@ class GeminiClient:
         self.cache.set(ck, text)
         return text
 
+    def stream(self, prompt: str, model: str, *, system: str | None = None,
+               temperature: float = 0.3):
+        """Yield text chunks as Gemini generates them (SSE). Cached results replay at once."""
+        body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": temperature}}
+        if system:
+            body["systemInstruction"] = {"parts": [{"text": system}]}
+        ck = self.cache.key("gen", model, body)
+        if (hit := self.cache.get(ck)) is not None:
+            self.usage["cached"] += 1
+            yield hit
+            return
+        url = BASE + f"{model}:streamGenerateContent?alt=sse"
+        parts, meta = [], {}
+        try:
+            with requests.post(url, json=body, timeout=self.timeout, stream=True,
+                               headers={"x-goog-api-key": self.api_key}) as r:
+                r.raise_for_status()
+                for line in r.iter_lines(decode_unicode=True):
+                    if not line or not line.startswith("data:"):
+                        continue
+                    data = json.loads(line[5:])
+                    meta = data.get("usageMetadata", meta)
+                    for c in data.get("candidates", [])[:1]:
+                        for p in c.get("content", {}).get("parts", []):
+                            if p.get("text"):
+                                parts.append(p["text"])
+                                yield p["text"]
+        except (requests.RequestException, ValueError):
+            if not parts:      # nothing streamed yet: fall back to a normal request
+                yield self.generate(prompt, model, system=system, temperature=temperature)
+                return
+            # otherwise keep the partial text rather than throwing away a long answer
+        self.usage["calls"] += 1
+        self.usage["input_tokens"] += meta.get("promptTokenCount", 0)
+        self.usage["output_tokens"] += meta.get("candidatesTokenCount", 0)
+        self.cache.set(ck, "".join(parts))
+
+    @property
+    def tokens_used(self) -> int:
+        return self.usage["input_tokens"] + self.usage["output_tokens"]
+
     def _parse_text(self, data: dict) -> str:
         meta = data.get("usageMetadata", {})
         self.usage["calls"] += 1

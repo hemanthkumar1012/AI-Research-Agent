@@ -12,17 +12,23 @@ from .config import PRESETS, Config, apply_preset
 from .store import ReportStore
 
 ICON = {"status": "•", "plan": "🧭", "search": "🔎", "source": "📄", "gaps": "🕳️",
-        "verify": "✅", "revise": "✍️", "conflicts": "⚖️", "done": "🏁"}
+        "verify": "✅", "revise": "✍️", "conflicts": "⚖️", "writing": "📝", "budget": "💸", "done": "🏁"}
 
 
 def log(kind: str, data: dict) -> None:
-    if kind == "plan":
-        msg = "Plan:\n" + "\n".join(f"    - [{s.get('source', 'web')}] {s['question']}"
+    if kind == "token":
+        return   # the finished report is printed at the end
+    if kind == "writing":
+        msg = "Drafting report (streaming)…" if data["phase"] == "draft" else "Streaming revision…"
+    elif kind == "plan":
+        msg = ("Plan" + (" (time-sensitive: preferring recent sources)" if data.get("time_sensitive")
+                         else "") + ":\n" + "\n".join(f"    - [{s.get('source', 'web')}] {s['question']}"
                                     for s in data["subquestions"])
     elif kind == "search":
         msg = f"Searching ({data.get('kind', 'web')}): {data['query']}"
     elif kind == "source":
-        msg = f"[{data['id']}] {data['title'][:80]} ({data.get('credibility', '?')})"
+        date = f", {data['date']}" if data.get("date") else ""
+        msg = f"[{data['id']}] {data['title'][:80]} ({data.get('credibility', '?')}{date})"
     elif kind == "gaps":
         msg = "Filling gaps: " + "; ".join(data["queries"])
     elif kind == "verify":
@@ -49,6 +55,7 @@ def cmd_research(argv):
     p.add_argument("--no-embeddings", action="store_true", help="BM25 only, skip semantic rerank")
     p.add_argument("--no-conflicts", action="store_true", help="skip contradiction analysis")
     p.add_argument("--no-cache", action="store_true")
+    p.add_argument("--max-tokens", type=int, help="token budget; optional steps are skipped past it")
     p.add_argument("--files", nargs="+", default=[], metavar="PATH",
                    help="your own PDFs / docs to include as primary sources")
     p.add_argument("--out", default="reports", help="output folder")
@@ -62,6 +69,8 @@ def cmd_research(argv):
     cfg.use_embeddings &= not a.no_embeddings
     cfg.detect_conflicts &= not a.no_conflicts
     cfg.use_cache &= not a.no_cache
+    if a.max_tokens is not None:
+        cfg.max_tokens = a.max_tokens
 
     question = " ".join(a.question)
     report = build_agent(cfg, log).run(question, files=a.files)
