@@ -1,0 +1,15 @@
+{
+  "name": "ai-research-agent-frontend",
+  "version": "1.0.0",
+  "description": "Advanced TypeScript frontend for AI Research Agent",
+  "type": "module",
+  "scripts": {
+    "build": "tsc && node build.mjs",
+    "watch": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit --strict"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

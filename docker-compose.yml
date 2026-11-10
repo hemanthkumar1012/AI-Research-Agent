@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - LLM_PROVIDER=gemini
+      - LLM_MODEL=${LLM_MODEL:-gemini-2.5-pro}
+      - PORT=8000
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - reports-data:/app/reports
+      - uploads-data:/app/uploads
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  reports-data:
+  uploads-data:

@@ -13,7 +13,7 @@ from .agent import Report, build_agent
 from .config import PRESETS, Config, apply_preset
 from .store import ReportStore
 
-STATIC = os.path.join(os.path.dirname(__file__), "static", "index.html")
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 UPLOADS = os.getenv("UPLOADS_DIR", "uploads")
 ALLOWED = (".pdf", ".txt", ".md", ".html", ".htm")
 MAX_UPLOAD = 25 * 1024 * 1024
@@ -52,17 +52,44 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def serve_static(self, filename: str):
+        """Serve a file from the static directory with correct MIME type."""
+        safe = os.path.basename(filename)
+        path = os.path.join(STATIC_DIR, safe)
+        if not os.path.isfile(path):
+            return self.send_error(404)
+        ext = os.path.splitext(safe)[1].lower()
+        mime = self.MIME.get(ext, "application/octet-stream")
+        with open(path, "rb") as f:
+            body = f.read()
+        self.send_response(200)
+        self.send_header("Content-Type", mime)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+        self.wfile.write(body)
+
+    # MIME types for static file serving
+    MIME = {
+        ".html": "text/html; charset=utf-8",
+        ".css": "text/css; charset=utf-8",
+        ".js": "application/javascript; charset=utf-8",
+        ".json": "application/json",
+        ".svg": "image/svg+xml",
+        ".png": "image/png",
+        ".ico": "image/x-icon",
+        ".map": "application/json",
+    }
+
     def do_GET(self):
         url = urlparse(self.path)
         qs = parse_qs(url.query)
         if url.path == "/":
-            with open(STATIC, "rb") as f:
-                body = f.read()
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.end_headers()
-            self.wfile.write(body)
-        elif url.path == "/api/research":
+            return self.serve_static("index.html")
+        if url.path.startswith("/static/"):
+            fname = url.path[len("/static/"):]
+            return self.serve_static(fname)
+        if url.path == "/api/research":
             files = [p for t in qs.get("files", [""])[0].split(",") if (p := upload_path(t))]
             self.stream(qs.get("q", [""])[0].strip(), qs.get("depth", ["standard"])[0], files)
         elif url.path == "/api/history":

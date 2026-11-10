@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Research Agent</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔬</text></svg>">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <canvas id="particles"></canvas>
+
+  <div class="shell">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">⚡</div>
+      <div>
+        <h1>AI Research Agent</h1>
+        <div style="font-size:.72rem;color:#68687a;margin-top:2px">Multi-source verified research with citation graphs</div>
+      </div>
+      <small>TypeScript · SSE · Gemini</small>
+    </header>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <h3>Research History</h3>
+      <div id="history" class="empty">No past research yet</div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <!-- Search -->
+      <div class="search-card">
+        <form id="f">
+          <div class="search-row">
+            <input id="q" class="search-input" type="text"
+              placeholder="Ask a research question…" required autocomplete="off">
+            <select id="depth" class="search-select">
+              <option value="standard">Standard</option>
+              <option value="deep">Deep</option>
+              <option value="deeper">Deeper</option>
+            </select>
+            <button id="b" class="search-btn" type="submit">Research</button>
+          </div>
+          <div class="search-meta">
+            <label class="file-label">
+              📎 Attach files
+              <input id="files" type="file" multiple>
+            </label>
+            <span id="filelist" class="filelist"></span>
+            <span class="kbd-hint">Press <kbd>/</kbd> to focus</span>
+          </div>
+        </form>
+      </div>
+
+      <!-- Load bar -->
+      <div id="loadbar" class="loadbar"></div>
+
+      <!-- Trace -->
+      <div class="trace-card">
+        <h3>Research Trace</h3>
+        <div id="log" class="empty">Waiting for a query…</div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab on" data-t="report">Report</button>
+        <button class="tab" data-t="graph">Citation Graph</button>
+      </div>
+
+      <!-- Score -->
+      <div id="score"></div>
+
+      <!-- Report -->
+      <div id="report" class="report-card empty">
+        Your research report will appear here
+      </div>
+
+      <!-- Graph -->
+      <div id="graph" class="graph-container hidden">
+        <div class="empty">Run a research query to see the citation graph</div>
+      </div>
+
+      <!-- Conflicts -->
+      <div id="conflictCard" class="conflict-card hidden">
+        <h3>⚖️ Source Conflicts Detected</h3>
+        <div id="conflicts"></div>
+      </div>
+
+      <!-- Chat -->
+      <div id="chatCard" class="chat-card hidden">
+        <h3>💬 Follow-up Questions</h3>
+        <div id="chat" class="chat-messages"></div>
+        <form id="chatform" class="chat-row">
+          <input id="cq" class="chat-input" type="text" placeholder="Ask a follow-up…">
+          <button id="cb" class="chat-btn" type="submit">Ask</button>
+        </form>
+      </div>
+
+      <!-- Download -->
+      <button id="dl" class="dl-btn hidden">⬇ Download Report</button>
+    </main>
+  </div>
+
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>
