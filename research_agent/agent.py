@@ -9,7 +9,7 @@ from typing import Callable
 from . import prompts
 from .config import Config
 from .credibility import RANK, credibility
-from .fetch import fetch_text, top_passages
+from .fetch import fetch_text, read_local, top_passages
 from .search import Searcher
 
 Event = Callable[[str, dict], None]
@@ -91,13 +91,15 @@ class ResearchAgent:
         self.fetch = fetcher
 
     # ---------- public ----------
-    def run(self, question: str) -> Report:
+    def run(self, question: str, files: list[str] | None = None) -> Report:
         self.emit("status", {"message": "Planning research"})
         plan = self.plan(question)
         self.emit("plan", {"subquestions": plan})
 
         sources: list[Source] = []
         seen: set[str] = set()
+        if files:
+            self.add_local(files, question, plan, sources, seen)
         queries = [(p["question"], p["query"], p.get("source", "web")) for p in plan]
         for rnd in range(self.cfg.max_rounds):
             self.gather(queries, question, sources, seen)
@@ -178,7 +180,13 @@ class ResearchAgent:
 
         def read(item):
             sub_q, r = item
-            text = r.content or self.fetch(r.url, timeout=self.cfg.request_timeout)
+            text = ""
+            if r.pdf_url and self.cfg.read_full_papers:
+                text = self.fetch(r.pdf_url, timeout=self.cfg.request_timeout * 2)
+                if len(text) > 2000:
+                    self.emit("status", {"message": f"Read full paper: {r.title[:60]}"})
+                    text = (r.content + "\n" + text) if r.content else text
+            text = text or r.content or self.fetch(r.url, timeout=self.cfg.request_timeout)
             if len(text) < 200:
                 text = (text + "\n" + r.snippet).strip()
             k = self.cfg.candidate_passages if self._can_embed() else self.cfg.passages_per_source
@@ -193,6 +201,26 @@ class ResearchAgent:
                     sources.append(src)
                     self.emit("source", {"id": src.id, "title": src.title, "url": src.url,
                                          "credibility": src.credibility})
+
+    def add_local(self, files, question, plan, sources: list[Source], seen: set[str]) -> None:
+        """User-supplied documents become first-class sources (credibility: user)."""
+        query = question + " " + " ".join(p["question"] for p in plan)
+        k = self.cfg.candidate_passages if self._can_embed() else self.cfg.passages_per_source
+        for path in files:
+            try:
+                text = read_local(path)
+            except OSError as e:
+                self.emit("status", {"message": f"Could not read {path}: {e}"})
+                continue
+            passages = top_passages(text, query, k + 2, self.cfg.passage_chars)
+            if not passages:
+                continue
+            url = "file://" + path.replace("\\", "/")
+            seen.add(url)
+            src = Source(len(sources) + 1, path.replace("\\", "/").split("/")[-1], url, passages, "user")
+            sources.append(src)
+            self.emit("source", {"id": src.id, "title": src.title, "url": src.url,
+                                 "credibility": "user"})
 
     def _can_embed(self) -> bool:
         return self.cfg.use_embeddings and callable(getattr(self.llm, "embed", None))
@@ -218,7 +246,8 @@ class ResearchAgent:
                     src.relevance = ranked[0][0] if ranked else 0.0
                 # drop sources that are clearly off-topic
                 best = max(s.relevance for s in sources)
-                sources = [s for s in sources if s.relevance >= best * 0.6] or sources
+                sources = [s for s in sources if s.relevance >= best * 0.6
+                           or s.credibility == "user"] or sources
             except Exception as e:
                 self.emit("status", {"message": f"Embedding rerank skipped ({e})"})
                 for s in sources:

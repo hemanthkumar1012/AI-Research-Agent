@@ -3,7 +3,9 @@ and answers follow-up questions about them."""
 import json
 import os
 import queue
+import re
 import threading
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -12,6 +14,17 @@ from .config import PRESETS, Config, apply_preset
 from .store import ReportStore
 
 STATIC = os.path.join(os.path.dirname(__file__), "static", "index.html")
+UPLOADS = os.getenv("UPLOADS_DIR", "uploads")
+ALLOWED = (".pdf", ".txt", ".md", ".html", ".htm")
+MAX_UPLOAD = 25 * 1024 * 1024
+
+
+def upload_path(token: str) -> str | None:
+    """Map an upload token back to its file, refusing anything outside the uploads folder."""
+    if not re.fullmatch(r"[a-f0-9]{32}__[\w\-. ]+", token or ""):
+        return None
+    path = os.path.join(UPLOADS, token)
+    return path if os.path.isfile(path) else None
 
 
 def make_agent(cfg, emit=None):
@@ -50,7 +63,8 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
         elif url.path == "/api/research":
-            self.stream(qs.get("q", [""])[0].strip(), qs.get("depth", ["standard"])[0])
+            files = [p for t in qs.get("files", [""])[0].split(",") if (p := upload_path(t))]
+            self.stream(qs.get("q", [""])[0].strip(), qs.get("depth", ["standard"])[0], files)
         elif url.path == "/api/history":
             self.send_json(self.get_store().list())
         elif url.path == "/api/report":
@@ -62,7 +76,10 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(404)
 
     def do_POST(self):
-        if urlparse(self.path).path != "/api/ask":
+        path = urlparse(self.path).path
+        if path == "/api/upload":
+            return self.upload()
+        if path != "/api/ask":
             return self.send_error(404)
         try:
             req = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
@@ -74,7 +91,21 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_json({"error": str(e)}, 500)
 
-    def stream(self, question: str, depth: str):
+    def upload(self):
+        name = os.path.basename(self.headers.get("X-Filename", "")).strip()
+        size = int(self.headers.get("Content-Length", 0))
+        if not name.lower().endswith(ALLOWED):
+            return self.send_json({"error": f"Unsupported file type. Use {', '.join(ALLOWED)}"}, 400)
+        if not 0 < size <= MAX_UPLOAD:
+            return self.send_json({"error": "File empty or larger than 25 MB"}, 400)
+        os.makedirs(UPLOADS, exist_ok=True)
+        safe = re.sub(r"[^\w\-. ]", "_", name)[:100]
+        token = f"{uuid.uuid4().hex}__{safe}"
+        with open(os.path.join(UPLOADS, token), "wb") as f:
+            f.write(self.rfile.read(size))
+        self.send_json({"token": token, "name": safe})
+
+    def stream(self, question: str, depth: str, files: list[str] | None = None):
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")
@@ -86,7 +117,8 @@ class Handler(BaseHTTPRequestHandler):
                 if not question:
                     raise ValueError("Empty question")
                 cfg = apply_preset(Config.from_env(), depth if depth in PRESETS else "standard")
-                report = self.agent_factory(cfg, lambda k, d: events.put((k, d))).run(question)
+                agent = self.agent_factory(cfg, lambda k, d: events.put((k, d)))
+                report = agent.run(question, files=files) if files else agent.run(question)
                 data = report.to_dict()
                 self.get_store().save(data)
                 events.put(("report", data))

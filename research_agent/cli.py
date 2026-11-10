@@ -49,6 +49,8 @@ def cmd_research(argv):
     p.add_argument("--no-embeddings", action="store_true", help="BM25 only, skip semantic rerank")
     p.add_argument("--no-conflicts", action="store_true", help="skip contradiction analysis")
     p.add_argument("--no-cache", action="store_true")
+    p.add_argument("--files", nargs="+", default=[], metavar="PATH",
+                   help="your own PDFs / docs to include as primary sources")
     p.add_argument("--out", default="reports", help="output folder")
     a = p.parse_args(argv)
 
@@ -62,7 +64,7 @@ def cmd_research(argv):
     cfg.use_cache &= not a.no_cache
 
     question = " ".join(a.question)
-    report = build_agent(cfg, log).run(question)
+    report = build_agent(cfg, log).run(question, files=a.files)
     rid = ReportStore(a.out).save(report.to_dict())
     print(report.markdown)
     u = report.usage

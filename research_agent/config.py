@@ -32,7 +32,8 @@ class Config:
     use_embeddings: bool = True              # hybrid BM25 + semantic reranking
     candidate_passages: int = 6              # BM25 candidates per source before reranking
     use_cache: bool = True
-    detect_conflicts: bool = True            # cross-source contradiction analysis
+    detect_conflicts: bool = True
+    read_full_papers: bool = True            # fetch full arXiv PDFs, not just abstracts            # cross-source contradiction analysis
     extra: dict = field(default_factory=dict)
 
     @classmethod
@@ -52,7 +53,7 @@ class Config:
 
 PRESETS = {
     "quick":    dict(max_subquestions=3, results_per_query=3, max_sources=6, max_rounds=1,
-                     max_revisions=0, detect_conflicts=False),
+                     max_revisions=0, detect_conflicts=False, read_full_papers=False),
     "standard": dict(),
     "deep":     dict(max_subquestions=6, results_per_query=5, max_sources=16, max_rounds=3,
                      max_revisions=2, passages_per_source=4),

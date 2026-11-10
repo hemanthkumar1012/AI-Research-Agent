@@ -35,6 +35,8 @@
   .msg{padding:10px 12px;border-radius:10px;margin:8px 0;font-size:14.5px}.msg.user{background:#1d2433}.msg.bot{border:1px solid var(--line)}
   .msg p{margin:4px 0}#chatform{display:flex;gap:8px;margin-top:8px}
   .hidden{display:none}
+  .ghostbtn{display:flex;align-items:center;padding:0 14px;border:1px solid var(--line);border-radius:10px;cursor:pointer;font-size:18px;background:var(--panel)}
+  .tag.user{color:var(--acc)}
 </style>
 </head>
 <body>
@@ -45,8 +47,10 @@
 <form class="q" id="f">
   <input id="q" placeholder="Ask a research question…" required>
   <select id="depth" title="Research depth"><option value="quick">Quick</option><option value="standard" selected>Standard</option><option value="deep">Deep</option></select>
+  <label class="ghostbtn" title="Add your own PDFs or documents as sources">📎<input type="file" id="files" multiple accept=".pdf,.txt,.md,.html" hidden></label>
   <button id="b">Research</button>
 </form>
+<div id="filelist" class="usage" style="margin:-6px 24px 8px"></div>
 <main>
   <section><div class="card"><h2>Agent trace</h2><div id="log" class="empty">Steps will stream here.</div></div></section>
   <section>
@@ -65,7 +69,17 @@ const $=id=>document.getElementById(id), log=$('log');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const pct=x=>Math.round((x||0)*100)+'%';
 const md=s=>{const d=document.createElement('div');d.innerHTML=marked.parse(s||'');d.querySelectorAll('a').forEach(a=>{a.target='_blank';a.rel='noopener'});return d.innerHTML};
-let current=null, chatHistory=[];
+let current=null, chatHistory=[], uploads=[];
+$('files').onchange=async()=>{
+  for(const f of $('files').files){
+    $('filelist').textContent=`Uploading ${f.name}…`;
+    const r=await (await fetch('/api/upload',{method:'POST',headers:{'X-Filename':f.name},body:f})).json();
+    if(r.token)uploads.push(r);else alert(r.error);
+  }
+  $('files').value='';
+  $('filelist').innerHTML=uploads.length?'📎 Your sources: '+uploads.map(u=>esc(u.name)).join(', ')+' <a href="#" id="clearf">clear</a>':'';
+  if($('clearf'))$('clearf').onclick=e=>{e.preventDefault();uploads=[];$('filelist').innerHTML=''};
+};
 function add(html){if(log.classList.contains('empty')){log.innerHTML='';log.classList.remove('empty')}
   const d=document.createElement('div');d.innerHTML=html;log.appendChild(d);log.scrollTop=log.scrollHeight}
 
@@ -95,7 +109,7 @@ $('f').onsubmit=e=>{
   e.preventDefault();$('b').disabled=true;log.innerHTML='';$('score').innerHTML='';
   ['conflictCard','chatCard','dl'].forEach(i=>$(i).classList.add('hidden'));
   $('report').innerHTML='<span class="empty">Researching…</span>';
-  const es=new EventSource(`/api/research?depth=${$('depth').value}&q=`+encodeURIComponent($('q').value));
+  const es=new EventSource(`/api/research?depth=${$('depth').value}&files=${encodeURIComponent(uploads.map(u=>u.token).join(','))}&q=`+encodeURIComponent($('q').value));
   const on=(k,f)=>es.addEventListener(k,ev=>f(JSON.parse(ev.data)));
   on('status',d=>add('• '+esc(d.message)));
   on('plan',d=>add('🧭 <b>Plan</b><br>'+d.subquestions.map(s=>`– ${esc(s.question)} <span class="tag">${esc(s.source)}</span>`).join('<br>')));

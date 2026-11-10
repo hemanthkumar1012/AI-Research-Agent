@@ -1,5 +1,7 @@
 """Fetch pages, extract readable text, and pick the passages most relevant to a question."""
+import io
 import math
+import os
 import re
 from collections import Counter
 
@@ -34,11 +36,48 @@ def _fetch(url: str, timeout: int, max_chars: int) -> str:
     try:
         r = requests.get(url, headers=UA, timeout=timeout)
         r.raise_for_status()
-        if "html" not in r.headers.get("content-type", "html"):
+        ctype = r.headers.get("content-type", "html").lower()
+        if "pdf" in ctype or url.lower().split("?")[0].endswith(".pdf"):
+            return pdf_text(r.content)[:max_chars]
+        if "html" not in ctype and "text" not in ctype:
             return ""
         return extract_text(r.text)[:max_chars]
     except requests.RequestException:
         return ""
+
+
+def pdf_text(data: bytes, max_pages: int = 40) -> str:
+    """Extract text from a PDF (needs the optional `pypdf` package)."""
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        return ""
+    try:
+        reader = PdfReader(io.BytesIO(data))
+        pages = [(pg.extract_text() or "") for pg in reader.pages[:max_pages]]
+    except Exception:
+        return ""
+    text = "\n".join(pages)
+    text = re.sub(r"-\n(?=[a-z])", "", text)              # re-join hyphenated words
+    text = re.sub(r"(?<![.!?:])\n(?=[a-z])", " ", text)    # re-flow broken lines
+    # stop at references so citations of other papers don't pollute passages
+    m = re.search(r"\n\s*(references|bibliography)\s*\n", text, re.I)
+    if m and m.start() > len(text) * 0.5:
+        text = text[: m.start()]
+    return "\n".join(line for line in text.split("\n") if len(line.strip()) > 2)
+
+
+def read_local(path: str, max_chars: int = 200_000) -> str:
+    """Read a user-supplied document (PDF, HTML, Markdown or text)."""
+    ext = os.path.splitext(path)[1].lower()
+    with open(path, "rb") as f:
+        data = f.read()
+    if ext == ".pdf":
+        return pdf_text(data, max_pages=200)[:max_chars]
+    raw = data.decode("utf-8", errors="ignore")
+    if ext in (".html", ".htm"):
+        return extract_text(raw)[:max_chars]
+    return raw[:max_chars]
 
 
 def extract_text(html: str) -> str:

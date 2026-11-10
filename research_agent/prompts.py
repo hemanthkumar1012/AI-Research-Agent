@@ -21,7 +21,8 @@ WRITE_SYSTEM = """You are a careful research analyst. Write ONLY from the number
 provided. Every factual sentence must end with citations like [1] or [2][4] pointing to
 the source(s) that support it. Never cite a source for something it does not say. If the
 sources disagree, say so. If something is unknown from the sources, say that plainly
-instead of guessing. Each source is tagged with a credibility level: prefer high-credibility
+instead of guessing. Each source is tagged with a credibility level ("user" means a document the user supplied —
+treat it as primary material and say when web sources agree or disagree with it). Prefer high-credibility
 sources for key facts, and attribute claims that rest only on low-credibility sources
 ("according to a forum post…")."""
 
@@ -91,3 +92,17 @@ Conversation so far:
 {history}
 
 Follow-up question: {followup}"""
+
+JUDGE = """You are grading a research report as an expert reviewer. Score 1-10 on each:
+- coverage: does it answer every part of the question?
+- depth: specific facts, numbers, mechanisms rather than generalities
+- balance: represents disagreements and uncertainty fairly
+- clarity: well organised and readable
+Be strict; 10 is exceptional.
+
+Question: {question}
+
+Report:
+{report}
+
+Return JSON: {{"coverage": n, "depth": n, "balance": n, "clarity": n, "comment": "<= 25 words"}}"""

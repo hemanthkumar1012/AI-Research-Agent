@@ -17,6 +17,8 @@ def domain(url: str) -> str:
 
 
 def credibility(url: str) -> str:
+    if url.startswith("file://"):
+        return "user"
     d = domain(url)
     if any(d == h or d.endswith("." + h) for h in HIGH) or d.endswith((".gov", ".edu", ".gov.in",
                                                                        ".ac.in", ".ac.uk", ".int")):
@@ -26,4 +28,4 @@ def credibility(url: str) -> str:
     return "medium"
 
 
-RANK = {"high": 0, "medium": 1, "low": 2}
+RANK = {"user": 0, "high": 1, "medium": 2, "low": 3}

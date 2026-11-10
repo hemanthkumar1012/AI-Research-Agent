@@ -20,7 +20,8 @@ class SearchResult:
     title: str
     url: str
     snippet: str = ""
-    content: str = ""   # Tavily can return page text directly
+    content: str = ""   # Tavily / arXiv / Wikipedia return text directly
+    pdf_url: str = ""   # full text to try first (e.g. arXiv papers)
 
 
 class Searcher:
@@ -111,5 +112,10 @@ def parse_arxiv(xml: str) -> list[SearchResult]:
         year = (e.findtext("a:published", "", ns) or "")[:4]
         authors = ", ".join(a.findtext("a:name", "", ns) for a in e.findall("a:author", ns)[:3])
         content = f"{title} ({authors}, {year}). Abstract: {summary}"
-        out.append(SearchResult(f"{title} (arXiv {year})", url, summary[:200], content))
+        pdf = next((ln.get("href") for ln in e.findall("a:link", ns)
+                    if ln.get("title") == "pdf" or ln.get("type") == "application/pdf"), "")
+        if not pdf and "/abs/" in url:
+            pdf = url.replace("/abs/", "/pdf/")
+        out.append(SearchResult(f"{title} (arXiv {year})", url, summary[:200], content,
+                                pdf.replace("http://", "https://")))
     return out
