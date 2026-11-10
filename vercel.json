@@ -1,0 +1,35 @@
+{
+  "version": 2,
+  "buildCommand": "node frontend/build.mjs && mkdir -p public/static && cp research_agent/static/* public/static/ && cp research_agent/static/index.html public/index.html",
+  "outputDirectory": "public",
+  "framework": null,
+  "functions": {
+    "api/*.py": {
+      "runtime": "@vercel/python@4.5.0",
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    { "source": "/api/research", "destination": "/api/research" },
+    { "source": "/api/history", "destination": "/api/history" },
+    { "source": "/api/report", "destination": "/api/report" },
+    { "source": "/api/ask", "destination": "/api/ask" },
+    { "source": "/api/upload", "destination": "/api/upload" }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, X-Filename" }
+      ]
+    },
+    {
+      "source": "/static/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
+  ]
+}
