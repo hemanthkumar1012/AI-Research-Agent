@@ -20,6 +20,14 @@ flagged, the agent **rewrites its own report** and re-verifies it.
 - **Source credibility:** sources are tagged high / medium / low (gov, edu, journals, wire
   services vs. forums and social media), ordered by strength, and the writer is told to
   attribute weak-source claims.
+- **Multi-source search:** the planner routes each sub-question to the right provider —
+  **arXiv** for scientific evidence, **Wikipedia** for background, the open web for news and
+  figures — and searches run in parallel.
+- **Contradiction detection:** sources are cross-examined for conflicting numbers, dates and
+  conclusions; the report gets a "Where sources disagree" section weighing each side.
+- **Follow-up Q&A:** reports are saved; ask follow-up questions grounded in the same sources,
+  with the answers citation-checked too (CLI or chat panel in the UI).
+- **Depth modes:** `quick` / `standard` / `deep` presets trade cost for thoroughness.
 - **Multi-round gap filling:** the agent asks itself what's missing and searches again.
 - **Cost-aware:** SQLite cache for LLM calls, embeddings and pages; token usage reported per run.
 - **Measured:** an eval harness reports citation precision and unsupported-claim rate, with a
@@ -35,7 +43,7 @@ question
  Plan ──► sub-questions + search queries          (Gemini Flash, JSON mode)
    │
    ▼
- Search ──► Tavily  or  DuckDuckGo (free, no key)
+ Search ──► per sub-question: web (Tavily / DuckDuckGo) · arXiv · Wikipedia   (parallel)
    │
    ▼
  Read ──► fetch pages in parallel, strip boilerplate,
@@ -48,6 +56,9 @@ question
  Rerank ──► Gemini embeddings + BM25 fusion, credibility tagging, drop off-topic sources
    │
    ▼
+ Cross-check ──► find contradictions between sources, assess which side is stronger
+   │
+   ▼
  Write ──► Markdown report, every sentence cited [n]  (Gemini Pro)
    │
    ▼
@@ -57,7 +68,10 @@ question
  Revise ────┘  rewrite, re-verify, keep only if precision improves
    │
    ▼
- report.md + report.json (sources, claims, labels, score)
+ report.md + report.json (sources, claims, labels, score, conflicts)
+   │
+   ▼
+ Follow-up Q&A ──► grounded answers over the same sources, also citation-checked
 ```
 
 ## Quick start
@@ -69,10 +83,14 @@ pip install -r requirements.txt
 cp .env.example .env        # add your GEMINI_API_KEY (free at aistudio.google.com)
 
 python -m research_agent "What is the current state of solid-state batteries for EVs?"
+python -m research_agent "How safe are GLP-1 drugs?" --depth deep
+
+python -m research_agent list                 # saved reports
+python -m research_agent ask <report-id>      # interactive follow-up questions
 ```
 
-Options: `--rounds 3` (more gap-filling), `--sources 15`, `--revisions 2`,
-`--no-embeddings`, `--no-cache`, `--out my_reports`.
+Options: `--depth quick|standard|deep`, `--rounds 3` (more gap-filling), `--sources 15`, `--revisions 2`,
+`--no-embeddings`, `--no-conflicts`, `--no-cache`, `--out my_reports`.
 
 Or with Docker: `docker build -t research-agent . && docker run -p 8000:8000 --env-file .env research-agent`
 
@@ -82,9 +100,9 @@ Or with Docker: `docker build -t research-agent . && docker run -p 8000:8000 --e
 python -m research_agent.server      # open http://localhost:8000
 ```
 
-The left panel streams every step over Server-Sent Events (plan, searches, sources found,
-gap-filling, verification progress); the right panel renders the final report with its
-citation-quality score. No web framework needed — it runs on the standard library.
+A sidebar lists past reports; the middle streams every step over Server-Sent Events (plan, searches, sources found,
+gap-filling, verification progress); the right renders the report with its citation score,
+a "where sources disagree" panel, a download button, and a chat box for follow-up questions. No web framework needed — it runs on the standard library.
 
 ### Evaluation harness
 
@@ -103,10 +121,11 @@ question — so prompt or model changes can be compared with numbers instead of 
 |------|------|
 | `research_agent/agent.py` | The research loop, claim extraction, verification, scoring |
 | `research_agent/llm.py` | Dependency-free Gemini REST client with retries and JSON mode |
-| `research_agent/search.py` | Tavily / DuckDuckGo search |
+| `research_agent/search.py` | Web (Tavily / DuckDuckGo), arXiv and Wikipedia providers |
 | `research_agent/fetch.py` | Page fetching, text extraction, BM25 passage ranking |
 | `research_agent/prompts.py` | All prompts in one place |
 | `research_agent/credibility.py` | Domain-based source credibility |
+| `research_agent/store.py` | Saved reports for history and follow-ups |
 | `research_agent/cache.py` | SQLite cache for LLM, embedding and page results |
 | `research_agent/cli.py` | Command-line interface with live progress |
 | `research_agent/server.py` + `static/index.html` | Streaming web UI (SSE) |
@@ -130,5 +149,8 @@ pip install pytest && pytest -q
 - [x] Hybrid BM25 + embedding retrieval
 - [x] Source credibility scoring
 - [x] Caching, token accounting, CI, Docker
-- [ ] Follow-up Q&A over gathered sources
-- [ ] Contradiction detection across sources
+- [x] Follow-up Q&A over gathered sources
+- [x] Contradiction detection across sources
+- [x] arXiv + Wikipedia providers with planner routing
+- [x] Depth presets, report history
+- [ ] PDF ingestion (papers, reports)

@@ -7,57 +7,125 @@
 <style>
   :root{--bg:#0d1017;--panel:#151a24;--line:#232b3a;--text:#e6e9ef;--dim:#8a93a6;--acc:#7aa2ff;--ok:#4cc38a;--warn:#e5b454;--bad:#ef6b6b}
   *{box-sizing:border-box}body{margin:0;font:15px/1.6 system-ui,sans-serif;background:var(--bg);color:var(--text)}
-  header{padding:28px 24px 8px;max-width:1200px;margin:auto}h1{margin:0;font-size:22px}header p{margin:4px 0 0;color:var(--dim)}
-  form{display:flex;gap:8px;max-width:1200px;margin:16px auto;padding:0 24px}
-  input{flex:1;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--text);font-size:15px}
-  button{padding:12px 20px;border:0;border-radius:10px;background:var(--acc);color:#0b1020;font-weight:600;cursor:pointer}button:disabled{opacity:.5}
-  main{display:grid;grid-template-columns:340px 1fr;gap:16px;max-width:1200px;margin:auto;padding:0 24px 40px}
-  @media(max-width:860px){main{grid-template-columns:1fr}}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
-  .card h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin:0 0 10px}
-  #log div{padding:4px 0;border-bottom:1px dashed var(--line);font-size:13.5px;word-break:break-word}
-  #log a{color:var(--acc)} .score{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+  a{color:var(--acc)}
+  .wrap{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+  @media(max-width:960px){.wrap{grid-template-columns:1fr}aside{display:none}}
+  aside{border-right:1px solid var(--line);padding:20px 14px;background:#0f131c}
+  aside h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin:0 0 8px}
+  .hist{display:block;padding:8px;border-radius:8px;color:var(--text);text-decoration:none;font-size:13px;cursor:pointer}
+  .hist:hover{background:var(--panel)} .hist small{color:var(--dim);display:block}
+  header{padding:24px 24px 4px}h1{margin:0;font-size:22px}header p{margin:4px 0 0;color:var(--dim)}
+  form.q{display:flex;gap:8px;margin:14px 24px}
+  input,select{padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--text);font-size:15px}
+  input{flex:1}button{padding:12px 18px;border:0;border-radius:10px;background:var(--acc);color:#0b1020;font-weight:600;cursor:pointer}button:disabled{opacity:.5}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--text);padding:6px 12px;font-weight:500}
+  main{display:grid;grid-template-columns:330px 1fr;gap:16px;padding:0 24px 40px}
+  @media(max-width:1200px){main{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+  .card h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin:0 0 10px;display:flex;justify-content:space-between;align-items:center}
+  #log{max-height:70vh;overflow:auto}#log div{padding:4px 0;border-bottom:1px dashed var(--line);font-size:13.5px;word-break:break-word}
+  .score{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
   .pill{padding:4px 10px;border-radius:99px;font-size:13px;background:#1d2433}.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
-  #report a{color:var(--acc)} #report h2{border-bottom:1px solid var(--line);padding-bottom:4px}
-  .empty{color:var(--dim)} .cred{font-size:11px;padding:1px 6px;border-radius:6px;margin-left:4px;background:#1d2433}
-  .cred.high{color:var(--ok)}.cred.low{color:var(--bad)}.cred.medium{color:var(--warn)} .usage{color:var(--dim);font-size:12.5px;margin-top:6px}
+  .tag{font-size:11px;padding:1px 6px;border-radius:6px;margin-left:4px;background:#1d2433;color:var(--dim)}
+  .tag.high{color:var(--ok)}.tag.low{color:var(--bad)}.tag.medium{color:var(--warn)}
+  .usage{color:var(--dim);font-size:12.5px;margin-bottom:8px}
+  #report h2{border-bottom:1px solid var(--line);padding-bottom:4px}.empty{color:var(--dim)}
+  .conflict{border-left:3px solid var(--warn);padding:6px 10px;margin:8px 0;background:#1a1f2b;border-radius:0 8px 8px 0;font-size:14px}
+  .conflict ul{margin:4px 0;padding-left:18px}.conflict em{color:var(--dim)}
+  .msg{padding:10px 12px;border-radius:10px;margin:8px 0;font-size:14.5px}.msg.user{background:#1d2433}.msg.bot{border:1px solid var(--line)}
+  .msg p{margin:4px 0}#chatform{display:flex;gap:8px;margin-top:8px}
+  .hidden{display:none}
 </style>
 </head>
 <body>
-<header><h1>🔬 AI Research Agent</h1><p>Plans, searches, reads, writes a cited report, then fact-checks every citation.</p></header>
-<form id="f"><input id="q" placeholder="Ask a research question…" required><button id="b">Research</button></form>
+<div class="wrap">
+<aside><h3>Recent reports</h3><div id="history" class="empty" style="font-size:13px">None yet.</div></aside>
+<div>
+<header><h1>🔬 AI Research Agent</h1><p>Plans, searches web · arXiv · Wikipedia, cross-checks sources, writes a cited report, fact-checks and self-corrects it.</p></header>
+<form class="q" id="f">
+  <input id="q" placeholder="Ask a research question…" required>
+  <select id="depth" title="Research depth"><option value="quick">Quick</option><option value="standard" selected>Standard</option><option value="deep">Deep</option></select>
+  <button id="b">Research</button>
+</form>
 <main>
-  <section class="card"><h2>Agent trace</h2><div id="log" class="empty">Steps will stream here.</div></section>
-  <section class="card"><h2>Report</h2><div id="score"></div><div id="report" class="empty">Your report will appear here.</div></section>
+  <section><div class="card"><h2>Agent trace</h2><div id="log" class="empty">Steps will stream here.</div></div></section>
+  <section>
+    <div class="card"><h2>Report <span><button class="ghost hidden" id="dl">Download .md</button></span></h2>
+      <div id="score"></div><div id="report" class="empty">Your report will appear here.</div></div>
+    <div class="card hidden" id="conflictCard"><h2>⚖️ Where sources disagree</h2><div id="conflicts"></div></div>
+    <div class="card hidden" id="chatCard"><h2>💬 Ask follow-up questions</h2>
+      <div id="chat"></div>
+      <form id="chatform"><input id="cq" placeholder="e.g. Which source is most reliable on this?" required><button id="cb">Ask</button></form>
+    </div>
+  </section>
 </main>
+</div></div>
 <script>
 const $=id=>document.getElementById(id), log=$('log');
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pct=x=>Math.round((x||0)*100)+'%';
+const md=s=>{const d=document.createElement('div');d.innerHTML=marked.parse(s||'');d.querySelectorAll('a').forEach(a=>{a.target='_blank';a.rel='noopener'});return d.innerHTML};
+let current=null, chatHistory=[];
 function add(html){if(log.classList.contains('empty')){log.innerHTML='';log.classList.remove('empty')}
   const d=document.createElement('div');d.innerHTML=html;log.appendChild(d);log.scrollTop=log.scrollHeight}
+
+function show(d){
+  current=d;chatHistory=[];$('chat').innerHTML='';
+  const s=d.score, h=d.history||[], u=d.usage||{};
+  $('score').innerHTML=`<div class="score"><span class="pill">Precision <b>${pct(s.citation_precision)}</b></span>
+    <span class="pill ok">${s.supported} supported</span><span class="pill warn">${s.partial} partial</span><span class="pill bad">${s.unsupported} unsupported</span>
+    ${h.length>1?`<span class="pill">Draft ${pct(h[0].citation_precision)} → final ${pct(s.citation_precision)}</span>`:''}
+    <span class="pill">${d.sources.length} sources</span></div>
+    ${u.calls!==undefined?`<div class="usage">${u.calls} LLM calls · ${u.cached} cached · ${(u.input_tokens+u.output_tokens).toLocaleString()} tokens</div>`:''}`;
+  $('report').classList.remove('empty');$('report').innerHTML=md(d.markdown);
+  const c=d.conflicts||[];$('conflictCard').classList.toggle('hidden',!c.length);
+  $('conflicts').innerHTML=c.map(x=>`<div class="conflict"><b>${esc(x.topic)}</b><ul>${x.positions.map(p=>`<li>[${p.source}] ${esc(p.says)}</li>`).join('')}</ul>${x.assessment?`<em>${esc(x.assessment)}</em>`:''}</div>`).join('');
+  $('chatCard').classList.toggle('hidden',!d.id);$('dl').classList.remove('hidden');
+}
+async function loadHistory(){
+  try{const items=await (await fetch('/api/history')).json();
+    if(!items.length)return;$('history').classList.remove('empty');
+    $('history').innerHTML=items.map(i=>`<a class="hist" data-id="${esc(i.id)}">${esc(i.question)}<small>${i.precision!=null?pct(i.precision)+' precision':''}</small></a>`).join('');
+    document.querySelectorAll('.hist').forEach(a=>a.onclick=async()=>{
+      const d=await (await fetch('/api/report?id='+encodeURIComponent(a.dataset.id))).json();
+      log.innerHTML='<div>Loaded saved report.</div>';$('q').value=d.question;show(d)});
+  }catch(e){}
+}
 $('f').onsubmit=e=>{
   e.preventDefault();$('b').disabled=true;log.innerHTML='';$('score').innerHTML='';
+  ['conflictCard','chatCard','dl'].forEach(i=>$(i).classList.add('hidden'));
   $('report').innerHTML='<span class="empty">Researching…</span>';
-  const es=new EventSource('/api/research?q='+encodeURIComponent($('q').value));
+  const es=new EventSource(`/api/research?depth=${$('depth').value}&q=`+encodeURIComponent($('q').value));
   const on=(k,f)=>es.addEventListener(k,ev=>f(JSON.parse(ev.data)));
   on('status',d=>add('• '+esc(d.message)));
-  on('plan',d=>add('🧭 <b>Plan</b><br>'+d.subquestions.map(s=>'– '+esc(s.question)).join('<br>')));
-  on('search',d=>add('🔎 '+esc(d.query)));
-  on('source',d=>add(`📄 [${d.id}] <a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.title)}</a><span class="cred ${esc(d.credibility)}">${esc(d.credibility)}</span>`));
-  on('revise',d=>add(`✍️ Self-correcting ${d.flagged} flagged claims (round ${d.round})`));
+  on('plan',d=>add('🧭 <b>Plan</b><br>'+d.subquestions.map(s=>`– ${esc(s.question)} <span class="tag">${esc(s.source)}</span>`).join('<br>')));
+  on('search',d=>add(`🔎 ${esc(d.query)} <span class="tag">${esc(d.kind)}</span>`));
+  on('source',d=>add(`📄 [${d.id}] <a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.title)}</a><span class="tag ${esc(d.credibility)}">${esc(d.credibility)}</span>`));
   on('gaps',d=>add('🕳️ Filling gaps: '+d.queries.map(esc).join('; ')));
+  on('conflicts',d=>add('⚖️ Sources disagree on: '+d.conflicts.map(c=>esc(c.topic)).join('; ')));
   on('verify',d=>add(`✅ Checked ${d.checked}/${d.total} claims`));
-  on('report',d=>{const s=d.score;
-    $('score').innerHTML=`<div class="score"><span class="pill">Precision <b>${Math.round(s.citation_precision*100)}%</b></span>
-      <span class="pill ok">${s.supported} supported</span><span class="pill warn">${s.partial} partial</span><span class="pill bad">${s.unsupported} unsupported</span>
-      ${d.history.length>1?`<span class="pill">Draft ${Math.round(d.history[0].citation_precision*100)}% → final ${Math.round(s.citation_precision*100)}%</span>`:''}</div>
-      ${d.usage&&d.usage.calls!==undefined?`<div class="usage">${d.usage.calls} LLM calls · ${d.usage.cached} cached · ${(d.usage.input_tokens+d.usage.output_tokens).toLocaleString()} tokens</div>`:''}`;
-    $('report').classList.remove('empty');$('report').innerHTML=marked.parse(d.markdown);
-    $('report').querySelectorAll('a').forEach(a=>{a.target='_blank';a.rel='noopener'});done()});
+  on('revise',d=>add(`✍️ Self-correcting ${d.flagged} flagged claims (round ${d.round})`));
+  on('report',d=>{show(d);done();loadHistory()});
   on('error',d=>{add('<span class="bad">✖ '+esc(d.message)+'</span>');$('report').innerHTML='';done()});
   es.onerror=()=>done();
   function done(){es.close();$('b').disabled=false}
 };
+$('chatform').onsubmit=async e=>{
+  e.preventDefault();if(!current)return;const q=$('cq').value.trim();if(!q)return;
+  $('cq').value='';$('cb').disabled=true;
+  $('chat').insertAdjacentHTML('beforeend',`<div class="msg user">${esc(q)}</div><div class="msg bot empty" id="pending">Thinking…</div>`);
+  try{
+    const r=await (await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({id:current.id,question:q,history:chatHistory})})).json();
+    const p=$('pending');p.removeAttribute('id');p.classList.remove('empty');
+    p.innerHTML=r.error?`<span class="bad">${esc(r.error)}</span>`:md(r.answer)+`<div class="usage">citation precision ${pct(r.score.citation_precision)}</div>`;
+    if(!r.error)chatHistory.push({role:'user',content:q},{role:'assistant',content:r.answer});
+  }catch(err){$('pending').textContent='Request failed'}
+  $('cb').disabled=false;
+};
+$('dl').onclick=()=>{if(!current)return;const b=new Blob([`# ${current.question}\n\n${current.markdown}\n`],{type:'text/markdown'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=(current.id||'report')+'.md';a.click()};
+loadHistory();
 </script>
 </body>
 </html>

@@ -5,7 +5,8 @@ HIGH = ("nature.com", "science.org", "nih.gov", "who.int", "arxiv.org", "acm.org
         "reuters.com", "apnews.com", "bbc.co.uk", "bbc.com", "economist.com", "ft.com",
         "nytimes.com", "theguardian.com", "thehindu.com", "worldbank.org", "imf.org", "oecd.org",
         "britannica.com", "sciencedirect.com", "springer.com", "pubmed.ncbi.nlm.nih.gov",
-        "rbi.org.in", "npci.org.in", "pib.gov.in", "docs.python.org", "developer.mozilla.org")
+        "rbi.org.in", "export.arxiv.org", "semanticscholar.org", "npci.org.in", "pib.gov.in", "docs.python.org", "developer.mozilla.org")
+MEDIUM_HINT = ("wikipedia.org",)
 LOW = ("reddit.com", "quora.com", "medium.com", "pinterest.com", "facebook.com", "tiktok.com",
        "instagram.com", "x.com", "twitter.com", "blogspot.com", "wordpress.com", "fandom.com")
 

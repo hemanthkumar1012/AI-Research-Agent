@@ -44,6 +44,9 @@ class Report:
     revisions: int = 0
     history: list[dict] = field(default_factory=list)   # score after each draft
     usage: dict = field(default_factory=dict)
+    conflicts: list[dict] = field(default_factory=list)
+    plan: list[dict] = field(default_factory=list)
+    body: str = ""                                       # report without appendix
 
     @property
     def score(self) -> dict:
@@ -58,7 +61,15 @@ class Report:
         return {"question": self.question, "markdown": self.markdown, "score": self.score,
                 "sources": [asdict(s) for s in self.sources],
                 "claims": [asdict(c) for c in self.claims], "revisions": self.revisions,
-                "history": self.history, "usage": self.usage}
+                "history": self.history, "usage": self.usage, "conflicts": self.conflicts,
+                "plan": self.plan, "body": self.body}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Report":
+        return cls(d["question"], d["markdown"], [Source(**s) for s in d.get("sources", [])],
+                   [Claim(**c) for c in d.get("claims", [])], d.get("revisions", 0),
+                   d.get("history", []), d.get("usage", {}), d.get("conflicts", []),
+                   d.get("plan", []), d.get("body", ""))
 
 
 def build_agent(cfg: Config, on_event: Event | None = None) -> "ResearchAgent":
@@ -87,7 +98,7 @@ class ResearchAgent:
 
         sources: list[Source] = []
         seen: set[str] = set()
-        queries = [(p["question"], p["query"]) for p in plan]
+        queries = [(p["question"], p["query"], p.get("source", "web")) for p in plan]
         for rnd in range(self.cfg.max_rounds):
             self.gather(queries, question, sources, seen)
             if rnd == self.cfg.max_rounds - 1 or len(sources) >= self.cfg.max_sources:
@@ -96,15 +107,16 @@ class ResearchAgent:
             if not gaps:
                 break
             self.emit("gaps", {"queries": gaps})
-            queries = [(question, q) for q in gaps]
+            queries = [(question, q, "web") for q in gaps]
 
         if not sources:
             raise RuntimeError("No usable sources found. Try rephrasing the question.")
 
         sources = self.finalize_sources(question, sources)
+        conflicts = self.find_conflicts(question, sources) if self.cfg.detect_conflicts else []
 
         self.emit("status", {"message": f"Writing report from {len(sources)} sources"})
-        body = self.write(question, sources)
+        body = self.write(question, sources, conflicts)
         self.emit("status", {"message": "Verifying citations"})
         claims = self.verify(body, sources)
         history = [Report("", "", sources, claims).score]
@@ -127,7 +139,8 @@ class ResearchAgent:
                 break
 
         report = Report(question, self.annotate(body, claims, sources), sources, claims,
-                        revisions, history, dict(getattr(self.llm, "usage", {})))
+                        revisions, history, dict(getattr(self.llm, "usage", {})), conflicts,
+                        plan, body)
         self.emit("done", {"score": report.score, "revisions": revisions, "history": history})
         return report
 
@@ -137,13 +150,26 @@ class ResearchAgent:
             n=self.cfg.max_subquestions, question=question, today=date.today()),
             self.cfg.fast_model)
         subs = [s for s in data.get("subquestions", []) if s.get("query")]
-        return subs[: self.cfg.max_subquestions] or [{"question": question, "query": question}]
+        for sq in subs:
+            if sq.get("source") not in ("web", "academic", "encyclopedic"):
+                sq["source"] = "web"
+        return (subs[: self.cfg.max_subquestions]
+                or [{"question": question, "query": question, "source": "web"}])
 
     def gather(self, queries, question, sources: list[Source], seen: set[str]) -> None:
         candidates = []
-        for sub_q, query in queries:
-            self.emit("search", {"query": query})
-            for r in self.searcher.search(query, self.cfg.results_per_query):
+        def run_search(item):
+            sub_q, query, kind = item
+            self.emit("search", {"query": query, "kind": kind})
+            try:
+                return sub_q, self.searcher.search(query, self.cfg.results_per_query, kind=kind)
+            except TypeError:   # searchers without provider routing
+                return sub_q, self.searcher.search(query, self.cfg.results_per_query)
+
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            results = list(pool.map(run_search, queries))
+        for sub_q, hits in results:
+            for r in hits:
                 if r.url not in seen:
                     seen.add(r.url)
                     candidates.append((sub_q, r))
@@ -202,6 +228,38 @@ class ResearchAgent:
             s.id = i
         return sources
 
+    def find_conflicts(self, question: str, sources: list[Source]) -> list[dict]:
+        if len(sources) < 2:
+            return []
+        self.emit("status", {"message": "Cross-checking sources for contradictions"})
+        try:
+            data = self.llm.generate_json(prompts.CONFLICTS.format(
+                question=question, sources=self._source_block(sources)), self.cfg.fast_model)
+        except Exception:
+            return []
+        ids = {s.id for s in sources}
+        out = []
+        for c in data.get("conflicts", [])[:5]:
+            pos = [p for p in c.get("positions", []) if isinstance(p.get("source"), int)
+                   and p["source"] in ids]
+            if c.get("topic") and len(pos) >= 2:
+                out.append({"topic": c["topic"], "positions": pos,
+                            "assessment": c.get("assessment", "")})
+        if out:
+            self.emit("conflicts", {"conflicts": out})
+        return out
+
+    def ask(self, report: "Report", followup: str, history: list[dict] | None = None) -> dict:
+        """Answer a follow-up question grounded in the report's sources, with verified citations."""
+        hist = "\n".join(f"{m['role']}: {m['content']}" for m in (history or [])[-6:]) or "(none)"
+        answer = self.llm.generate(prompts.ASK.format(
+            question=report.question, report=report.body or report.markdown,
+            sources=self._source_block(report.sources), history=hist, followup=followup),
+            self.cfg.fast_model, system=prompts.ASK_SYSTEM).strip()
+        claims = self.verify(answer, report.sources)
+        return {"answer": answer, "claims": [asdict(c) for c in claims],
+                "score": Report("", "", report.sources, claims).score}
+
     def revise(self, body: str, flagged: list[Claim], sources: list[Source]) -> str:
         items = "\n".join(f"- ({c.label}) \"{c.text}\" cites {c.cites}: {c.reason}" for c in flagged)
         return self.llm.generate(prompts.REVISE.format(
@@ -221,9 +279,16 @@ class ResearchAgent:
         except Exception:
             return []
 
-    def write(self, question: str, sources: list[Source]) -> str:
+    def write(self, question: str, sources: list[Source], conflicts: list[dict] | None = None) -> str:
+        cblock = ""
+        if conflicts:
+            cblock = "\nDetected disagreements between sources (address these explicitly):\n" + "\n".join(
+                f"- {c['topic']}: " + "; ".join(f"[{p['source']}] {p['says']}" for p in c["positions"])
+                + (f" (assessment: {c['assessment']})" if c.get("assessment") else "")
+                for c in conflicts) + "\n"
         return self.llm.generate(prompts.WRITE.format(question=question,
-                                                      sources=self._source_block(sources)),
+                                                      sources=self._source_block(sources),
+                                                      conflicts=cblock),
                                  self.cfg.writer_model, system=prompts.WRITE_SYSTEM).strip()
 
     def verify(self, body: str, sources: list[Source]) -> list[Claim]:

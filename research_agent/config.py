@@ -32,6 +32,7 @@ class Config:
     use_embeddings: bool = True              # hybrid BM25 + semantic reranking
     candidate_passages: int = 6              # BM25 candidates per source before reranking
     use_cache: bool = True
+    detect_conflicts: bool = True            # cross-source contradiction analysis
     extra: dict = field(default_factory=dict)
 
     @classmethod
@@ -47,3 +48,20 @@ class Config:
             use_embeddings=os.getenv("USE_EMBEDDINGS", "1") != "0",
             use_cache=os.getenv("USE_CACHE", "1") != "0",
         )
+
+
+PRESETS = {
+    "quick":    dict(max_subquestions=3, results_per_query=3, max_sources=6, max_rounds=1,
+                     max_revisions=0, detect_conflicts=False),
+    "standard": dict(),
+    "deep":     dict(max_subquestions=6, results_per_query=5, max_sources=16, max_rounds=3,
+                     max_revisions=2, passages_per_source=4),
+}
+
+
+def apply_preset(cfg: Config, name: str) -> Config:
+    if name not in PRESETS:
+        raise ValueError(f"Unknown depth '{name}'. Choose from: {', '.join(PRESETS)}")
+    for k, v in PRESETS[name].items():
+        setattr(cfg, k, v)
+    return cfg

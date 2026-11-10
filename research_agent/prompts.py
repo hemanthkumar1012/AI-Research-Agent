@@ -1,10 +1,12 @@
 PLAN = """You are a research planner. Break the research question into {n} focused,
-non-overlapping sub-questions and a web search query for each.
+non-overlapping sub-questions and a search query for each. Also choose the best source type:
+"academic" (papers, scientific/technical evidence), "encyclopedic" (definitions, history,
+background), or "web" (news, current figures, products, policy, everything else).
 Today's date: {today}.
 
 Question: {question}
 
-Return JSON: {{"subquestions": [{{"question": "...", "query": "..."}}]}}"""
+Return JSON: {{"subquestions": [{{"question": "...", "query": "...", "source": "web|academic|encyclopedic"}}]}}"""
 
 GAPS = """You are reviewing research notes for the question below.
 Question: {question}
@@ -27,10 +29,12 @@ WRITE = """Research question: {question}
 
 Sources:
 {sources}
-
+{conflicts}
 Write a well-structured Markdown report:
 - Start with "## Summary" (3-5 sentences).
 - Then thematic "##" sections with the findings.
+- If sources disagree, include "## Where sources disagree" explaining each disagreement,
+  citing both sides, and which side has stronger evidence (credibility, recency, specificity).
 - End with "## Open questions" listing what the sources could not settle.
 Do not add a references list; it is appended automatically."""
 
@@ -58,3 +62,32 @@ Sources:
 
 Current report:
 {report}"""
+
+CONFLICTS = """Compare these sources on the research question and find genuine factual
+disagreements: different numbers, dates, conclusions, or causal claims about the same thing.
+Ignore differences in emphasis or scope. Return at most 5.
+
+Question: {question}
+
+Sources:
+{sources}
+
+Return JSON: {{"conflicts": [{{"topic": "...", "positions": [{{"source": <int>, "says": "..."}}],
+"assessment": "which position is better supported and why, <= 30 words"}}]}}"""
+
+ASK_SYSTEM = """You answer follow-up questions about a research report using ONLY the numbered
+sources. Cite every factual sentence like [2]. If the sources don't contain the answer, say so
+and suggest what to research next. Be concise."""
+
+ASK = """Original research question: {question}
+
+Report:
+{report}
+
+Sources:
+{sources}
+
+Conversation so far:
+{history}
+
+Follow-up question: {followup}"""
