@@ -41,8 +41,9 @@ try {
   // Fallback: just copy .ts files as .js (browsers can't run TS, but
   // we'll strip types with a simple regex pass)
   const tsFiles = [
-    "types.ts", "utils.ts", "markdown.ts", "particles.ts",
-    "graph.ts", "api.ts", "pipeline.ts", "app.ts"
+    "types.ts", "utils.ts", "markdown.ts", "theme.ts", "particles.ts",
+    "graph.ts", "api.ts", "commands.ts", "inspector.ts", "timeline.ts",
+    "perfmon.ts", "pipeline.ts", "app.ts"
   ];
   for (const f of tsFiles) {
     const src = readFileSync(join(FRONTEND, "src", f), "utf8");
@@ -56,8 +57,9 @@ try {
 console.log("📦 Bundling JavaScript…");
 
 const MODULE_ORDER = [
-  "types.js", "utils.js", "markdown.js", "particles.js",
-  "graph.js", "api.js", "pipeline.js", "app.js"
+  "types.js", "utils.js", "markdown.js", "theme.js", "particles.js",
+  "graph.js", "api.js", "commands.js", "inspector.js", "timeline.js",
+  "perfmon.js", "pipeline.js", "app.js"
 ];
 
 let bundle = `"use strict";\n(() => {\n`;
@@ -117,7 +119,7 @@ function stripTypes(code) {
     // Remove single-line type aliases
     .replace(/^(export\s+)?type\s+\w+\s*=\s*[^;]+;/gm, "")
     // Remove `: Type` annotations (parameters, variables, returns)
-    .replace(/:\s*(?:string|number|boolean|void|null|undefined|any|never|HTMLElement|Element|Event|MouseEvent|SVGElement|HTMLInputElement|HTMLButtonElement|HTMLSelectElement|HTMLCanvasElement|CanvasRenderingContext2D|ReportData|UploadResult|HistoryItem|AgentEventMap)\s*(?=[,)\]{}=;])/g, "")
+    .replace(/:\s*(?:string|number|boolean|void|null|undefined|any|never|HTMLElement|Element|Event|MouseEvent|KeyboardEvent|DragEvent|SVGElement|HTMLInputElement|HTMLButtonElement|HTMLSelectElement|HTMLCanvasElement|HTMLDetailsElement|HTMLDivElement|CanvasRenderingContext2D|ReportData|UploadResult|HistoryItem|AgentEventMap|Source|Claim|Command|ParticleMode|ThemeName|Record<[^>]+>)\s*(?=[,)\]{}=;])/g, "")
     // Remove `: Type[]` annotations
     .replace(/:\s*\w+\[\]\s*(?=[,)\]{}=;])/g, "")
     // Remove `<Type>` generic params on function calls
@@ -125,7 +127,7 @@ function stripTypes(code) {
     // Remove `as Type` casts
     .replace(/\s+as\s+(?:string|number|boolean|HTML\w+|SVG\w+|Element|any|unknown)\s*/g, " ")
     // Remove function return types
-    .replace(/\):\s*(?:string|number|boolean|void|Promise<[^>]+>|HTMLElement|null)\s*(?=[{])/g, ") ")
+    .replace(/\):\s*(?:string|number|boolean|void|Promise<[^>]+>|HTMLElement|HTMLDivElement|null|Command\[\])\s*(?=[{])/g, ") ")
     // Remove `!` non-null assertions
     .replace(/!\./g, ".")
     .replace(/!(?=[,);}\]])/g, "");

@@ -3,27 +3,34 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="AI Research Agent — Multi-source verified research with citation graphs, powered by Gemini">
+  <meta name="theme-color" content="#0a0a0f">
   <title>AI Research Agent</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔬</text></svg>">
   <link rel="stylesheet" href="/static/app.css">
 </head>
-<body>
+<body data-theme="dark">
   <canvas id="particles"></canvas>
 
   <div class="shell">
     <!-- Header -->
     <header class="header">
-      <div class="logo">⚡</div>
-      <div>
+      <div class="logo"><span class="logo-icon">⚡</span></div>
+      <div class="header-text">
         <h1>AI Research Agent</h1>
-        <div style="font-size:.72rem;color:#68687a;margin-top:2px">Multi-source verified research with citation graphs</div>
+        <div class="header-sub">Multi-source verified research · Citation graphs · Claim verification</div>
       </div>
-      <small>TypeScript · SSE · Gemini</small>
+      <div class="header-actions">
+        <kbd class="header-kbd" title="Command palette">⌘K</kbd>
+        <small class="header-tech">TypeScript · SSE · Gemini</small>
+      </div>
     </header>
 
     <!-- Sidebar -->
     <aside class="sidebar">
-      <h3>Research History</h3>
+      <div class="sidebar-header">
+        <h3>Research History</h3>
+      </div>
       <div id="history" class="empty">No past research yet</div>
     </aside>
 
@@ -33,22 +40,25 @@
       <div class="search-card">
         <form id="f">
           <div class="search-row">
-            <input id="q" class="search-input" type="text"
-              placeholder="Ask a research question…" required autocomplete="off">
+            <div class="search-input-wrap">
+              <span class="search-icon">🔍</span>
+              <input id="q" class="search-input" type="text"
+                placeholder="Ask a research question…" required autocomplete="off">
+            </div>
             <select id="depth" class="search-select">
-              <option value="standard">Standard</option>
-              <option value="deep">Deep</option>
-              <option value="deeper">Deeper</option>
+              <option value="standard">⚡ Standard</option>
+              <option value="deep">🔬 Deep</option>
+              <option value="deeper">🏔 Deeper</option>
             </select>
-            <button id="b" class="search-btn" type="submit">Research</button>
+            <button id="b" class="search-btn" type="submit">⚡ Research</button>
           </div>
           <div class="search-meta">
             <label class="file-label">
-              📎 Attach files
+              📎 Attach files <span class="file-hint">(or drag & drop)</span>
               <input id="files" type="file" multiple>
             </label>
             <span id="filelist" class="filelist"></span>
-            <span class="kbd-hint">Press <kbd>/</kbd> to focus</span>
+            <span class="kbd-hint"><kbd>/</kbd> focus · <kbd>⌘K</kbd> commands · <kbd>T</kbd> theme</span>
           </div>
         </form>
       </div>
@@ -58,14 +68,24 @@
 
       <!-- Trace -->
       <div class="trace-card">
-        <h3>Research Trace</h3>
+        <div class="trace-header">
+          <h3>Research Trace</h3>
+          <span class="trace-filter">
+            <button class="trace-filter-btn active" data-filter="all">All</button>
+            <button class="trace-filter-btn" data-filter="plan">Plan</button>
+            <button class="trace-filter-btn" data-filter="search">Search</button>
+            <button class="trace-filter-btn" data-filter="source">Sources</button>
+          </span>
+        </div>
         <div id="log" class="empty">Waiting for a query…</div>
       </div>
 
       <!-- Tabs -->
       <div class="tabs">
-        <button class="tab on" data-t="report">Report</button>
-        <button class="tab" data-t="graph">Citation Graph</button>
+        <button class="tab on" data-t="report">📄 Report</button>
+        <button class="tab" data-t="graph">🕸 Citation Graph</button>
+        <button class="tab" data-t="inspector">🔍 Inspector</button>
+        <button class="tab" data-t="timeline">⏱ Timeline</button>
       </div>
 
       <!-- Score -->
@@ -73,12 +93,38 @@
 
       <!-- Report -->
       <div id="report" class="report-card empty">
-        Your research report will appear here
+        <div class="empty-state">
+          <div class="empty-icon">📚</div>
+          <div class="empty-title">Ready to Research</div>
+          <div class="empty-sub">Enter a question above to generate a verified research report</div>
+        </div>
       </div>
 
       <!-- Graph -->
       <div id="graph" class="graph-container hidden">
-        <div class="empty">Run a research query to see the citation graph</div>
+        <div class="empty-state">
+          <div class="empty-icon">🕸</div>
+          <div class="empty-title">Citation Graph</div>
+          <div class="empty-sub">Run a research query to see the source-claim relationship graph</div>
+        </div>
+      </div>
+
+      <!-- Inspector -->
+      <div id="inspector" class="inspector-container hidden">
+        <div class="empty-state">
+          <div class="empty-icon">🔍</div>
+          <div class="empty-title">Source Inspector</div>
+          <div class="empty-sub">Run a research query to inspect sources and their claims</div>
+        </div>
+      </div>
+
+      <!-- Timeline -->
+      <div id="timelinePanel" class="timeline-container hidden">
+        <div class="empty-state">
+          <div class="empty-icon">⏱</div>
+          <div class="empty-title">Research Timeline</div>
+          <div class="empty-sub">The timeline will show each step of the research process</div>
+        </div>
       </div>
 
       <!-- Conflicts -->
@@ -97,8 +143,13 @@
         </form>
       </div>
 
-      <!-- Download -->
-      <button id="dl" class="dl-btn hidden">⬇ Download Report</button>
+      <!-- Export -->
+      <div class="export-row">
+        <button id="dl" class="dl-btn hidden">⬇ Markdown</button>
+        <button id="export-json" class="dl-btn hidden">📦 JSON</button>
+        <button id="export-html" class="dl-btn hidden">🌐 HTML</button>
+        <div id="exportMenu" class="hidden"></div>
+      </div>
     </main>
   </div>
 
