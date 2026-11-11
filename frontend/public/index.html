@@ -66,29 +66,44 @@
 
       <!-- Main Content -->
       <main class="main" id="main">
+        <!-- Animated Background Orbs -->
+        <div class="bg-effects" aria-hidden="true">
+          <div class="orb orb-1"></div>
+          <div class="orb orb-2"></div>
+          <div class="orb orb-3"></div>
+          <div class="grid-pattern"></div>
+        </div>
+
         <!-- Search Section -->
         <section class="search-section search-card">
           <div class="search-hero">
+            <div class="hero-badge">
+              <span class="hero-badge-dot"></span>
+              <span>Powered by AI</span>
+            </div>
             <h2 class="search-title">Discover verified<br>insights instantly</h2>
             <p class="search-subtitle">Multi-source research engine with real-time citation analysis, credibility scoring, and intelligent verification</p>
           </div>
           <form id="f" class="search-form">
-            <div class="search-bar">
-              <div class="search-input-wrap">
-                <svg class="search-bar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input id="q" class="search-input" type="text" placeholder="Ask a research question..." required autocomplete="off">
+            <div class="search-bar-wrap">
+              <div class="search-bar">
+                <div class="search-input-wrap">
+                  <svg class="search-bar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <input id="q" class="search-input" type="text" placeholder="Ask a research question..." required autocomplete="off">
+                </div>
+                <div class="search-controls">
+                  <select id="depth" class="search-select" title="Research depth">
+                    <option value="standard">Standard</option>
+                    <option value="deep">Deep</option>
+                    <option value="deeper">Deeper</option>
+                  </select>
+                  <button id="b" class="search-btn" type="submit">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    <span>Research</span>
+                  </button>
+                </div>
               </div>
-              <div class="search-controls">
-                <select id="depth" class="search-select" title="Research depth">
-                  <option value="standard">Standard</option>
-                  <option value="deep">Deep</option>
-                  <option value="deeper">Deeper</option>
-                </select>
-                <button id="b" class="search-btn" type="submit">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                  <span>Research</span>
-                </button>
-              </div>
+              <div class="search-glow"></div>
             </div>
             <div class="search-options">
               <label class="attach-btn" title="Attach files">
@@ -104,6 +119,25 @@
               </span>
             </div>
           </form>
+          <!-- Feature Pills -->
+          <div class="feature-pills">
+            <div class="feature-pill">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <span>Verified Sources</span>
+            </div>
+            <div class="feature-pill">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span>Real-time Analysis</span>
+            </div>
+            <div class="feature-pill">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              <span>Credibility Scoring</span>
+            </div>
+            <div class="feature-pill">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><line x1="6" y1="9" x2="6" y2="15"/><path d="M9 18h6"/></svg>
+              <span>Citation Graphs</span>
+            </div>
+          </div>
         </section>
 
         <!-- Progress Bar -->
