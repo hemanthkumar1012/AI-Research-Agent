@@ -53,8 +53,8 @@ export function init(): void {
   // Theme engine
   theme = new ThemeEngine();
 
-  // Particles
-  particles = new ParticleField(document.body);
+  // Particles disabled for clean professional look
+  // particles = new ParticleField(document.body);
 
   // Performance monitor
   perfmon = new PerfMonitor(document.body);

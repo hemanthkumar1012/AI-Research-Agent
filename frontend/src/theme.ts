@@ -1,6 +1,6 @@
-/* ── Theme Engine — light/dark/midnight + system pref ── */
+/* ── Theme Engine — professional light/dark with smooth transitions ── */
 
-export type ThemeName = "dark" | "light" | "midnight";
+export type ThemeName = "light" | "dark" | "midnight";
 
 interface ThemeVars {
   bg: string; bg2: string;
@@ -13,32 +13,32 @@ interface ThemeVars {
 }
 
 const THEMES: Record<ThemeName, ThemeVars> = {
+  light: {
+    bg: "#f8f9fb", bg2: "#ffffff",
+    surface: "rgba(0,0,0,0.02)", surfaceHover: "rgba(0,0,0,0.04)",
+    border: "rgba(0,0,0,0.08)", borderHi: "rgba(0,0,0,0.14)",
+    text: "#111111", text2: "#555555", text3: "#999999",
+    accent: "#111111", accent2: "#444444", accentGlow: "rgba(0,0,0,0.06)",
+    green: "#16a34a", amber: "#d97706", red: "#dc2626",
+    cardBg: "#ffffff", headerBg: "rgba(255,255,255,0.85)",
+  },
   dark: {
-    bg: "#0a0a0f", bg2: "#12121a",
+    bg: "#0f0f13", bg2: "#1a1a22",
     surface: "rgba(255,255,255,0.04)", surfaceHover: "rgba(255,255,255,0.07)",
     border: "rgba(255,255,255,0.08)", borderHi: "rgba(255,255,255,0.15)",
-    text: "#e8e8ed", text2: "#9898a8", text3: "#68687a",
-    accent: "#6c5ce7", accent2: "#a29bfe", accentGlow: "rgba(108,92,231,0.25)",
-    green: "#00cec9", amber: "#fdcb6e", red: "#ff6b6b",
-    cardBg: "rgba(255,255,255,0.04)", headerBg: "rgba(10,10,15,0.7)",
-  },
-  light: {
-    bg: "#f0f2f5", bg2: "#ffffff",
-    surface: "rgba(0,0,0,0.03)", surfaceHover: "rgba(0,0,0,0.06)",
-    border: "rgba(0,0,0,0.1)", borderHi: "rgba(0,0,0,0.18)",
-    text: "#1a1a2e", text2: "#4a4a5c", text3: "#8888a0",
-    accent: "#5b4cdb", accent2: "#7c6ef7", accentGlow: "rgba(91,76,219,0.2)",
-    green: "#00a89e", amber: "#e6a817", red: "#e84d4d",
-    cardBg: "rgba(255,255,255,0.85)", headerBg: "rgba(240,242,245,0.85)",
+    text: "#e8e8f0", text2: "#9898a8", text3: "#68687a",
+    accent: "#e8e8f0", accent2: "#bbbbcc", accentGlow: "rgba(255,255,255,0.06)",
+    green: "#4ade80", amber: "#fbbf24", red: "#f87171",
+    cardBg: "rgba(255,255,255,0.04)", headerBg: "rgba(15,15,19,0.85)",
   },
   midnight: {
-    bg: "#050510", bg2: "#0a0a1a",
-    surface: "rgba(100,100,255,0.04)", surfaceHover: "rgba(100,100,255,0.08)",
-    border: "rgba(100,100,255,0.1)", borderHi: "rgba(100,100,255,0.2)",
-    text: "#d0d0f0", text2: "#8080b0", text3: "#505078",
-    accent: "#8b5cf6", accent2: "#c4b5fd", accentGlow: "rgba(139,92,246,0.3)",
-    green: "#22d3ee", amber: "#facc15", red: "#fb7185",
-    cardBg: "rgba(100,100,255,0.04)", headerBg: "rgba(5,5,16,0.8)",
+    bg: "#08081a", bg2: "#0e0e28",
+    surface: "rgba(99,102,241,0.04)", surfaceHover: "rgba(99,102,241,0.08)",
+    border: "rgba(99,102,241,0.12)", borderHi: "rgba(99,102,241,0.2)",
+    text: "#d4d4f8", text2: "#8888b8", text3: "#5555888",
+    accent: "#818cf8", accent2: "#a5b4fc", accentGlow: "rgba(99,102,241,0.15)",
+    green: "#34d399", amber: "#fbbf24", red: "#fb7185",
+    cardBg: "rgba(99,102,241,0.04)", headerBg: "rgba(8,8,26,0.85)",
   },
 };
 
@@ -47,7 +47,9 @@ export class ThemeEngine {
   private listeners: ((t: ThemeName) => void)[] = [];
 
   constructor() {
-    this.current = (localStorage.getItem("theme") as ThemeName) || this.systemPref();
+    // Default to light for the professional gray/white look
+    const stored = localStorage.getItem("theme") as ThemeName | null;
+    this.current = stored || "light";
     this.apply(this.current);
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
       if (!localStorage.getItem("theme")) this.apply(this.systemPref());
@@ -55,13 +57,13 @@ export class ThemeEngine {
   }
 
   private systemPref(): ThemeName {
-    return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   }
 
   get theme(): ThemeName { return this.current; }
 
   cycle(): ThemeName {
-    const order: ThemeName[] = ["dark", "light", "midnight"];
+    const order: ThemeName[] = ["light", "dark", "midnight"];
     const next = order[(order.indexOf(this.current) + 1) % order.length];
     this.set(next);
     return next;
@@ -93,6 +95,19 @@ export class ThemeEngine {
     root.style.setProperty("--red", vars.red);
     root.style.setProperty("--card-bg", vars.cardBg);
     root.style.setProperty("--header-bg", vars.headerBg);
+
+    // Also update the new CSS variable names to match the gray/white design system
+    root.style.setProperty("--bg-secondary", name === "light" ? "#f0f1f3" : vars.bg);
+    root.style.setProperty("--bg-tertiary", name === "light" ? "#e8e9ec" : vars.surface);
+    root.style.setProperty("--surface", vars.surface);
+    root.style.setProperty("--surface-raised", vars.cardBg);
+    root.style.setProperty("--text-primary", vars.text);
+    root.style.setProperty("--text-secondary", vars.text2);
+    root.style.setProperty("--text-tertiary", vars.text3);
+    root.style.setProperty("--success", vars.green);
+    root.style.setProperty("--warning", vars.amber);
+    root.style.setProperty("--danger", vars.red);
+
     document.body.dataset.theme = name;
     this.listeners.forEach((fn) => fn(name));
   }
