@@ -126,13 +126,13 @@ function renderMarkdown(src) {
 /* ── Theme Engine — professional light/dark with smooth transitions ── */
 const THEMES = {
     light: {
-        bg: "#f8f9fb", bg2: "#ffffff",
-        surface: "rgba(0,0,0,0.02)", surfaceHover: "rgba(0,0,0,0.04)",
-        border: "rgba(0,0,0,0.08)", borderHi: "rgba(0,0,0,0.14)",
-        text: "#111111", text2: "#555555", text3: "#999999",
-        accent: "#111111", accent2: "#444444", accentGlow: "rgba(0,0,0,0.06)",
-        green: "#16a34a", amber: "#d97706", red: "#dc2626",
-        cardBg: "#ffffff", headerBg: "rgba(255,255,255,0.85)",
+        bg: "#f8fafc", bg2: "#ffffff",
+        surface: "rgba(99,102,241,0.03)", surfaceHover: "rgba(99,102,241,0.06)",
+        border: "rgba(99,102,241,0.12)", borderHi: "rgba(99,102,241,0.2)",
+        text: "#0f172a", text2: "#475569", text3: "#94a3b8",
+        accent: "#6366f1", accent2: "#8b5cf6", accentGlow: "rgba(99,102,241,0.1)",
+        green: "#10b981", amber: "#f59e0b", red: "#ef4444",
+        cardBg: "#ffffff", headerBg: "rgba(255,255,255,0.75)",
     },
     dark: {
         bg: "#0f0f13", bg2: "#1a1a22",
@@ -202,8 +202,8 @@ class ThemeEngine {
         root.style.setProperty("--card-bg", vars.cardBg);
         root.style.setProperty("--header-bg", vars.headerBg);
         // Also update the new CSS variable names to match the gray/white design system
-        root.style.setProperty("--bg-secondary", name === "light" ? "#f0f1f3" : vars.bg);
-        root.style.setProperty("--bg-tertiary", name === "light" ? "#e8e9ec" : vars.surface);
+        root.style.setProperty("--bg-secondary", name === "light" ? "#f1f5f9" : vars.bg);
+        root.style.setProperty("--bg-tertiary", name === "light" ? "#e2e8f0" : vars.surface);
         root.style.setProperty("--surface", vars.surface);
         root.style.setProperty("--surface-raised", vars.cardBg);
         root.style.setProperty("--text-primary", vars.text);
