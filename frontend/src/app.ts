@@ -103,6 +103,12 @@ export function init(): void {
   // Wire sidebar quick-action buttons
   initSidebarActions();
 
+  // Dynamic visual effects
+  initRippleEffect();
+  initParticleSystem();
+  initTypingTitle();
+  setTimeout(() => initTiltEffect(), 500);
+
   // Welcome toast
   toast("Press Ctrl+K for command palette · ? for shortcuts", "info", 3000);
 }
@@ -276,13 +282,171 @@ function initSidebarActions(): void {
 
 function updateSidebarStats(): void {
   const searches = document.getElementById("statSearches");
-  if (searches) searches.textContent = String(searchCount);
+  if (searches) animateCounter(searches, searchCount);
   const sources = document.getElementById("statSources");
-  if (sources) sources.textContent = current ? String(current.sources?.length || 0) : "0";
+  if (sources) animateCounter(sources, current ? (current.sources?.length || 0) : 0);
   const precision = document.getElementById("statPrecision");
-  if (precision) precision.textContent = current ? pct(current.score?.citation_precision || 0) : "—";
+  if (precision) {
+    const pctVal = current ? Math.round((current.score?.citation_precision || 0) * 100) : 0;
+    if (pctVal > 0) animateCounter(precision, pctVal, "%");
+    else precision.textContent = "—";
+  }
   const bookmarks = document.getElementById("statBookmarks");
-  if (bookmarks) bookmarks.textContent = String(getBookmarkCount());
+  if (bookmarks) animateCounter(bookmarks, getBookmarkCount());
+}
+
+// ── Dynamic Visual Effects ───────────────────────────
+
+function initRippleEffect(): void {
+  document.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    const btn = target.closest("button, .sidebar-quick-btn, .tab, .chip, .icon-btn, .export-btn, .feature-pill");
+    if (!btn) return;
+    const rect = (btn as HTMLElement).getBoundingClientRect();
+    const ripple = document.createElement("span");
+    ripple.className = "ripple-effect";
+    const size = Math.max(rect.width, rect.height) * 2;
+    ripple.style.width = ripple.style.height = size + "px";
+    ripple.style.left = (e.clientX - rect.left - size / 2) + "px";
+    ripple.style.top = (e.clientY - rect.top - size / 2) + "px";
+    (btn as HTMLElement).style.position = "relative";
+    (btn as HTMLElement).style.overflow = "hidden";
+    btn.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 600);
+  });
+}
+
+function initParticleSystem(): void {
+  const canvas = document.createElement("canvas");
+  canvas.id = "particles-canvas";
+  document.body.prepend(canvas);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  let w = canvas.width = window.innerWidth;
+  let h = canvas.height = window.innerHeight;
+  window.addEventListener("resize", () => { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; });
+
+  const colors = ["99,102,241", "236,72,153", "6,182,212", "16,185,129", "139,92,246", "249,115,22"];
+  interface Pt { x: number; y: number; vx: number; vy: number; r: number; c: string; a: number; }
+  const pts: Pt[] = [];
+  const N = Math.min(40, Math.floor(w * h / 30000));
+  for (let i = 0; i < N; i++) {
+    pts.push({
+      x: Math.random() * w, y: Math.random() * h,
+      vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4,
+      r: Math.random() * 2 + 1,
+      c: colors[Math.floor(Math.random() * colors.length)],
+      a: Math.random() * 0.4 + 0.1
+    });
+  }
+
+  let mx = w / 2, my = h / 2;
+  document.addEventListener("mousemove", (e) => { mx = e.clientX; my = e.clientY; });
+
+  function draw(): void {
+    ctx!.clearRect(0, 0, w, h);
+    for (const p of pts) {
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0 || p.x > w) p.vx *= -1;
+      if (p.y < 0 || p.y > h) p.vy *= -1;
+
+      // Mouse repel
+      const dx = p.x - mx, dy = p.y - my;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 120) {
+        const force = (120 - dist) / 120 * 0.02;
+        p.vx += dx / dist * force;
+        p.vy += dy / dist * force;
+      }
+
+      // Damping
+      p.vx *= 0.999; p.vy *= 0.999;
+
+      ctx!.beginPath();
+      ctx!.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx!.fillStyle = `rgba(${p.c},${p.a})`;
+      ctx!.fill();
+    }
+
+    // Draw connections
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < 150) {
+          ctx!.beginPath();
+          ctx!.moveTo(pts[i].x, pts[i].y);
+          ctx!.lineTo(pts[j].x, pts[j].y);
+          ctx!.strokeStyle = `rgba(99,102,241,${0.06 * (1 - d / 150)})`;
+          ctx!.lineWidth = 0.5;
+          ctx!.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+}
+
+function animateCounter(el: HTMLElement, target: number, suffix: string = ""): void {
+  const start = parseInt(el.textContent || "0") || 0;
+  const diff = target - start;
+  if (diff === 0) return;
+  const duration = 400;
+  const startTime = performance.now();
+  function step(now: number): void {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+    const value = Math.round(start + diff * eased);
+    el.textContent = String(value) + suffix;
+    if (progress < 1) requestAnimationFrame(step);
+    else {
+      el.classList.add("bump");
+      setTimeout(() => el.classList.remove("bump"), 300);
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+function initTypingTitle(): void {
+  const title = document.querySelector(".search-title");
+  if (!title) return;
+  const words = ["insights instantly", "knowledge deeply", "sources reliably", "claims accurately"];
+  let idx = 0;
+  const br = title.querySelector("br");
+  if (!br) return;
+  const afterBr = br.nextSibling;
+  if (!afterBr) return;
+  const baseText = "Discover verified";
+
+  setInterval(() => {
+    idx = (idx + 1) % words.length;
+    const word = words[idx];
+    // Fade out then swap
+    (title as HTMLElement).style.opacity = "0.6";
+    setTimeout(() => {
+      if (br.nextSibling && br.nextSibling.nodeType === 3) {
+        br.nextSibling.textContent = word;
+      }
+      (title as HTMLElement).style.opacity = "1";
+    }, 300);
+  }, 3500);
+}
+
+function initTiltEffect(): void {
+  document.querySelectorAll<HTMLElement>(".panel").forEach((panel) => {
+    panel.addEventListener("mousemove", (e) => {
+      const rect = panel.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width - 0.5;
+      const y = (e.clientY - rect.top) / rect.height - 0.5;
+      panel.style.transform = `perspective(1200px) rotateY(${x * 3}deg) rotateX(${-y * 3}deg) translateY(-3px)`;
+    });
+    panel.addEventListener("mouseleave", () => {
+      panel.style.transform = "";
+    });
+  });
 }
 
 // ── Resize handle for trace card ──────────────────────
