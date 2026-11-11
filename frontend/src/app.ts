@@ -88,15 +88,40 @@ export function init(): void {
 
   // Wire topbar buttons
   const themeBtn = document.getElementById("themeToggle");
-  if (themeBtn) themeBtn.addEventListener("click", () => { theme?.cycle(); toast(`Theme: ${theme!.theme}`, "info"); });
+  if (themeBtn) themeBtn.addEventListener("click", () => {
+    theme?.cycle();
+    const currentTheme = theme!.theme;
+    const icons: Record<string, string> = { light: "☀️", dark: "🌙", midnight: "🌌" };
+    const icon = themeBtn.querySelector("svg, span.theme-icon");
+    if (icon) icon.textContent = icons[currentTheme] || "☀️";
+    else {
+      const span = document.createElement("span");
+      span.className = "theme-icon";
+      span.style.fontSize = "16px";
+      span.textContent = icons[currentTheme] || "☀️";
+      // Replace SVG with emoji if present
+      const svg = themeBtn.querySelector("svg");
+      if (svg) { svg.replaceWith(span); }
+    }
+    toast(`Theme: ${currentTheme}`, "info");
+  });
   const focusBtnEl = document.getElementById("focusBtn");
-  if (focusBtnEl) focusBtnEl.addEventListener("click", () => toggleFocus());
+  if (focusBtnEl) focusBtnEl.addEventListener("click", () => {
+    const isActive = toggleFocus();
+    toast(isActive ? "Focus mode: ON — distraction-free reading" : "Focus mode: OFF", "info");
+  });
   const shortcutsBtnEl = document.getElementById("shortcutsBtn");
   if (shortcutsBtnEl) shortcutsBtnEl.addEventListener("click", () => toggleShortcuts());
   const cmdTriggerEl = document.getElementById("cmdTrigger");
   if (cmdTriggerEl) cmdTriggerEl.addEventListener("click", () => openPalette());
   const notifTriggerEl = document.getElementById("notifTrigger");
-  if (notifTriggerEl) notifTriggerEl.addEventListener("click", () => switchTab("notifications"));
+  if (notifTriggerEl) notifTriggerEl.addEventListener("click", () => {
+    switchTab("notifications");
+    // Clear badge count
+    const badge = notifTriggerEl.querySelector(".notif-count");
+    if (badge) (badge as HTMLElement).style.display = "none";
+    toast("Viewing notifications", "info");
+  });
   const sidebarToggleEl = document.getElementById("sidebarToggle");
   if (sidebarToggleEl) sidebarToggleEl.addEventListener("click", () => toggleSidebar());
 
