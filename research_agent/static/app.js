@@ -3216,6 +3216,8 @@ function init() {
     const sidebarToggleEl = document.getElementById("sidebarToggle");
     if (sidebarToggleEl)
         sidebarToggleEl.addEventListener("click", () => toggleSidebar());
+    // Wire sidebar quick-action buttons
+    initSidebarActions();
     // Welcome toast
     toast("Press Ctrl+K for command palette · ? for shortcuts", "info", 3000);
 }
@@ -3363,6 +3365,62 @@ function toggleSidebar() {
     sidebarCollapsed = !sidebarCollapsed;
     document.querySelector(".sidebar")?.classList.toggle("collapsed", sidebarCollapsed);
     document.querySelector(".shell")?.classList.toggle("sidebar-hidden", sidebarCollapsed);
+}
+// ── Sidebar quick actions ────────────────────────────
+let searchCount = 0;
+function initSidebarActions() {
+    const newSearch = document.getElementById("sbNewSearch");
+    if (newSearch)
+        newSearch.addEventListener("click", () => {
+            clearReport();
+            $("q").focus();
+            toast("Ready for new search", "info");
+        });
+    const bookmark = document.getElementById("sbBookmark");
+    if (bookmark)
+        bookmark.addEventListener("click", () => {
+            if (current) {
+                const credNum = Math.round((current.score?.citation_precision || 0) * 100);
+                addBookmark(current.question || "Untitled", current.markdown || "", current.sources?.length || 0, current.claims?.length || 0, credNum);
+                toast("Bookmarked!", "success");
+                updateSidebarStats();
+            }
+            else
+                toast("No report to bookmark", "warn");
+        });
+    const exportBtn = document.getElementById("sbExport");
+    if (exportBtn)
+        exportBtn.addEventListener("click", () => {
+            if (current)
+                exportReport("md");
+            else
+                toast("No report to export", "warn");
+        });
+    const shareBtn = document.getElementById("sbShare");
+    if (shareBtn)
+        shareBtn.addEventListener("click", () => {
+            if (current)
+                shareReport(current, "copy");
+            else
+                toast("No report to share", "warn");
+        });
+    const cmdBtn = document.getElementById("sbCmdPalette");
+    if (cmdBtn)
+        cmdBtn.addEventListener("click", () => openPalette());
+}
+function updateSidebarStats() {
+    const searches = document.getElementById("statSearches");
+    if (searches)
+        searches.textContent = String(searchCount);
+    const sources = document.getElementById("statSources");
+    if (sources)
+        sources.textContent = current ? String(current.sources?.length || 0) : "0";
+    const precision = document.getElementById("statPrecision");
+    if (precision)
+        precision.textContent = current ? pct(current.score?.citation_precision || 0) : "—";
+    const bookmarks = document.getElementById("statBookmarks");
+    if (bookmarks)
+        bookmarks.textContent = String(getBookmarkCount());
 }
 // ── Resize handle for trace card ──────────────────────
 function initResizeHandle() {
@@ -3555,6 +3613,8 @@ function startResearch() {
         timeline.reset();
     timeline = new ResearchTimeline($("timelinePanel"));
     timeline.add("init", "🚀", "Research started");
+    searchCount++;
+    updateSidebarStats();
     toast(`Researching: "${question.slice(0, 50)}${question.length > 50 ? "…" : ""}"`, "info");
     notify("Research Started", `Query: "${question.slice(0, 80)}"`, "info");
     const depth = $("depth").value;
@@ -3739,6 +3799,8 @@ function showReport(d) {
     // Animate report in
     fadeIn($("report"));
     staggerChildren($("score"), ".pill", 60);
+    // Update sidebar stats
+    updateSidebarStats();
     // Reading progress
     setReadingContent(words);
     announce(`Research report loaded: ${d.question}`);
