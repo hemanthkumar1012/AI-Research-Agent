@@ -129,6 +129,8 @@ class GeminiClient:
                                   headers={"x-goog-api-key": self.api_key})
                 if r.status_code in (429, 500, 503):
                     raise LLMError(f"Gemini {r.status_code}: {r.text[:200]}")
+                if 400 <= r.status_code < 500:
+                    raise RuntimeError(f"Gemini rejected the request ({r.status_code}): {r.text[:300]}")
                 r.raise_for_status()
                 return parse(r.json())
             except (requests.RequestException, LLMError, KeyError, IndexError) as e:

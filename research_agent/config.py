@@ -19,8 +19,8 @@ def _load_dotenv(path: str = ".env") -> None:
 class Config:
     gemini_api_key: str = ""
     tavily_api_key: str = ""
-    fast_model: str = "gemini-2.5-flash"     # planning, verification
-    writer_model: str = "gemini-2.5-pro"     # final report
+    fast_model: str = "gemini-flash-latest"  # planning, verification
+    writer_model: str = "gemini-pro-latest"  # final report
     max_subquestions: int = 4
     results_per_query: int = 4
     max_sources: int = 10
