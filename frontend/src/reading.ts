@@ -7,10 +7,10 @@ let progressEl: HTMLDivElement | null = null;
 let timerEl: HTMLSpanElement | null = null;
 let percentEl: HTMLSpanElement | null = null;
 let barEl: HTMLDivElement | null = null;
-let active = false;
+let readingActive = false;
 let totalWords = 0;
 
-const WPM = 230;
+const READING_WPM = 230;
 
 export function initReadingProgress(): void {
   // Create floating indicator
@@ -37,12 +37,12 @@ export function initReadingProgress(): void {
 
 export function setReadingContent(wordCount: number): void {
   totalWords = wordCount;
-  active = wordCount > 50;
-  if (progressEl) progressEl.classList.toggle("hidden", !active);
+  readingActive = wordCount > 50;
+  if (progressEl) progressEl.classList.toggle("hidden", !readingActive);
 }
 
 function updateProgress(scrollContainer: HTMLElement): void {
-  if (!active || !barEl || !percentEl || !timerEl) return;
+  if (!readingActive || !barEl || !percentEl || !timerEl) return;
 
   const report = $("report");
   if (!report || report.classList.contains("empty")) {
@@ -70,7 +70,7 @@ function updateProgress(scrollContainer: HTMLElement): void {
 
   const pctVal = Math.round(progress * 100);
   const wordsLeft = Math.round(totalWords * (1 - progress));
-  const minsLeft = Math.ceil(wordsLeft / WPM);
+  const minsLeft = Math.ceil(wordsLeft / READING_WPM);
 
   barEl.style.width = `${pctVal}%`;
   percentEl.textContent = `${pctVal}%`;
@@ -79,7 +79,7 @@ function updateProgress(scrollContainer: HTMLElement): void {
     : `${minsLeft} min left`;
 
   if (progressEl) {
-    progressEl.classList.toggle("hidden", !active);
+    progressEl.classList.toggle("hidden", !readingActive);
     progressEl.classList.toggle("rpf-done", progress >= 1);
   }
 }

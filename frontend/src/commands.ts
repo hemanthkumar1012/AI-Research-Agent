@@ -44,7 +44,7 @@ export interface Command {
   category?: string;
 }
 
-let overlay: HTMLElement | null = null;
+let cmdOverlay: HTMLElement | null = null;
 let registered: Command[] = [];
 let isOpen = false;
 
@@ -56,9 +56,9 @@ export function openPalette(): void {
   if (isOpen) { closePalette(); return; }
   isOpen = true;
 
-  overlay = document.createElement("div");
-  overlay.className = "cmd-overlay";
-  overlay.innerHTML = `
+  cmdOverlay = document.createElement("div");
+  cmdOverlay.className = "cmd-overlay";
+  cmdOverlay.innerHTML = `
     <div class="cmd-palette">
       <div class="cmd-header">
         <input class="cmd-input" type="text" placeholder="Type a command…" autofocus>
@@ -67,10 +67,10 @@ export function openPalette(): void {
       <div class="cmd-list"></div>
     </div>
   `;
-  document.body.appendChild(overlay);
+  document.body.appendChild(cmdOverlay);
 
-  const input = overlay.querySelector<HTMLInputElement>(".cmd-input")!;
-  const list = overlay.querySelector<HTMLElement>(".cmd-list")!;
+  const input = cmdOverlay.querySelector<HTMLInputElement>(".cmd-input")!;
+  const list = cmdOverlay.querySelector<HTMLElement>(".cmd-list")!;
   let selected = 0;
 
   function render(filter: string): void {
@@ -124,8 +124,8 @@ export function openPalette(): void {
     if (e.key === "Escape") closePalette();
   });
 
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) closePalette();
+  cmdOverlay.addEventListener("click", (e) => {
+    if (e.target === cmdOverlay) closePalette();
   });
 
   setTimeout(() => input.focus(), 50);
@@ -133,8 +133,8 @@ export function openPalette(): void {
 
 export function closePalette(): void {
   isOpen = false;
-  overlay?.remove();
-  overlay = null;
+  cmdOverlay?.remove();
+  cmdOverlay = null;
 }
 
 export function initCommandPalette(): void {

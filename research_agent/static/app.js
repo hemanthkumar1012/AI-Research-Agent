@@ -411,7 +411,7 @@ class ParticleField {
 // ── graph.js ──
 /* ── Interactive Citation Graph (SVG bipartite) ──────── */
 
-const CRED_COLORS = {
+const GRAPH_CRED_COLORS = {
     user: "#6d9fff",
     high: "#34d399",
     medium: "#fbbf24",
@@ -449,7 +449,7 @@ function drawGraph(data, container) {
     // Draw source nodes
     S.forEach((s, i) => {
         const t = esc(s.title.length > 38 ? s.title.slice(0, 36) + "…" : s.title);
-        const col = CRED_COLORS[s.credibility] || "#555";
+        const col = GRAPH_CRED_COLORS[s.credibility] || "#555";
         nodes += `<g class="n" data-s="${s.id}">` +
             `<rect x="${sx}" y="${sy(i)}" width="${sw}" height="26" rx="7" fill="#151c2e" stroke="${col}"/>` +
             `<circle cx="${sx + 14}" cy="${sy(i) + 13}" r="4.5" fill="${col}"/>` +
@@ -587,7 +587,7 @@ function toast(message, kind = "info", duration = 4000) {
         el.addEventListener("animationend", () => el.remove());
     }, duration);
 }
-let overlay = null;
+let cmdOverlay = null;
 let registered = [];
 let isOpen = false;
 function registerCommands(cmds) {
@@ -599,9 +599,9 @@ function openPalette() {
         return;
     }
     isOpen = true;
-    overlay = document.createElement("div");
-    overlay.className = "cmd-overlay";
-    overlay.innerHTML = `
+    cmdOverlay = document.createElement("div");
+    cmdOverlay.className = "cmd-overlay";
+    cmdOverlay.innerHTML = `
     <div class="cmd-palette">
       <div class="cmd-header">
         <input class="cmd-input" type="text" placeholder="Type a command…" autofocus>
@@ -610,9 +610,9 @@ function openPalette() {
       <div class="cmd-list"></div>
     </div>
   `;
-    document.body.appendChild(overlay);
-    const input = overlay.querySelector(".cmd-input");
-    const list = overlay.querySelector(".cmd-list");
+    document.body.appendChild(cmdOverlay);
+    const input = cmdOverlay.querySelector(".cmd-input");
+    const list = cmdOverlay.querySelector(".cmd-list");
     let selected = 0;
     function render(filter) {
         const q = filter.toLowerCase();
@@ -663,16 +663,16 @@ function openPalette() {
         if (e.key === "Escape")
             closePalette();
     });
-    overlay.addEventListener("click", (e) => {
-        if (e.target === overlay)
+    cmdOverlay.addEventListener("click", (e) => {
+        if (e.target === cmdOverlay)
             closePalette();
     });
     setTimeout(() => input.focus(), 50);
 }
 function closePalette() {
     isOpen = false;
-    overlay?.remove();
-    overlay = null;
+    cmdOverlay?.remove();
+    cmdOverlay = null;
 }
 function initCommandPalette() {
     document.addEventListener("keydown", (e) => {
@@ -1180,40 +1180,40 @@ function renderHeatmap(d, container) {
 /* ── Focus Mode (Distraction-Free Reading) ─────────────── */
 /* Hides chrome, centers report, adds reading progress bar  */
 
-let active = false;
-let overlay = null;
+let focusActive = false;
+let focusOverlay = null;
 function toggleFocus() {
-    active = !active;
-    if (active)
+    focusActive = !focusActive;
+    if (focusActive)
         enterFocus();
     else
         exitFocus();
-    return active;
+    return focusActive;
 }
-function isFocusActive() { return active; }
+function isFocusActive() { return focusActive; }
 function enterFocus() {
-    overlay = document.createElement("div");
-    overlay.className = "focus-overlay";
+    focusOverlay = document.createElement("div");
+    focusOverlay.className = "focus-overlay";
     // Close button
     const close = document.createElement("button");
     close.className = "focus-close";
     close.innerHTML = "✕ Exit Focus";
     close.addEventListener("click", () => toggleFocus());
-    overlay.appendChild(close);
+    focusOverlay.appendChild(close);
     // Reading progress
     const progress = document.createElement("div");
     progress.className = "focus-progress";
     const bar = document.createElement("div");
     bar.className = "focus-progress-bar";
     progress.appendChild(bar);
-    overlay.appendChild(progress);
+    focusOverlay.appendChild(progress);
     // Content wrapper
     const wrap = document.createElement("div");
     wrap.className = "focus-content";
     // Clone report
     const report = $("report");
     wrap.innerHTML = report.innerHTML;
-    overlay.appendChild(wrap);
+    focusOverlay.appendChild(wrap);
     // Scroll tracking
     wrap.addEventListener("scroll", () => {
         const pct = wrap.scrollTop / (wrap.scrollHeight - wrap.clientHeight);
@@ -1227,17 +1227,17 @@ function enterFocus() {
         }
     };
     document.addEventListener("keydown", onKey);
-    document.body.appendChild(overlay);
+    document.body.appendChild(focusOverlay);
     document.body.classList.add("focus-active");
     // Animate in
-    requestAnimationFrame(() => overlay?.classList.add("focus-visible"));
+    requestAnimationFrame(() => focusOverlay?.classList.add("focus-visible"));
 }
 function exitFocus() {
-    if (overlay) {
-        overlay.classList.remove("focus-visible");
+    if (focusOverlay) {
+        focusOverlay.classList.remove("focus-visible");
         setTimeout(() => {
-            overlay?.remove();
-            overlay = null;
+            focusOverlay?.remove();
+            focusOverlay = null;
         }, 300);
     }
     document.body.classList.remove("focus-active");
@@ -1629,8 +1629,8 @@ function renderWordCloud(d, container) {
 // ── shortcuts.js ──
 /* ── Keyboard Shortcut Cheat Sheet ──────────────────────── */
 /* Toggleable overlay showing all keyboard shortcuts          */
-let overlay = null;
-let visible = false;
+let scOverlay = null;
+let scVisible = false;
 const GROUPS = [
     {
         title: "Navigation",
@@ -1669,16 +1669,16 @@ const GROUPS = [
     },
 ];
 function toggleShortcuts() {
-    visible = !visible;
-    if (visible)
+    scVisible = !scVisible;
+    if (scVisible)
         showSheet();
     else
         hideSheet();
-    return visible;
+    return scVisible;
 }
 function showSheet() {
-    overlay = document.createElement("div");
-    overlay.className = "shortcuts-overlay";
+    scOverlay = document.createElement("div");
+    scOverlay.className = "shortcuts-overlay";
     const card = document.createElement("div");
     card.className = "shortcuts-card";
     card.innerHTML = `
@@ -1701,21 +1701,21 @@ function showSheet() {
     </div>
     <div class="shortcuts-footer">Press <kbd>?</kbd> or <kbd>Esc</kbd> to close</div>
   `;
-    overlay.appendChild(card);
-    document.body.appendChild(overlay);
+    scOverlay.appendChild(card);
+    document.body.appendChild(scOverlay);
     // Animate in
-    requestAnimationFrame(() => overlay?.classList.add("shortcuts-visible"));
+    requestAnimationFrame(() => scOverlay?.classList.add("shortcuts-visible"));
     // Close handlers
-    overlay.querySelector(".shortcuts-close")?.addEventListener("click", () => toggleShortcuts());
-    overlay.addEventListener("click", (e) => {
-        if (e.target === overlay)
+    scOverlay.querySelector(".shortcuts-close")?.addEventListener("click", () => toggleShortcuts());
+    scOverlay.addEventListener("click", (e) => {
+        if (e.target === scOverlay)
             toggleShortcuts();
     });
 }
 function hideSheet() {
-    if (overlay) {
-        overlay.classList.remove("shortcuts-visible");
-        setTimeout(() => { overlay?.remove(); overlay = null; }, 300);
+    if (scOverlay) {
+        scOverlay.classList.remove("shortcuts-visible");
+        setTimeout(() => { scOverlay?.remove(); scOverlay = null; }, 300);
     }
 }
 //# sourceMappingURL=shortcuts.js.map
@@ -1962,7 +1962,7 @@ function getAvailableLangs() {
 /* ── Source Relationship Map (Force-Directed) ──────────── */
 /* Interactive SVG graph showing source co-citation links     */
 /* Sources that cite the same claims are connected            */
-const CRED_COLORS = {
+const SMAP_CRED_COLORS = {
     high: "var(--green)",
     medium: "var(--amber)",
     low: "var(--red)",
@@ -2086,7 +2086,7 @@ function renderSourceMap(d, container) {
     }).join("")}
         ${nodes.map((n) => `
           <g class="srcmap-node" data-id="${n.id}">
-            <circle cx="${n.x}" cy="${n.y}" r="${n.radius}" fill="${CRED_COLORS[n.credibility] || "var(--text3)"}"
+            <circle cx="${n.x}" cy="${n.y}" r="${n.radius}" fill="${SMAP_CRED_COLORS[n.credibility] || "var(--text3)"}"
               opacity="0.8" filter="url(#srcglow)" stroke="var(--bg)" stroke-width="1.5"/>
             <text x="${n.x}" y="${n.y + n.radius + 12}" text-anchor="middle" fill="var(--text3)"
               font-size="8" font-family="var(--sans)">[${n.id}]</text>
@@ -2130,9 +2130,9 @@ let progressEl = null;
 let timerEl = null;
 let percentEl = null;
 let barEl = null;
-let active = false;
+let readingActive = false;
 let totalWords = 0;
-const WPM = 230;
+const READING_WPM = 230;
 function initReadingProgress() {
     // Create floating indicator
     progressEl = document.createElement("div");
@@ -2155,12 +2155,12 @@ function initReadingProgress() {
 }
 function setReadingContent(wordCount) {
     totalWords = wordCount;
-    active = wordCount > 50;
+    readingActive = wordCount > 50;
     if (progressEl)
-        progressEl.classList.toggle("hidden", !active);
+        progressEl.classList.toggle("hidden", !readingActive);
 }
 function updateProgress(scrollContainer) {
-    if (!active || !barEl || !percentEl || !timerEl)
+    if (!readingActive || !barEl || !percentEl || !timerEl)
         return;
     const report = $("report");
     if (!report || report.classList.contains("empty")) {
@@ -2188,14 +2188,14 @@ function updateProgress(scrollContainer) {
     progress = Math.max(0, Math.min(1, progress));
     const pctVal = Math.round(progress * 100);
     const wordsLeft = Math.round(totalWords * (1 - progress));
-    const minsLeft = Math.ceil(wordsLeft / WPM);
+    const minsLeft = Math.ceil(wordsLeft / READING_WPM);
     barEl.style.width = `${pctVal}%`;
     percentEl.textContent = `${pctVal}%`;
     timerEl.textContent = progress >= 1
         ? "Done ✓"
         : `${minsLeft} min left`;
     if (progressEl) {
-        progressEl.classList.toggle("hidden", !active);
+        progressEl.classList.toggle("hidden", !readingActive);
         progressEl.classList.toggle("rpf-done", progress >= 1);
     }
 }

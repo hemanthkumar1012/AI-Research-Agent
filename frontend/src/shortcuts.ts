@@ -1,8 +1,8 @@
 /* ── Keyboard Shortcut Cheat Sheet ──────────────────────── */
 /* Toggleable overlay showing all keyboard shortcuts          */
 
-let overlay: HTMLDivElement | null = null;
-let visible = false;
+let scOverlay: HTMLDivElement | null = null;
+let scVisible = false;
 
 interface ShortcutGroup {
   title: string;
@@ -48,15 +48,15 @@ const GROUPS: ShortcutGroup[] = [
 ];
 
 export function toggleShortcuts(): boolean {
-  visible = !visible;
-  if (visible) showSheet();
+  scVisible = !scVisible;
+  if (scVisible) showSheet();
   else hideSheet();
-  return visible;
+  return scVisible;
 }
 
 function showSheet(): void {
-  overlay = document.createElement("div");
-  overlay.className = "shortcuts-overlay";
+  scOverlay = document.createElement("div");
+  scOverlay.className = "shortcuts-overlay";
 
   const card = document.createElement("div");
   card.className = "shortcuts-card";
@@ -82,22 +82,22 @@ function showSheet(): void {
     <div class="shortcuts-footer">Press <kbd>?</kbd> or <kbd>Esc</kbd> to close</div>
   `;
 
-  overlay.appendChild(card);
-  document.body.appendChild(overlay);
+  scOverlay.appendChild(card);
+  document.body.appendChild(scOverlay);
 
   // Animate in
-  requestAnimationFrame(() => overlay?.classList.add("shortcuts-visible"));
+  requestAnimationFrame(() => scOverlay?.classList.add("shortcuts-visible"));
 
   // Close handlers
-  overlay.querySelector(".shortcuts-close")?.addEventListener("click", () => toggleShortcuts());
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) toggleShortcuts();
+  scOverlay.querySelector(".shortcuts-close")?.addEventListener("click", () => toggleShortcuts());
+  scOverlay.addEventListener("click", (e) => {
+    if (e.target === scOverlay) toggleShortcuts();
   });
 }
 
 function hideSheet(): void {
-  if (overlay) {
-    overlay.classList.remove("shortcuts-visible");
-    setTimeout(() => { overlay?.remove(); overlay = null; }, 300);
+  if (scOverlay) {
+    scOverlay.classList.remove("shortcuts-visible");
+    setTimeout(() => { scOverlay?.remove(); scOverlay = null; }, 300);
   }
 }

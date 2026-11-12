@@ -3,28 +3,28 @@
 
 import { $ } from "./utils.js";
 
-let active = false;
-let overlay: HTMLDivElement | null = null;
+let focusActive = false;
+let focusOverlay: HTMLDivElement | null = null;
 
 export function toggleFocus(): boolean {
-  active = !active;
-  if (active) enterFocus();
+  focusActive = !focusActive;
+  if (focusActive) enterFocus();
   else exitFocus();
-  return active;
+  return focusActive;
 }
 
-export function isFocusActive(): boolean { return active; }
+export function isFocusActive(): boolean { return focusActive; }
 
 function enterFocus(): void {
-  overlay = document.createElement("div");
-  overlay.className = "focus-overlay";
+  focusOverlay = document.createElement("div");
+  focusOverlay.className = "focus-overlay";
 
   // Close button
   const close = document.createElement("button");
   close.className = "focus-close";
   close.innerHTML = "✕ Exit Focus";
   close.addEventListener("click", () => toggleFocus());
-  overlay.appendChild(close);
+  focusOverlay.appendChild(close);
 
   // Reading progress
   const progress = document.createElement("div");
@@ -32,7 +32,7 @@ function enterFocus(): void {
   const bar = document.createElement("div");
   bar.className = "focus-progress-bar";
   progress.appendChild(bar);
-  overlay.appendChild(progress);
+  focusOverlay.appendChild(progress);
 
   // Content wrapper
   const wrap = document.createElement("div");
@@ -41,7 +41,7 @@ function enterFocus(): void {
   // Clone report
   const report = $("report");
   wrap.innerHTML = report.innerHTML;
-  overlay.appendChild(wrap);
+  focusOverlay.appendChild(wrap);
 
   // Scroll tracking
   wrap.addEventListener("scroll", () => {
@@ -55,19 +55,19 @@ function enterFocus(): void {
   };
   document.addEventListener("keydown", onKey);
 
-  document.body.appendChild(overlay);
+  document.body.appendChild(focusOverlay);
   document.body.classList.add("focus-active");
 
   // Animate in
-  requestAnimationFrame(() => overlay?.classList.add("focus-visible"));
+  requestAnimationFrame(() => focusOverlay?.classList.add("focus-visible"));
 }
 
 function exitFocus(): void {
-  if (overlay) {
-    overlay.classList.remove("focus-visible");
+  if (focusOverlay) {
+    focusOverlay.classList.remove("focus-visible");
     setTimeout(() => {
-      overlay?.remove();
-      overlay = null;
+      focusOverlay?.remove();
+      focusOverlay = null;
     }, 300);
   }
   document.body.classList.remove("focus-active");

@@ -3,7 +3,7 @@
 import type { ReportData, Source, Claim } from "./types.js";
 import { esc } from "./utils.js";
 
-const CRED_COLORS: Record<string, string> = {
+const GRAPH_CRED_COLORS: Record<string, string> = {
   user: "#6d9fff",
   high: "#34d399",
   medium: "#fbbf24",
@@ -48,7 +48,7 @@ export function drawGraph(data: ReportData, container: HTMLElement): void {
   // Draw source nodes
   S.forEach((s, i) => {
     const t = esc(s.title.length > 38 ? s.title.slice(0, 36) + "…" : s.title);
-    const col = CRED_COLORS[s.credibility] || "#555";
+    const col = GRAPH_CRED_COLORS[s.credibility] || "#555";
     nodes += `<g class="n" data-s="${s.id}">` +
       `<rect x="${sx}" y="${sy(i)}" width="${sw}" height="26" rx="7" fill="#151c2e" stroke="${col}"/>` +
       `<circle cx="${sx + 14}" cy="${sy(i) + 13}" r="4.5" fill="${col}"/>` +

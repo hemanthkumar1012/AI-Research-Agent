@@ -23,7 +23,7 @@ interface MapEdge {
   weight: number;
 }
 
-const CRED_COLORS: Record<string, string> = {
+const SMAP_CRED_COLORS: Record<string, string> = {
   high: "var(--green)",
   medium: "var(--amber)",
   low: "var(--red)",
@@ -149,7 +149,7 @@ export function renderSourceMap(d: ReportData, container: HTMLElement): void {
         }).join("")}
         ${nodes.map((n) => `
           <g class="srcmap-node" data-id="${n.id}">
-            <circle cx="${n.x}" cy="${n.y}" r="${n.radius}" fill="${CRED_COLORS[n.credibility] || "var(--text3)"}"
+            <circle cx="${n.x}" cy="${n.y}" r="${n.radius}" fill="${SMAP_CRED_COLORS[n.credibility] || "var(--text3)"}"
               opacity="0.8" filter="url(#srcglow)" stroke="var(--bg)" stroke-width="1.5"/>
             <text x="${n.x}" y="${n.y + n.radius + 12}" text-anchor="middle" fill="var(--text3)"
               font-size="8" font-family="var(--sans)">[${n.id}]</text>
