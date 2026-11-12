@@ -357,7 +357,8 @@ class ResearchAgent:
             return []
 
     def _compose(self, prompt: str, phase: str) -> str:
-        """Writer call; streams tokens to listeners when the client supports it."""
+        """Writer call; streams tokens to listeners when the client supports it.
+        Falls back to the fast model when the writer model is unavailable."""
         stream = getattr(self.llm, "stream", None)
         if self.cfg.stream and callable(stream):
             self.emit("writing", {"phase": phase})
@@ -366,7 +367,13 @@ class ResearchAgent:
                 chunks.append(chunk)
                 self.emit("token", {"text": chunk})
             return "".join(chunks).strip()
-        return self.llm.generate(prompt, self.cfg.writer_model, system=prompts.WRITE_SYSTEM).strip()
+        try:
+            return self.llm.generate(prompt, self.cfg.writer_model, system=prompts.WRITE_SYSTEM).strip()
+        except Exception:
+            if self.cfg.fast_model == self.cfg.writer_model:
+                raise
+            self.emit("status", {"message": "Writer model unavailable; using fast model"})
+            return self.llm.generate(prompt, self.cfg.fast_model, system=prompts.WRITE_SYSTEM).strip()
 
     def write(self, question: str, sources: list[Source], conflicts: list[dict] | None = None) -> str:
         cblock = ""

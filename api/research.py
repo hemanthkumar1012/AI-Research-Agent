@@ -59,7 +59,7 @@ class handler(BaseHTTPRequestHandler):
                 cfg.passages_per_source = 2
                 cfg.passage_chars = 700
                 cfg.llm_timeout = 25      # one Gemini call may use at most 25s
-                cfg.llm_retries = 1   # retrying a slow call would burn the whole budget
+                cfg.llm_retries = 2   # one retry absorbs transient 503s
                 cfg.wall_deadline = __import__("time").time() + 40  # skip optional stages past 40s
                 def _ev(k, d):
                     print(f"[research +{__import__('time').time()-t0:5.1f}s] {k}: {str(d)[:140]}", flush=True)
