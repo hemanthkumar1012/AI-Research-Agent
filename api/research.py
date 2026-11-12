@@ -46,7 +46,6 @@ class handler(BaseHTTPRequestHandler):
                 if not cfg.gemini_api_key:
                     raise RuntimeError("GEMINI_API_KEY is not set on the server")
                 # Serverless functions are capped at ~60s: use a fast pipeline
-                cfg.writer_model = cfg.fast_model
                 cfg.max_rounds = 1
                 cfg.max_revisions = 0
                 cfg.read_full_papers = False
@@ -59,8 +58,8 @@ class handler(BaseHTTPRequestHandler):
                 cfg.max_sources = min(cfg.max_sources, 5 if depth == "standard" else 7)
                 cfg.passages_per_source = 2
                 cfg.passage_chars = 700
-                cfg.llm_timeout = 20      # one Gemini call may use at most 20s
-                cfg.llm_retries = 2
+                cfg.llm_timeout = 25      # one Gemini call may use at most 25s
+                cfg.llm_retries = 1   # retrying a slow call would burn the whole budget
                 cfg.wall_deadline = __import__("time").time() + 40  # skip optional stages past 40s
                 def _ev(k, d):
                     print(f"[research +{__import__('time').time()-t0:5.1f}s] {k}: {str(d)[:140]}", flush=True)

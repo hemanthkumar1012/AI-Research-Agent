@@ -45,7 +45,14 @@ class GeminiClient:
         if (hit := self.cache.get(ck)) is not None:
             self.usage["cached"] += 1
             return hit
-        text = self._post(API.format(model=model), body, self._parse_text)
+        try:
+            text = self._post(API.format(model=model), body, self._parse_text)
+        except RuntimeError as e:
+            if "thinking" in str(e).lower() and "thinkingConfig" in str(body.get("generationConfig", {})):
+                body["generationConfig"].pop("thinkingConfig", None)
+                text = self._post(API.format(model=model), body, self._parse_text)
+            else:
+                raise
         self.cache.set(ck, text)
         return text
 
