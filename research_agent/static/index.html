@@ -3,46 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="AI Research Agent — Multi-source verified research with citation graphs">
-  <meta name="theme-color" content="#ffffff">
-  <title>AI Research Agent</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x26A1;</text></svg>">
-  <link rel="stylesheet" href="/static/app.css?v=1673faca">
+  <meta name="description" content="Research Agent — multi-source verified research with citations">
+  <meta name="theme-color" content="#faf9f5">
+  <title>Research Agent</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%23bf5b38'/></svg>">
+  <link rel="stylesheet" href="/static/app.css?v=fb15e51f">
 </head>
 <body>
   <div class="app">
-    <!-- Top Navigation Bar -->
+    <!-- Top bar -->
     <header class="topbar header">
       <div class="topbar-left">
         <div class="brand">
-          <div class="brand-mark">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          </div>
+          <span class="brand-dot"></span>
           <span class="brand-name">Research Agent</span>
-          <span class="brand-badge">AI</span>
         </div>
       </div>
-      <div class="topbar-center">
-        <button class="topbar-btn" id="cmdTrigger" title="Command palette (Ctrl+K)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <span>Search commands...</span>
-          <kbd>Ctrl K</kbd>
-        </button>
-      </div>
       <div class="topbar-right">
-        <button class="icon-btn" id="themeToggle" title="Toggle theme (T)">
+        <button class="icon-btn" id="themeToggle" title="Theme">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
         </button>
-        <button class="icon-btn" id="shortcutsBtn" title="Keyboard shortcuts (?)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/></svg>
-        </button>
-        <button class="icon-btn" id="focusBtn" title="Focus mode (R)">
+        <button class="icon-btn" id="focusBtn" title="Reading mode">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-        </button>
-        <div class="topbar-divider"></div>
-        <button class="icon-btn notif-trigger" id="notifTrigger" title="Notifications">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          <span class="notif-dot hidden" id="notifDot"></span>
         </button>
       </div>
     </header>
@@ -50,358 +32,150 @@
     <div class="layout shell">
       <!-- Sidebar -->
       <aside class="sidebar" id="sidebar">
-        <!-- Sidebar Header -->
-        <div class="sidebar-header">
-          <span class="sidebar-header-title">Navigator</span>
-          <button class="sidebar-action" id="sidebarToggle" title="Toggle sidebar ([)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        <div class="sidebar-top">
+          <button class="new-search-btn" id="sbNewSearch">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New research
           </button>
         </div>
 
-        <!-- Quick Actions -->
-        <div class="sidebar-section">
-          <div class="sidebar-label"><span>Quick Actions</span></div>
-          <div class="sidebar-actions-grid">
-            <button class="sidebar-quick-btn" id="sbNewSearch" title="New Search">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <span>New Search</span>
-            </button>
-            <button class="sidebar-quick-btn" id="sbBookmark" title="Bookmark">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-              <span>Bookmark</span>
-            </button>
-            <button class="sidebar-quick-btn" id="sbExport" title="Export">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              <span>Export</span>
-            </button>
-            <button class="sidebar-quick-btn" id="sbShare" title="Share">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-              <span>Share</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Live Stats -->
-        <div class="sidebar-section">
-          <div class="sidebar-label"><span>Session Stats</span></div>
-          <div class="sidebar-stats" id="sidebarStats">
-            <div class="sidebar-stat">
-              <div class="sidebar-stat-icon stat-icon-primary">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              </div>
-              <div class="sidebar-stat-info">
-                <span class="sidebar-stat-value" id="statSearches">0</span>
-                <span class="sidebar-stat-label">Searches</span>
-              </div>
-            </div>
-            <div class="sidebar-stat">
-              <div class="sidebar-stat-icon stat-icon-pink">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              </div>
-              <div class="sidebar-stat-info">
-                <span class="sidebar-stat-value" id="statSources">0</span>
-                <span class="sidebar-stat-label">Sources</span>
-              </div>
-            </div>
-            <div class="sidebar-stat">
-              <div class="sidebar-stat-icon stat-icon-cyan">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-              </div>
-              <div class="sidebar-stat-info">
-                <span class="sidebar-stat-value" id="statPrecision">—</span>
-                <span class="sidebar-stat-label">Precision</span>
-              </div>
-            </div>
-            <div class="sidebar-stat">
-              <div class="sidebar-stat-icon stat-icon-emerald">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-              </div>
-              <div class="sidebar-stat-info">
-                <span class="sidebar-stat-value" id="statBookmarks">0</span>
-                <span class="sidebar-stat-label">Bookmarks</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Research History -->
         <div class="sidebar-section sidebar-section-grow">
-          <div class="sidebar-label"><span>History</span></div>
+          <div class="sidebar-label"><span>Recents</span></div>
           <div id="history" class="sidebar-empty">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".4"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span>No history yet</span>
+            <span>No research yet</span>
           </div>
         </div>
 
-        <!-- Sidebar Footer -->
         <div class="sidebar-footer">
-          <button class="sidebar-footer-btn" id="sbCmdPalette" title="Command Palette">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/></svg>
-            <span>Commands</span>
-            <kbd>Ctrl K</kbd>
-          </button>
+          <div class="sidebar-stats-row" id="sidebarStats">
+            <span title="Searches this session"><b id="statSearches">0</b> searches</span>
+            <span title="Sources analyzed"><b id="statSources">0</b> sources</span>
+            <span title="Citation precision"><b id="statPrecision">—</b> precision</span>
+            <b id="statBookmarks" class="hidden">0</b>
+          </div>
         </div>
       </aside>
 
-      <!-- Main Content -->
+      <!-- Main -->
       <main class="main" id="main">
-        <!-- Animated Background Orbs -->
-        <div class="bg-effects" aria-hidden="true">
-          <div class="orb orb-1"></div>
-          <div class="orb orb-2"></div>
-          <div class="orb orb-3"></div>
-          <div class="grid-pattern"></div>
-        </div>
-
-        <!-- Search Section -->
+        <!-- Search -->
         <section class="search-section search-card">
           <div class="search-hero">
-            <div class="hero-badge">
-              <span class="hero-badge-dot"></span>
-              <span>Powered by AI</span>
-            </div>
-            <h2 class="search-title">Discover verified<br>insights instantly</h2>
-            <p class="search-subtitle">Multi-source research engine with real-time citation analysis, credibility scoring, and intelligent verification</p>
+            <h2 class="search-title">What would you like to research?</h2>
+            <p class="search-subtitle">Answers built from multiple sources, with citations you can verify.</p>
           </div>
           <form id="f" class="search-form">
             <div class="search-bar-wrap">
               <div class="search-bar">
                 <div class="search-input-wrap">
-                  <svg class="search-bar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                  <input id="q" class="search-input" type="text" placeholder="Ask a research question..." required autocomplete="off">
+                  <input id="q" class="search-input" type="text" placeholder="Ask a research question…" required autocomplete="off">
                 </div>
                 <div class="search-controls">
                   <select id="depth" class="search-select" title="Research depth">
                     <option value="standard">Standard</option>
                     <option value="deep">Deep</option>
-                    <option value="deeper">Deeper</option>
                   </select>
                   <button id="b" class="search-btn" type="submit">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                     <span>Research</span>
                   </button>
                 </div>
               </div>
-              <div class="search-glow"></div>
             </div>
             <div class="search-options">
               <label class="attach-btn" title="Attach files">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                 <span>Attach files</span>
                 <input id="files" type="file" multiple hidden>
               </label>
               <span id="filelist" class="filelist"></span>
-              <span class="search-hints">
-                <kbd>/</kbd> focus
-                <kbd>Ctrl+K</kbd> commands
-                <kbd>?</kbd> shortcuts
-              </span>
             </div>
           </form>
-          <!-- Feature Pills -->
-          <div class="feature-pills">
-            <div class="feature-pill">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              <span>Verified Sources</span>
-            </div>
-            <div class="feature-pill">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              <span>Real-time Analysis</span>
-            </div>
-            <div class="feature-pill">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-              <span>Credibility Scoring</span>
-            </div>
-            <div class="feature-pill">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><line x1="6" y1="9" x2="6" y2="15"/><path d="M9 18h6"/></svg>
-              <span>Citation Graphs</span>
-            </div>
-          </div>
         </section>
 
-        <!-- Progress Bar -->
+        <!-- Progress -->
         <div id="loadbar" class="progress-bar"></div>
 
-        <!-- Research Trace -->
+        <!-- Research trace -->
         <section class="trace-section trace-card">
           <div class="trace-top">
-            <h3 class="section-label">Research Trace</h3>
+            <h3 class="section-label">Progress</h3>
             <div class="trace-filter">
               <button class="chip trace-filter-btn active" data-filter="all">All</button>
-              <button class="chip trace-filter-btn" data-filter="plan">Plan</button>
-              <button class="chip trace-filter-btn" data-filter="search">Search</button>
+              <button class="chip trace-filter-btn" data-filter="search">Searches</button>
               <button class="chip trace-filter-btn" data-filter="source">Sources</button>
             </div>
           </div>
           <div id="log" class="trace-body">
-            <div class="placeholder-msg">Waiting for a query...</div>
+            <div class="placeholder-msg">Ask a question to begin.</div>
           </div>
         </section>
 
-        <!-- Tab Navigation -->
+        <!-- Tabs -->
         <nav class="tab-nav" id="tabNav">
           <button class="tab active" data-t="report">Report</button>
-          <button class="tab" data-t="graph">Graph</button>
-          <button class="tab" data-t="inspector">Inspector</button>
+          <button class="tab" data-t="inspector">Sources</button>
+          <button class="tab" data-t="graph">Citations</button>
           <button class="tab" data-t="timeline">Timeline</button>
           <button class="tab" data-t="analytics">Analytics</button>
-          <button class="tab" data-t="heatmap">Heatmap</button>
-          <button class="tab" data-t="confidence">Confidence</button>
-          <button class="tab" data-t="wordcloud">Words</button>
-          <button class="tab" data-t="sourcemap">Map</button>
-          <button class="tab" data-t="credibility">Trust</button>
-          <button class="tab" data-t="claimgraph">Claims</button>
-          <button class="tab" data-t="diff">Diff</button>
           <button class="tab" data-t="bookmarks">Saved</button>
-          <button class="tab" data-t="notifications">Alerts</button>
         </nav>
 
-        <!-- Score Pills -->
+        <!-- Scores -->
         <div id="score"></div>
 
-        <!-- Panel Container -->
+        <!-- Panels -->
         <div class="panel-area">
-          <!-- Report -->
           <div id="report" class="panel report-panel">
             <div class="empty-state">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity=".3"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-              <h3>Ready to Research</h3>
-              <p>Enter a question above to generate a verified research report</p>
+              <h3>Ready when you are</h3>
+              <p>Your report will appear here with sources and verified citations.</p>
             </div>
           </div>
 
-          <!-- Graph -->
-          <div id="graph" class="panel hidden">
-            <div class="empty-state">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity=".3"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><line x1="6" y1="9" x2="6" y2="15"/><line x1="9" y1="6" x2="15" y2="18"/></svg>
-              <h3>Citation Graph</h3>
-              <p>Run a research query to see source-claim relationships</p>
-            </div>
-          </div>
-
-          <!-- Inspector -->
           <div id="inspector" class="panel hidden">
-            <div class="empty-state">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity=".3"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
-              <h3>Source Inspector</h3>
-              <p>Inspect sources and their claims in detail</p>
-            </div>
+            <div class="empty-state"><h3>Sources</h3><p>Every source used in the report, with credibility notes.</p></div>
           </div>
 
-          <!-- Timeline -->
+          <div id="graph" class="panel hidden">
+            <div class="empty-state"><h3>Citations</h3><p>How claims connect to sources.</p></div>
+          </div>
+
           <div id="timelinePanel" class="panel hidden">
-            <div class="empty-state">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity=".3"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              <h3>Research Timeline</h3>
-              <p>Each step of the research process visualized</p>
-            </div>
+            <div class="empty-state"><h3>Timeline</h3><p>Each step of the research, as it happened.</p></div>
           </div>
 
-          <!-- Analytics -->
           <div id="analyticsPanel" class="panel hidden">
-            <div class="empty-state">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity=".3"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-              <h3>Report Analytics</h3>
-              <p>Word count, reading time, and depth metrics</p>
-            </div>
+            <div class="empty-state"><h3>Analytics</h3><p>Length, reading time, and verification stats.</p></div>
           </div>
 
-          <!-- Heatmap -->
-          <div id="heatmapPanel" class="panel hidden">
-            <div class="empty-state">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity=".3"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-              <h3>Source Heatmap</h3>
-              <p>Visualize source credibility and citation density</p>
-            </div>
-          </div>
-
-          <!-- Confidence -->
-          <div id="confidencePanel" class="panel hidden">
-            <div class="empty-state">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity=".3"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-              <h3>Confidence Meter</h3>
-              <p>How confident the AI is in the research findings</p>
-            </div>
-          </div>
-
-          <!-- Word Cloud -->
-          <div id="wordcloudPanel" class="panel hidden">
-            <div class="empty-state">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity=".3"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
-              <h3>Word Cloud</h3>
-              <p>Key terms from the research visualized by frequency</p>
-            </div>
-          </div>
-
-          <!-- Source Map -->
-          <div id="sourcemapPanel" class="panel hidden">
-            <div class="empty-state">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity=".3"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
-              <h3>Source Relationship Map</h3>
-              <p>Force-directed graph of co-citation links</p>
-            </div>
-          </div>
-
-          <!-- Credibility -->
-          <div id="credibilityPanel" class="panel hidden">
-            <div class="empty-state">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity=".3"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              <h3>Source Trust Scores</h3>
-              <p>Detailed credibility analysis per source</p>
-            </div>
-          </div>
-
-          <!-- Claim Graph -->
-          <div id="claimgraphPanel" class="panel hidden">
-            <div class="empty-state">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity=".3"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-              <h3>Claim Dependencies</h3>
-              <p>Interactive graph of claim-source relationships</p>
-            </div>
-          </div>
-
-          <!-- Diff -->
-          <div id="diffPanel" class="panel hidden">
-            <div class="empty-state">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity=".3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="6"/><line x1="6" y1="6" x2="6" y2="18"/></svg>
-              <h3>Report Diff</h3>
-              <p>Run two searches to compare reports side-by-side</p>
-            </div>
-          </div>
-
-          <!-- Bookmarks -->
           <div id="bookmarksPanel" class="panel hidden">
-            <div class="empty-state">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity=".3"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-              <h3>Bookmarks</h3>
-              <p>Your saved research sessions will appear here</p>
-            </div>
+            <div class="empty-state"><h3>Saved</h3><p>Reports you bookmark are kept here.</p></div>
           </div>
 
-          <!-- Notifications -->
-          <div id="notificationsPanel" class="panel hidden">
-            <div class="empty-state">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity=".3"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-              <h3>Notifications</h3>
-              <p>Research events will be collected here</p>
-            </div>
-          </div>
+          <!-- Kept for internal features; not shown as tabs -->
+          <div id="heatmapPanel" class="panel hidden"></div>
+          <div id="confidencePanel" class="panel hidden"></div>
+          <div id="wordcloudPanel" class="panel hidden"></div>
+          <div id="sourcemapPanel" class="panel hidden"></div>
+          <div id="credibilityPanel" class="panel hidden"></div>
+          <div id="claimgraphPanel" class="panel hidden"></div>
+          <div id="diffPanel" class="panel hidden"></div>
+          <div id="notificationsPanel" class="panel hidden"></div>
         </div>
 
         <!-- Conflicts -->
         <div id="conflictCard" class="conflict-card hidden">
-          <h3>Source Conflicts Detected</h3>
+          <h3>Sources disagree</h3>
           <div id="conflicts"></div>
         </div>
 
-        <!-- Chat -->
+        <!-- Follow-up chat -->
         <section id="chatCard" class="chat-section hidden">
-          <div class="chat-header">
-            <h3>Follow-up Questions</h3>
-          </div>
+          <div class="chat-header"><h3>Follow-up questions</h3></div>
           <div id="chat" class="chat-messages"></div>
           <form id="chatform" class="chat-form">
-            <input id="cq" class="chat-input" type="text" placeholder="Ask a follow-up...">
+            <input id="cq" class="chat-input" type="text" placeholder="Ask a follow-up…">
             <button id="cb" class="chat-submit" type="submit">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             </button>
@@ -410,24 +184,15 @@
 
         <!-- Export -->
         <div class="export-bar" id="exportBar">
-          <button id="dl" class="export-btn hidden">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Markdown
-          </button>
-          <button id="export-json" class="export-btn hidden">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            JSON
-          </button>
-          <button id="export-html" class="export-btn hidden">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-            HTML
-          </button>
+          <button id="dl" class="export-btn hidden">Download Markdown</button>
+          <button id="export-json" class="export-btn hidden">JSON</button>
+          <button id="export-html" class="export-btn hidden">HTML</button>
           <div id="exportMenu" class="hidden"></div>
         </div>
       </main>
     </div>
   </div>
 
-  <script type="module" src="/static/app.js?v=7b5fa1a5"></script>
+  <script type="module" src="/static/app.js?v=581b2ff6"></script>
 </body>
 </html>

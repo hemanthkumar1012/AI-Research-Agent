@@ -171,7 +171,7 @@ class ThemeEngine {
     }
     get theme() { return this.current; }
     cycle() {
-        const order = ["light", "dark", "midnight"];
+        const order = ["light", "dark"];
         const next = order[(order.indexOf(this.current) + 1) % order.length];
         this.set(next);
         return next;
@@ -190,7 +190,7 @@ class ThemeEngine {
             document.body.dataset.theme = name;
         const meta = document.querySelector('meta[name="theme-color"]');
         if (meta)
-            meta.setAttribute("content", name === "light" ? "#ffffff" : name === "dark" ? "#0f1117" : "#05060f");
+            meta.setAttribute("content", name === "light" ? "#faf9f5" : name === "dark" ? "#262624" : "#1b1a18");
         this.listeners.forEach((fn) => fn(name));
     }
     onChange(fn) { this.listeners.push(fn); }
@@ -569,6 +569,9 @@ function ensureToastContainer() {
     return toastContainer;
 }
 function toast(message, kind = "info", duration = 4000) {
+    // Quiet UI: only surface problems. Routine actions speak for themselves.
+    if (kind !== "error")
+        return;
     const c = ensureToastContainer();
     const el = document.createElement("div");
     el.className = `toast toast-${kind}`;
@@ -1838,8 +1841,8 @@ const TRANSLATIONS = {
         "app.title": "AI Research Agent",
         "app.subtitle": "Multi-source verified research · Citation graphs · Claim verification",
         "search.placeholder": "Ask a research question…",
-        "search.button": "⚡ Research",
-        "search.depth.standard": "⚡ Standard",
+        "search.button": "Research",
+        "search.depth.standard": "Standard",
         "search.depth.deep": "🔬 Deep",
         "search.depth.deeper": "🏔 Deeper",
         "search.attach": "📎 Attach files",
@@ -1874,7 +1877,7 @@ const TRANSLATIONS = {
         "app.title": "Agente de Investigación IA",
         "app.subtitle": "Investigación verificada · Grafos de citación · Verificación de afirmaciones",
         "search.placeholder": "Haz una pregunta de investigación…",
-        "search.button": "⚡ Investigar",
+        "search.button": "Investigar",
         "history.title": "Historial",
         "history.empty": "Sin investigaciones previas",
         "toast.complete": "¡Investigación completa!",
@@ -1885,7 +1888,7 @@ const TRANSLATIONS = {
     fr: {
         "app.title": "Agent de Recherche IA",
         "search.placeholder": "Posez une question de recherche…",
-        "search.button": "⚡ Rechercher",
+        "search.button": "Rechercher",
         "history.title": "Historique",
         "toast.complete": "Recherche terminée !",
         "empty.report.title": "Prêt à Rechercher",
@@ -1893,34 +1896,34 @@ const TRANSLATIONS = {
     de: {
         "app.title": "KI-Forschungsagent",
         "search.placeholder": "Stellen Sie eine Forschungsfrage…",
-        "search.button": "⚡ Forschen",
+        "search.button": "Forschen",
         "toast.complete": "Forschung abgeschlossen!",
         "empty.report.title": "Bereit zur Forschung",
     },
     ja: {
         "app.title": "AI研究エージェント",
         "search.placeholder": "研究の質問を入力…",
-        "search.button": "⚡ 研究",
+        "search.button": "研究",
         "toast.complete": "研究完了！",
         "empty.report.title": "研究準備完了",
     },
     zh: {
         "app.title": "AI研究代理",
         "search.placeholder": "输入研究问题…",
-        "search.button": "⚡ 研究",
+        "search.button": "研究",
         "toast.complete": "研究完成！",
         "empty.report.title": "准备就绪",
     },
     hi: {
         "app.title": "AI अनुसंधान एजेंट",
         "search.placeholder": "एक शोध प्रश्न पूछें…",
-        "search.button": "⚡ शोध करें",
+        "search.button": "शोध करें",
         "toast.complete": "शोध पूरा!",
     },
     te: {
         "app.title": "AI పరిశోధన ఏజెంట్",
         "search.placeholder": "పరిశోధన ప్రశ్న అడగండి…",
-        "search.button": "⚡ పరిశోధన",
+        "search.button": "పరిశోధన",
         "toast.complete": "పరిశోధన పూర్తయింది!",
     },
 };
@@ -3154,7 +3157,6 @@ function printReport(title, markdown, sources, score) {
 
 
 
-
 // ── State ─────────────────────────────────────────────
 let current = null;
 let chatHistory = [];
@@ -3174,7 +3176,6 @@ function init() {
     // Particles disabled for clean professional look
     // particles = new ParticleField(document.body);
     // Performance monitor
-    perfmon = new PerfMonitor(document.body);
     // UI
     initTabs();
     initForm();
@@ -3235,13 +3236,6 @@ function init() {
         sidebarToggleEl.addEventListener("click", () => toggleSidebar());
     // Wire sidebar quick-action buttons
     initSidebarActions();
-    // Dynamic visual effects
-    initRippleEffect();
-    initParticleSystem();
-    initTypingTitle();
-    setTimeout(() => initTiltEffect(), 500);
-    // Welcome toast
-    toast("Press Ctrl+K for command palette · ? for shortcuts", "info", 3000);
 }
 function updateNotifBadge() {
     const count = getUnreadCount();
@@ -3774,6 +3768,8 @@ function startResearch() {
         return;
     }
     btn.disabled = true;
+    if (!btn.dataset.idle)
+        btn.dataset.idle = btn.innerHTML;
     btn.innerHTML = '<span class="btn-spinner"></span> Researching…';
     $("log").innerHTML = "";
     $("score").innerHTML = "";
@@ -3895,7 +3891,7 @@ function startResearch() {
         activeStream?.close();
         activeStream = null;
         btn.disabled = false;
-        btn.innerHTML = '⚡ Research';
+        btn.innerHTML = btn.dataset.idle || "Research";
         $("loadbar").classList.remove("active");
     }
 }

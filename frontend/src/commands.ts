@@ -21,6 +21,8 @@ function ensureToastContainer(): HTMLElement {
 }
 
 export function toast(message: string, kind: ToastKind = "info", duration = 4000): void {
+  // Quiet UI: only surface problems. Routine actions speak for themselves.
+  if (kind !== "error") return;
   const c = ensureToastContainer();
   const el = document.createElement("div");
   el.className = `toast toast-${kind}`;

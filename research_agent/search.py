@@ -48,7 +48,18 @@ class Searcher:
             return []
 
     def _web(self, query: str, k: int) -> list[SearchResult]:
-        return self._tavily(query, k) if self.tavily_key else self._duckduckgo(query, k)
+        # Primary engine, with Wikipedia as a fallback: DuckDuckGo often
+        # refuses datacenter IPs (serverless), which otherwise yields zero sources.
+        try:
+            results = self._tavily(query, k) if self.tavily_key else self._duckduckgo(query, k)
+        except Exception:
+            results = []
+        if not results:
+            try:
+                results = self._wikipedia(query, k)
+            except Exception:
+                results = []
+        return results
 
     def _arxiv(self, query: str, k: int) -> list[SearchResult]:
         r = requests.get("https://export.arxiv.org/api/query", timeout=self.timeout, headers=UA,

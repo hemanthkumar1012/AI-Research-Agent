@@ -8,6 +8,8 @@ import requests
 from .cache import NullCache
 
 BASE = "https://generativelanguage.googleapis.com/v1beta/models/"
+import os as _os
+_THINK_BUDGET = int(_os.environ.get("GEMINI_THINKING_BUDGET", "0"))
 API = BASE + "{model}:generateContent"
 
 
@@ -31,7 +33,8 @@ class GeminiClient:
                  system: str | None = None, temperature: float = 0.3) -> str:
         body = {
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": temperature},
+            "generationConfig": {"temperature": temperature,
+                                 "thinkingConfig": {"thinkingBudget": _THINK_BUDGET}},
         }
         if system:
             body["systemInstruction"] = {"parts": [{"text": system}]}
@@ -50,7 +53,8 @@ class GeminiClient:
                temperature: float = 0.3):
         """Yield text chunks as Gemini generates them (SSE). Cached results replay at once."""
         body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": temperature}}
+                "generationConfig": {"temperature": temperature,
+                                     "thinkingConfig": {"thinkingBudget": _THINK_BUDGET}}}
         if system:
             body["systemInstruction"] = {"parts": [{"text": system}]}
         ck = self.cache.key("gen", model, body)

@@ -63,7 +63,7 @@ export class ThemeEngine {
   get theme(): ThemeName { return this.current; }
 
   cycle(): ThemeName {
-    const order: ThemeName[] = ["light", "dark", "midnight"];
+    const order: ThemeName[] = ["light", "dark"];
     const next = order[(order.indexOf(this.current) + 1) % order.length];
     this.set(next);
     return next;
@@ -82,7 +82,7 @@ export class ThemeEngine {
     root.dataset.theme = name;
     if (document.body) document.body.dataset.theme = name;
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", name === "light" ? "#ffffff" : name === "dark" ? "#0f1117" : "#05060f");
+    if (meta) meta.setAttribute("content", name === "light" ? "#faf9f5" : name === "dark" ? "#262624" : "#1b1a18");
     this.listeners.forEach((fn) => fn(name));
   }
 

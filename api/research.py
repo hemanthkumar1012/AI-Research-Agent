@@ -50,10 +50,13 @@ class handler(BaseHTTPRequestHandler):
                 cfg.read_full_papers = False
                 cfg.use_embeddings = False
                 cfg.detect_conflicts = depth != "standard"
-                cfg.request_timeout = 8
-                cfg.max_subquestions = min(cfg.max_subquestions, 3 if depth == "standard" else 4)
+                cfg.request_timeout = 6
+                cfg.use_cache = False
+                cfg.max_subquestions = min(cfg.max_subquestions, 2 if depth == "standard" else 3)
                 cfg.results_per_query = min(cfg.results_per_query, 3)
-                cfg.max_sources = min(cfg.max_sources, 6 if depth == "standard" else 8)
+                cfg.max_sources = min(cfg.max_sources, 5 if depth == "standard" else 7)
+                cfg.passages_per_source = 2
+                cfg.passage_chars = 700
                 agent = build_agent(cfg, lambda k, d: events.put((k, d)))
                 report = agent.run(question)
                 data = report.to_dict()
@@ -64,7 +67,7 @@ class handler(BaseHTTPRequestHandler):
 
         import time
         threading.Thread(target=work, daemon=True).start()
-        deadline = time.time() + 52
+        deadline = time.time() + 50
         while True:
             try:
                 item = events.get(timeout=max(0.1, deadline - time.time()))
@@ -79,6 +82,14 @@ class handler(BaseHTTPRequestHandler):
             if item is None:
                 return
             kind, data = item
+            if time.time() > deadline and kind not in ("report", "error", "done"):
+                item = ("error", {"message": "Research took too long for the server time limit. Try a shorter, more specific question."})
+                try:
+                    self.wfile.write(f"event: {item[0]}\ndata: {json.dumps(item[1])}\n\n".encode())
+                    self.wfile.flush()
+                except Exception:
+                    pass
+                return
             try:
                 self.wfile.write(f"event: {kind}\ndata: {json.dumps(data)}\n\n".encode())
                 self.wfile.flush()

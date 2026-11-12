@@ -57,7 +57,6 @@ export function init(): void {
   // particles = new ParticleField(document.body);
 
   // Performance monitor
-  perfmon = new PerfMonitor(document.body);
 
   // UI
   initTabs();
@@ -118,14 +117,6 @@ export function init(): void {
   // Wire sidebar quick-action buttons
   initSidebarActions();
 
-  // Dynamic visual effects
-  initRippleEffect();
-  initParticleSystem();
-  initTypingTitle();
-  setTimeout(() => initTiltEffect(), 500);
-
-  // Welcome toast
-  toast("Press Ctrl+K for command palette · ? for shortcuts", "info", 3000);
 }
 
 function updateNotifBadge(): void {
@@ -627,6 +618,7 @@ function startResearch(): void {
   if (!question) { toast("Enter a research question", "warn"); return; }
 
   btn.disabled = true;
+  if (!btn.dataset.idle) btn.dataset.idle = btn.innerHTML;
   btn.innerHTML = '<span class="btn-spinner"></span> Researching…';
   $("log").innerHTML = "";
   $("score").innerHTML = "";
@@ -776,7 +768,7 @@ function startResearch(): void {
     activeStream?.close();
     activeStream = null;
     btn.disabled = false;
-    btn.innerHTML = '⚡ Research';
+    btn.innerHTML = btn.dataset.idle || "Research";
     $("loadbar").classList.remove("active");
   }
 }
