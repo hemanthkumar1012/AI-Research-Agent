@@ -58,6 +58,7 @@ class handler(BaseHTTPRequestHandler):
                 cfg.max_sources = min(cfg.max_sources, 5 if depth == "standard" else 7)
                 cfg.passages_per_source = 2
                 cfg.passage_chars = 700
+                cfg.stream = False  # Vercel buffers the response; non-stream path has model fallback
                 cfg.llm_timeout = 25      # one Gemini call may use at most 25s
                 cfg.llm_retries = 2   # one retry absorbs transient 503s
                 cfg.wall_deadline = __import__("time").time() + 40  # skip optional stages past 40s
