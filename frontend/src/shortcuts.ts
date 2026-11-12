@@ -93,6 +93,14 @@ function showSheet(): void {
   scOverlay.addEventListener("click", (e) => {
     if (e.target === scOverlay) toggleShortcuts();
   });
+  const onScKey = (e: KeyboardEvent): void => {
+    if (e.key === "Escape" && scVisible) {
+      e.stopPropagation();
+      toggleShortcuts();
+      document.removeEventListener("keydown", onScKey, true);
+    }
+  };
+  document.addEventListener("keydown", onScKey, true);
 }
 
 function hideSheet(): void {

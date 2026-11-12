@@ -15,10 +15,10 @@ interface ThemeVars {
 const THEMES: Record<ThemeName, ThemeVars> = {
   light: {
     bg: "#f8fafc", bg2: "#ffffff",
-    surface: "rgba(99,102,241,0.03)", surfaceHover: "rgba(99,102,241,0.06)",
-    border: "rgba(99,102,241,0.12)", borderHi: "rgba(99,102,241,0.2)",
+    surface: "rgba(124,183,90,0.03)", surfaceHover: "rgba(124,183,90,0.06)",
+    border: "rgba(124,183,90,0.12)", borderHi: "rgba(124,183,90,0.2)",
     text: "#0f172a", text2: "#475569", text3: "#94a3b8",
-    accent: "#6366f1", accent2: "#8b5cf6", accentGlow: "rgba(99,102,241,0.1)",
+    accent: "#7cb75a", accent2: "#a98fd6", accentGlow: "rgba(124,183,90,0.1)",
     green: "#10b981", amber: "#f59e0b", red: "#ef4444",
     cardBg: "#ffffff", headerBg: "rgba(255,255,255,0.75)",
   },
@@ -33,12 +33,12 @@ const THEMES: Record<ThemeName, ThemeVars> = {
   },
   midnight: {
     bg: "#08081a", bg2: "#0e0e28",
-    surface: "rgba(99,102,241,0.04)", surfaceHover: "rgba(99,102,241,0.08)",
-    border: "rgba(99,102,241,0.12)", borderHi: "rgba(99,102,241,0.2)",
+    surface: "rgba(124,183,90,0.04)", surfaceHover: "rgba(124,183,90,0.08)",
+    border: "rgba(124,183,90,0.12)", borderHi: "rgba(124,183,90,0.2)",
     text: "#d4d4f8", text2: "#8888b8", text3: "#5555888",
-    accent: "#818cf8", accent2: "#a5b4fc", accentGlow: "rgba(99,102,241,0.15)",
+    accent: "#9ccf7d", accent2: "#b7dd9e", accentGlow: "rgba(124,183,90,0.15)",
     green: "#34d399", amber: "#fbbf24", red: "#fb7185",
-    cardBg: "rgba(99,102,241,0.04)", headerBg: "rgba(8,8,26,0.85)",
+    cardBg: "rgba(124,183,90,0.04)", headerBg: "rgba(8,8,26,0.85)",
   },
 };
 

@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "node frontend/build.mjs && mkdir -p public/static && cp research_agent/static/* public/static/ && cp research_agent/static/index.html public/index.html",
+  "buildCommand": "mkdir -p public/static && cp research_agent/static/* public/static/ && cp research_agent/static/index.html public/index.html",
   "outputDirectory": "public",
   "framework": null,
   "functions": {
@@ -10,25 +10,52 @@
     }
   },
   "rewrites": [
-    { "source": "/api/research", "destination": "/api/research" },
-    { "source": "/api/history", "destination": "/api/history" },
-    { "source": "/api/report", "destination": "/api/report" },
-    { "source": "/api/ask", "destination": "/api/ask" },
-    { "source": "/api/upload", "destination": "/api/upload" }
+    {
+      "source": "/api/research",
+      "destination": "/api/research"
+    },
+    {
+      "source": "/api/history",
+      "destination": "/api/history"
+    },
+    {
+      "source": "/api/report",
+      "destination": "/api/report"
+    },
+    {
+      "source": "/api/ask",
+      "destination": "/api/ask"
+    },
+    {
+      "source": "/api/upload",
+      "destination": "/api/upload"
+    }
   ],
   "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, X-Filename" }
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type, X-Filename"
+        }
       ]
     },
     {
       "source": "/static/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
       ]
     }
   ]
