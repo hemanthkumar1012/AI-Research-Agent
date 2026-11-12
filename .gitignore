@@ -7,3 +7,4 @@ reports/
 evals/results/
 .cache/
 uploads/
+frontend/dist/
