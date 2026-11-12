@@ -27,7 +27,11 @@ export class ResearchStream {
     handler: (data: AgentEventMap[K]) => void
   ): this {
     this.es.addEventListener(event, ((ev: MessageEvent) => {
-      handler(JSON.parse(ev.data));
+      // The browser fires a native "error" event (no data) on disconnect
+      if (typeof ev.data !== "string" || !ev.data) return;
+      let parsed: AgentEventMap[K];
+      try { parsed = JSON.parse(ev.data); } catch { return; }
+      try { handler(parsed); } catch (err) { console.error(`[${String(event)}] handler failed`, err); }
     }) as EventListener);
     return this;
   }

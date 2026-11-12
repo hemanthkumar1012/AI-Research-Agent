@@ -41,6 +41,19 @@ class handler(BaseHTTPRequestHandler):
         def work():
             try:
                 cfg = apply_preset(Config.from_env(), depth if depth in PRESETS else "standard")
+                if not cfg.gemini_api_key:
+                    raise RuntimeError("GEMINI_API_KEY is not set on the server")
+                # Serverless functions are capped at ~60s: use a fast pipeline
+                cfg.writer_model = cfg.fast_model
+                cfg.max_rounds = 1
+                cfg.max_revisions = 0
+                cfg.read_full_papers = False
+                cfg.use_embeddings = False
+                cfg.detect_conflicts = depth != "standard"
+                cfg.request_timeout = 8
+                cfg.max_subquestions = min(cfg.max_subquestions, 3 if depth == "standard" else 4)
+                cfg.results_per_query = min(cfg.results_per_query, 3)
+                cfg.max_sources = min(cfg.max_sources, 6 if depth == "standard" else 8)
                 agent = build_agent(cfg, lambda k, d: events.put((k, d)))
                 report = agent.run(question)
                 data = report.to_dict()
@@ -49,8 +62,22 @@ class handler(BaseHTTPRequestHandler):
                 events.put(("error", {"message": str(e)}))
             events.put(None)
 
+        import time
         threading.Thread(target=work, daemon=True).start()
-        while (item := events.get()) is not None:
+        deadline = time.time() + 52
+        while True:
+            try:
+                item = events.get(timeout=max(0.1, deadline - time.time()))
+            except queue.Empty:
+                item = ("error", {"message": "Research took too long for the server time limit. Try a shorter, more specific question."})
+                try:
+                    self.wfile.write(f"event: {item[0]}\ndata: {json.dumps(item[1])}\n\n".encode())
+                    self.wfile.flush()
+                except Exception:
+                    pass
+                return
+            if item is None:
+                return
             kind, data = item
             try:
                 self.wfile.write(f"event: {kind}\ndata: {json.dumps(data)}\n\n".encode())

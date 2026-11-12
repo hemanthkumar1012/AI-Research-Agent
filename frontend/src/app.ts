@@ -92,17 +92,7 @@ export function init(): void {
     theme?.cycle();
     const currentTheme = theme!.theme;
     const icons: Record<string, string> = { light: "☀️", dark: "🌙", midnight: "🌌" };
-    const icon = themeBtn.querySelector("svg, span.theme-icon");
-    if (icon) icon.textContent = icons[currentTheme] || "☀️";
-    else {
-      const span = document.createElement("span");
-      span.className = "theme-icon";
-      span.style.fontSize = "16px";
-      span.textContent = icons[currentTheme] || "☀️";
-      // Replace SVG with emoji if present
-      const svg = themeBtn.querySelector("svg");
-      if (svg) { svg.replaceWith(span); }
-    }
+    themeBtn.innerHTML = `<span class="theme-icon" style="font-size:16px;line-height:1">${icons[currentTheme] || "☀️"}</span>`;
     toast(`Theme: ${currentTheme}`, "info");
   });
   const focusBtnEl = document.getElementById("focusBtn");

@@ -76,39 +76,13 @@ export class ThemeEngine {
 
   private apply(name: ThemeName): void {
     this.current = name;
-    const vars = THEMES[name];
     const root = document.documentElement;
-    root.style.setProperty("--bg", vars.bg);
-    root.style.setProperty("--bg2", vars.bg2);
-    root.style.setProperty("--surface", vars.surface);
-    root.style.setProperty("--surface-hover", vars.surfaceHover);
-    root.style.setProperty("--border", vars.border);
-    root.style.setProperty("--border-hi", vars.borderHi);
-    root.style.setProperty("--text", vars.text);
-    root.style.setProperty("--text2", vars.text2);
-    root.style.setProperty("--text3", vars.text3);
-    root.style.setProperty("--accent", vars.accent);
-    root.style.setProperty("--accent2", vars.accent2);
-    root.style.setProperty("--accent-glow", vars.accentGlow);
-    root.style.setProperty("--green", vars.green);
-    root.style.setProperty("--amber", vars.amber);
-    root.style.setProperty("--red", vars.red);
-    root.style.setProperty("--card-bg", vars.cardBg);
-    root.style.setProperty("--header-bg", vars.headerBg);
-
-    // Also update the new CSS variable names to match the gray/white design system
-    root.style.setProperty("--bg-secondary", name === "light" ? "#f1f5f9" : vars.bg);
-    root.style.setProperty("--bg-tertiary", name === "light" ? "#e2e8f0" : vars.surface);
-    root.style.setProperty("--surface", vars.surface);
-    root.style.setProperty("--surface-raised", vars.cardBg);
-    root.style.setProperty("--text-primary", vars.text);
-    root.style.setProperty("--text-secondary", vars.text2);
-    root.style.setProperty("--text-tertiary", vars.text3);
-    root.style.setProperty("--success", vars.green);
-    root.style.setProperty("--warning", vars.amber);
-    root.style.setProperty("--danger", vars.red);
-
-    document.body.dataset.theme = name;
+    // Clear any inline vars from older versions so the stylesheet palette wins
+    root.removeAttribute("style");
+    root.dataset.theme = name;
+    if (document.body) document.body.dataset.theme = name;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", name === "light" ? "#ffffff" : name === "dark" ? "#0f1117" : "#05060f");
     this.listeners.forEach((fn) => fn(name));
   }
 
