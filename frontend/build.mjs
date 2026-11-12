@@ -15,6 +15,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, cpSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { execSync } from "child_process";
+import { createHash } from "crypto";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -104,11 +105,16 @@ const css = readFileSync(join(FRONTEND, "src", "styles.css"), "utf8");
 writeFileSync(join(STATIC, "app.css"), css);
 console.log(`  ✓ app.css (${(css.length / 1024).toFixed(1)} KB)`);
 
-// ── Step 4: Copy HTML template ──────────────────────────
+// ── Step 4: Copy HTML template with cache-busting ───────
 console.log("📄 Copying HTML…");
-const html = readFileSync(join(FRONTEND, "public", "index.html"), "utf8");
+const jsHash = createHash("md5").update(bundle).digest("hex").slice(0, 8);
+const cssHash = createHash("md5").update(css).digest("hex").slice(0, 8);
+let html = readFileSync(join(FRONTEND, "public", "index.html"), "utf8");
+// Add cache-busting query strings
+html = html.replace('/static/app.css"', `/static/app.css?v=${cssHash}"`);
+html = html.replace('/static/app.js"', `/static/app.js?v=${jsHash}"`);
 writeFileSync(join(STATIC, "index.html"), html);
-console.log(`  ✓ index.html`);
+console.log(`  ✓ index.html (cache-bust: js=${jsHash}, css=${cssHash})`);
 
 console.log("\n✅ Build complete → research_agent/static/");
 
