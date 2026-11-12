@@ -143,6 +143,7 @@ export type AgentEventMap = {
   conflicts: ConflictsEvent;
   verify: VerifyEvent;
   revise: ReviseEvent;
+  draft: { body: string };
   report: ReportData;
   error: ErrorEvent;
 };

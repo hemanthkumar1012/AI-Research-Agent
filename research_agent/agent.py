@@ -152,6 +152,7 @@ class ResearchAgent:
 
         self.emit("status", {"message": f"Writing report from {len(sources)} sources"})
         body = self.write(question, sources, conflicts)
+        self.emit("draft", {"body": body})
         if self._skip_for_budget("citation verification"):
             claims = extract_claims(body, len(sources))
         else:

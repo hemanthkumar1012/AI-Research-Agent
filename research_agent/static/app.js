@@ -3860,6 +3860,12 @@ function startResearch() {
         timeline?.add("write", "✍️", `Self-correcting ${d.flagged} claims (round ${d.round})`);
         addTrace(`✍️ Self-correcting ${d.flagged} flagged claims <span class="tag">round ${d.round}</span>`, "revise");
     })
+        .on("draft", (d) => {
+        // Show the written report immediately; the final event replaces it with verified claims
+        const panel = $("report");
+        if (panel)
+            panel.innerHTML = renderMarkdown(d.body);
+    })
         .on("report", (d) => {
         pipeline?.setStage("done");
         timeline?.add("done", "🎉", "Research complete!");

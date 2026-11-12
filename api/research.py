@@ -61,7 +61,7 @@ class handler(BaseHTTPRequestHandler):
                 cfg.stream = False  # Vercel buffers the response; non-stream path has model fallback
                 cfg.llm_timeout = 25      # one Gemini call may use at most 25s
                 cfg.llm_retries = 2   # one retry absorbs transient 503s
-                cfg.wall_deadline = __import__("time").time() + 40  # skip optional stages past 40s
+                cfg.wall_deadline = __import__("time").time() + 32  # skip optional stages (verify etc.) past 32s
                 def _ev(k, d):
                     print(f"[research +{__import__('time').time()-t0:5.1f}s] {k}: {str(d)[:140]}", flush=True)
                     events.put((k, d))
