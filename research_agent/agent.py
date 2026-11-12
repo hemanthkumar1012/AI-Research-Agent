@@ -383,9 +383,22 @@ class ResearchAgent:
                 f"- {c['topic']}: " + "; ".join(f"[{p['source']}] {p['says']}" for p in c["positions"])
                 + (f" (assessment: {c['assessment']})" if c.get("assessment") else "")
                 for c in conflicts) + "\n"
-        return self._compose(prompts.WRITE.format(question=question,
-                                                  sources=self._source_block(sources),
-                                                  conflicts=cblock), "draft")
+        try:
+            return self._compose(prompts.WRITE.format(question=question,
+                                                      sources=self._source_block(sources),
+                                                      conflicts=cblock), "draft")
+        except Exception as e:
+            # Last resort: an extractive report from the gathered passages, so the
+            # run still produces sources and citations when the LLM is unavailable.
+            self.emit("status", {"message": f"Language model unavailable ({str(e)[:80]}…); building extractive report"})
+            parts = [f"# {question.strip().rstrip('?')}", "",
+                     "*The language model was briefly unavailable, so this report quotes the strongest passages from each source directly.*", ""]
+            for s_ in sources:
+                parts.append(f"## {s_.title} [{s_.id}]")
+                for p in s_.passages[:2]:
+                    parts.append(f"{p.strip()} [{s_.id}]")
+                    parts.append("")
+            return "\n".join(parts).strip()
 
     def verify(self, body: str, sources: list[Source]) -> list[Claim]:
         claims = extract_claims(body, len(sources))
