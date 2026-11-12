@@ -32,6 +32,7 @@ class GeminiClient:
 
     def generate(self, prompt: str, model: str, *, json_mode: bool = False,
                  system: str | None = None, temperature: float = 0.3) -> str:
+        global _THINKING_OK
         body = {
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": temperature},
@@ -52,7 +53,6 @@ class GeminiClient:
         except RuntimeError as e:
             # A 400 while thinkingConfig is present: the model doesn't accept it — drop and retry once
             if "(400)" in str(e) and "thinkingConfig" in body.get("generationConfig", {}):
-                global _THINKING_OK
                 _THINKING_OK = False
                 body["generationConfig"].pop("thinkingConfig", None)
                 text = self._post(API.format(model=model), body, self._parse_text)
