@@ -10,6 +10,7 @@ from .cache import NullCache
 BASE = "https://generativelanguage.googleapis.com/v1beta/models/"
 import os as _os
 _THINK_BUDGET = int(_os.environ.get("GEMINI_THINKING_BUDGET", "0"))
+_THINKING_OK = True   # flips off for the process once a model rejects thinkingConfig
 API = BASE + "{model}:generateContent"
 
 
@@ -33,9 +34,10 @@ class GeminiClient:
                  system: str | None = None, temperature: float = 0.3) -> str:
         body = {
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": temperature,
-                                 "thinkingConfig": {"thinkingBudget": _THINK_BUDGET}},
+            "generationConfig": {"temperature": temperature},
         }
+        if _THINKING_OK:
+            body["generationConfig"]["thinkingConfig"] = {"thinkingBudget": _THINK_BUDGET}
         if system:
             body["systemInstruction"] = {"parts": [{"text": system}]}
         if json_mode:
@@ -48,7 +50,10 @@ class GeminiClient:
         try:
             text = self._post(API.format(model=model), body, self._parse_text)
         except RuntimeError as e:
-            if "thinking" in str(e).lower() and "thinkingConfig" in str(body.get("generationConfig", {})):
+            # A 400 while thinkingConfig is present: the model doesn't accept it — drop and retry once
+            if "(400)" in str(e) and "thinkingConfig" in body.get("generationConfig", {}):
+                global _THINKING_OK
+                _THINKING_OK = False
                 body["generationConfig"].pop("thinkingConfig", None)
                 text = self._post(API.format(model=model), body, self._parse_text)
             else:
@@ -60,8 +65,9 @@ class GeminiClient:
                temperature: float = 0.3):
         """Yield text chunks as Gemini generates them (SSE). Cached results replay at once."""
         body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": temperature,
-                                     "thinkingConfig": {"thinkingBudget": _THINK_BUDGET}}}
+                "generationConfig": {"temperature": temperature}}
+        if _THINKING_OK:
+            body["generationConfig"]["thinkingConfig"] = {"thinkingBudget": _THINK_BUDGET}
         if system:
             body["systemInstruction"] = {"parts": [{"text": system}]}
         ck = self.cache.key("gen", model, body)
