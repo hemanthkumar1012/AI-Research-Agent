@@ -86,8 +86,10 @@ def build_agent(cfg: Config, on_event: Event | None = None) -> "ResearchAgent":
     from .llm import GeminiClient
     cache = Cache() if cfg.use_cache else NullCache()
     set_cache(cache if cfg.use_cache else None)
-    return ResearchAgent(GeminiClient(cfg.gemini_api_key, cache=cache), Searcher(cfg.tavily_api_key),
-                         cfg, on_event)
+    return ResearchAgent(GeminiClient(cfg.gemini_api_key, cache=cache,
+                                      timeout=getattr(cfg, "llm_timeout", 90),
+                                      retries=getattr(cfg, "llm_retries", 3)),
+                         Searcher(cfg.tavily_api_key), cfg, on_event)
 
 
 class ResearchAgent:
@@ -104,13 +106,16 @@ class ResearchAgent:
         return out if isinstance(out, tuple) else (out or "", "")
 
     def over_budget(self) -> bool:
+        import time as _t
+        if getattr(self.cfg, "wall_deadline", 0) and _t.time() > self.cfg.wall_deadline:
+            return True
         used = getattr(self.llm, "tokens_used", 0)
         return bool(self.cfg.max_tokens) and isinstance(used, int) and used >= self.cfg.max_tokens
 
     def _skip_for_budget(self, step: str) -> bool:
         if self.over_budget():
             self.emit("budget", {"message": f"Token budget reached; skipping {step}",
-                                 "used": self.llm.tokens_used, "limit": self.cfg.max_tokens})
+                                 "used": getattr(self.llm, "tokens_used", 0), "limit": self.cfg.max_tokens})
             return True
         return False
 
@@ -147,8 +152,11 @@ class ResearchAgent:
 
         self.emit("status", {"message": f"Writing report from {len(sources)} sources"})
         body = self.write(question, sources, conflicts)
-        self.emit("status", {"message": "Verifying citations"})
-        claims = self.verify(body, sources)
+        if self._skip_for_budget("citation verification"):
+            claims = extract_claims(body, len(sources))
+        else:
+            self.emit("status", {"message": "Verifying citations"})
+            claims = self.verify(body, sources)
         history = [Report("", "", sources, claims).score]
 
         revisions = 0

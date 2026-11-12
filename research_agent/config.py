@@ -28,6 +28,9 @@ class Config:
     passage_chars: int = 900
     max_rounds: int = 2                      # research rounds (gap-filling)
     request_timeout: int = 20
+    llm_timeout: int = 90
+    llm_retries: int = 3
+    wall_deadline: float = 0.0
     max_revisions: int = 1                   # self-correction passes after verification
     use_embeddings: bool = True              # hybrid BM25 + semantic reranking
     candidate_passages: int = 6              # BM25 candidates per source before reranking

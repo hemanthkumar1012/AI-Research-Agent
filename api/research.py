@@ -39,6 +39,7 @@ class handler(BaseHTTPRequestHandler):
         events = queue.Queue()
 
         def work():
+            t0 = __import__("time").time()
             try:
                 cfg = apply_preset(Config.from_env(), depth if depth in PRESETS else "standard")
                 if not cfg.gemini_api_key:
@@ -57,11 +58,18 @@ class handler(BaseHTTPRequestHandler):
                 cfg.max_sources = min(cfg.max_sources, 5 if depth == "standard" else 7)
                 cfg.passages_per_source = 2
                 cfg.passage_chars = 700
-                agent = build_agent(cfg, lambda k, d: events.put((k, d)))
+                cfg.llm_timeout = 20      # one Gemini call may use at most 20s
+                cfg.llm_retries = 2
+                cfg.wall_deadline = __import__("time").time() + 40  # skip optional stages past 40s
+                def _ev(k, d):
+                    print(f"[research +{__import__('time').time()-t0:5.1f}s] {k}: {str(d)[:140]}", flush=True)
+                    events.put((k, d))
+                agent = build_agent(cfg, _ev)
                 report = agent.run(question)
                 data = report.to_dict()
                 events.put(("report", data))
             except Exception as e:
+                print(f"[research +{__import__('time').time()-t0:5.1f}s] FAILED: {e}", flush=True)
                 events.put(("error", {"message": str(e)}))
             events.put(None)
 
