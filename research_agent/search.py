@@ -33,10 +33,14 @@ class Searcher:
     def search(self, query: str, k: int = 4, kind: str = "web") -> list[SearchResult]:
         special = {"academic": self._arxiv, "encyclopedic": self._wikipedia}.get(kind)
         out: list[SearchResult] = []
-        if special:
+        if kind == "encyclopedic" and special:
             out += self._safe(special, query, max(1, k // 2 + 1))
-        out += self._safe(self._web, query, k - len(out) if special else k)
-        return out[:k]
+        out += self._safe(self._web, query, k - len(out))
+        if kind == "academic" and special and len(out) < k + 1:
+            # arXiv text search is noisy outside math/CS: let the web lead and
+            # add at most one paper on top.
+            out += self._safe(special, query, 1)
+        return out[:k + 1 if kind == "academic" else k]
 
     @staticmethod
     def _safe(fn, query, k):
