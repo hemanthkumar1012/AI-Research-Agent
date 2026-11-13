@@ -10,6 +10,14 @@ const SUGGESTIONS = [
   "Semiconductor supply chain risks",
 ];
 
+let liveSourceCount = 0;
+let clockTimer = 0;
+function clockStr(): string {
+  if (!live) return "00:00";
+  const s = Math.floor((Date.now() - live.startedAt) / 1000);
+  return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+}
+
 interface LiveState {
   q: string; depth: string; run: ResearchRun | null;
   steps: { label: string; state: "todo" | "doing" | "done" }[];
@@ -100,6 +108,13 @@ export function beginRun(q: string, depth: string, context: { name: string; text
   ].map((label, i) => ({ label, state: (i === 0 ? "doing" : "todo") as "todo" | "doing" | "done" }));
 
   live = { q, depth, run: null, steps, feed: [], draft: "", startedAt: Date.now() };
+  liveSourceCount = 0;
+  clearInterval(clockTimer);
+  clockTimer = window.setInterval(() => {
+    const el = document.getElementById("prog-clock");
+    if (!el || !live) { clearInterval(clockTimer); return; }
+    el.textContent = clockStr();
+  }, 1000);
   ST.log("run_started", undefined, q);
   location.hash = "#/app/progress";
 
@@ -141,9 +156,8 @@ export function beginRun(q: string, depth: string, context: { name: string; text
     plan(subs) { setStep(2); feed("check", `Planned ${subs.length} research angles`); for (const s of subs) feed("spark", s.question); },
     search(query) { searchCount++; setStep(2); feed("search", `Searching: ${query}`); },
     source(s) {
-      sourceCount++; setStep(3);
+      sourceCount++; liveSourceCount = sourceCount; setStep(3);
       feed("link", `Source [${s.id}] ${s.title}`);
-      const el = document.getElementById("prog-count"); if (el) el.textContent = `${sourceCount} sources`;
     },
     draft(body) { live && (live.draft = body); setStep(5); feed("doc", "Draft report written"); },
     report(r) { void finish(r); },
@@ -201,7 +215,10 @@ function paintProgress(error?: string): void {
         h("div.prog-visual", null, progressArt(),
           h("div.prog-stat", null,
             h("strong", null, `Step ${Math.min(doneCount + 1, 6)} / 6`),
-            h("span#prog-count", null, current ? current.label : "Working…"))),
+            h("span#prog-count", null, current ? current.label : "Working…")),
+          h("div.prog-meters", null,
+            h("div.prog-meter", null, h("span", null, "Time elapsed"), h("strong#prog-clock", null, clockStr())),
+            h("div.prog-meter", null, h("span", null, "Sources found"), h("strong#prog-src", null, String(liveSourceCount))))),
         h("div.prog-feed", null,
           h("h3", null, "Agent activity"),
           h("div.prog-feed-list", null, ...live.feed.map(f =>

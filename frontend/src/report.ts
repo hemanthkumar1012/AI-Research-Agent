@@ -3,6 +3,7 @@ import { h, frag, icon, md, esc, toast, modal, popMenu, confirmBox, hostOf, fmtD
 import { ST, dbGet, VReportMeta } from "./store.js";
 import { RReport, RClaim, askFollowup } from "./net.js";
 import { chDonut, chBars } from "./charts.js";
+import { sourceMap } from "./fx.js";
 
 let curTab = "overview";
 
@@ -179,6 +180,27 @@ function analysisTab(body: HTMLElement, meta: VReportMeta, r: RReport): void {
 function sourcesTab(body: HTMLElement, r: RReport): void {
   if (!r.sources.length) {
     body.append(h("p.v-muted", null, "No sources were captured for this run.")); return;
+  }
+  if (r.sources.length > 1) {
+    let mapOn = true;
+    const mapEl = sourceMap(r.sources, (id) => {
+      document.getElementById("src-" + id)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      document.getElementById("src-" + id)?.classList.add("src-flash");
+      setTimeout(() => document.getElementById("src-" + id)?.classList.remove("src-flash"), 1600);
+    });
+    const mapCard = h("div.smap-card", null,
+      h("div.smap-head", null,
+        h("h3", null, "Sources & Evidence"),
+        h("div.smap-toggle", null,
+          h("button.smap-tbtn.on#smap-b1", { onclick: () => { mapOn = true; sync(); } }, "Source Map"),
+          h("button.smap-tbtn#smap-b2", { onclick: () => { mapOn = false; sync(); } }, "List View"))),
+      mapEl);
+    const sync = () => {
+      mapEl.style.display = mapOn ? "" : "none";
+      document.getElementById("smap-b1")?.classList.toggle("on", mapOn);
+      document.getElementById("smap-b2")?.classList.toggle("on", !mapOn);
+    };
+    body.append(mapCard);
   }
   for (const s of r.sources) {
     body.append(h("div.src-card#src-" + s.id, null,

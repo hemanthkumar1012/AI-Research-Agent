@@ -1,38 +1,7 @@
 /* ── Landing page + sign-in ────────────────────────────────────────── */
 import { h, frag, icon, toast } from "./u.js";
 import { ST } from "./store.js";
-
-function heroArt(): HTMLElement {
-  const w = h("div.hero-art");
-  w.innerHTML = `
-  <svg viewBox="0 0 420 340" fill="none" aria-hidden="true">
-    <defs>
-      <linearGradient id="hg1" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#d9f5e2"/><stop offset="100%" stop-color="#7ed9a3"/>
-      </linearGradient>
-      <linearGradient id="hg2" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#eefcf3"/><stop offset="100%" stop-color="#b9ecd0"/>
-      </linearGradient>
-    </defs>
-    <ellipse cx="210" cy="300" rx="150" ry="22" fill="#0f172a" opacity=".06"/>
-    <g class="float-b">
-      <rect x="90" y="150" width="150" height="110" rx="14" fill="url(#hg1)" opacity=".95"/>
-      <rect x="90" y="150" width="150" height="110" rx="14" fill="none" stroke="#2f9e63" stroke-opacity=".35"/>
-    </g>
-    <g class="float-a">
-      <rect x="170" y="70" width="170" height="130" rx="14" fill="url(#hg2)"/>
-      <rect x="170" y="70" width="170" height="130" rx="14" fill="none" stroke="#2f9e63" stroke-opacity=".3"/>
-      <path d="M190 102h120M190 126h96M190 150h110" stroke="#2f9e63" stroke-width="7" stroke-linecap="round" opacity=".45"/>
-    </g>
-    <g class="float-c">
-      <circle cx="320" cy="238" r="34" fill="#16a34a"/>
-      <path d="m306 238 9 9 18-19" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    </g>
-    <circle cx="96" cy="92" r="7" fill="#16a34a" opacity=".5" class="float-c"/>
-    <circle cx="368" cy="120" r="5" fill="#16a34a" opacity=".35" class="float-b"/>
-  </svg>`;
-  return w;
-}
+import { particleField, core3D, wireReveals } from "./fx.js";
 
 const FEATURES = [
   { icn: "layers", t: "Deep Research", d: "Multi-step agent workflow: planning, web search, source analysis and synthesis — not a single prompt." },
@@ -64,32 +33,33 @@ export function renderLanding(): HTMLElement {
           h("a.v-btn.primary", { href: "#/signin" }, "Get Started")))),
 
     h("section.hero", null,
+      particleField(1),
       h("div.hero-in", null,
-        h("div.hero-copy", null,
-          h("span.hero-badge", null, icon("spark", 14), "AI Research Agent"),
-          h("h1", { html: "Your Autonomous<br><em>AI Research</em> Agent" }),
+        h("div.hero-copy.fx-reveal", null,
+          h("span.hero-badge", null, icon("spark", 14), "Autonomous AI Research Agent"),
+          h("h1", { html: "From Questions to<br><em>Verified Research</em>" }),
           h("p.hero-sub", null,
-            "Turn complex questions into deep, trustworthy and well-cited research — with web search, multi-source analysis and structured reports."),
+            "An enterprise-grade AI agent that researches, analyses, synthesises, and delivers trusted, citation-backed insights."),
           h("div.hero-actions", null,
-            h("a.v-btn.dark.lg", { href: "#/signin" }, "Get Started", icon("send", 15)),
-            h("a.v-btn.ghost.lg", { href: "#", onclick: (e: Event) => { e.preventDefault(); document.getElementById("how")?.scrollIntoView({ behavior: "smooth" }); } }, "See how it works"))),
-        heroArt()),
+            h("a.v-btn.primary.lg.glowbtn", { href: "#/signin" }, "Get Started Free", icon("send", 15)),
+            h("a.v-btn.ghost.lg", { href: "#", onclick: (e: Event) => { e.preventDefault(); document.getElementById("how")?.scrollIntoView({ behavior: "smooth" }); } }, "▶ Watch the flow"))),
+        core3D()),
       h("div.hero-chips", null,
         ...[["layers", "Deep Research", "Multi-step analysis"], ["shield", "Trusted Sources", "Citations & links"],
         ["image", "Multimodal", "Text, PDF, data, tables"], ["download", "Export & Share", "PDF, MD, Word"]].map(
-          ([i, t, d]) => h("div.hero-chip", null, h("span.chip-icn", null, icon(i, 18)),
+          ([i, t, d]) => h("div.hero-chip.fx-reveal", null, h("span.chip-icn", null, icon(i, 18)),
             h("div", null, h("strong", null, t), h("span", null, d)))))),
 
     h("section.land-sec#features", null,
       h("div.sec-head", null, h("h2", null, "Research that holds up to scrutiny"),
         h("p", null, "Built for work where the sources matter as much as the answer.")),
       h("div.feat-grid", null, ...FEATURES.map(f =>
-        h("div.feat-card", null, h("span.feat-icn", null, icon(f.icn, 19)), h("h3", null, f.t), h("p", null, f.d))))),
+        h("div.feat-card.fx-reveal", null, h("span.feat-icn", null, icon(f.icn, 19)), h("h3", null, f.t), h("p", null, f.d))))),
 
     h("section.land-sec.alt#how", null,
       h("div.sec-head", null, h("h2", null, "How Verity works"), h("p", null, "A real agent pipeline — every step visible while it runs.")),
       h("div.steps-row", null, ...STEPS.map(([t, d], i) =>
-        h("div.step-card", null, h("span.step-n", null, String(i + 1)), h("h3", null, t), h("p", null, d))))),
+        h("div.step-card.fx-reveal", null, h("span.step-n", null, String(i + 1)), h("h3", null, t), h("p", null, d))))),
 
     h("section.land-sec#pricing", null,
       h("div.sec-head", null, h("h2", null, "Simple pricing"), h("p", null, "Start free. Upgrade when your team does.")),
@@ -102,6 +72,7 @@ export function renderLanding(): HTMLElement {
       h("div.land-foot-in", null,
         h("a.brand.dim", { href: "#/" }, h("span.brand-mark", null, icon("logo", 16)), h("span.brand-name", null, "Verity AI")),
         h("span.foot-note", null, `© ${new Date().getFullYear()} Verity AI — autonomous research with verifiable sources.`))));
+  wireReveals(page);
   return page;
 }
 

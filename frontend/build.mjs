@@ -46,7 +46,7 @@ try {
 console.log("📦 Bundling JavaScript…");
 
 const MODULE_ORDER = [
-  "u.js", "store.js", "net.js", "charts.js",
+  "u.js", "store.js", "net.js", "charts.js", "fx.js",
   "landing.js", "shell.js", "views.js", "research.js", "report.js", "main.js"
 ];
 
