@@ -76,7 +76,7 @@ export function particleField(density = 1): HTMLElement {
       const a = (0.22 + 0.28 * Math.sin(t * 1.6 + p.tw)) * p.z;
       ctx.beginPath();
       ctx.arc(p.x * W, p.y * H, Math.max((0.8 + p.z * 1.7) * (W / 1100), 0.6), 0, 7);
-      ctx.fillStyle = `rgba(52,211,153,${Math.max(a, 0.04).toFixed(3)})`;
+      ctx.fillStyle = `rgba(167,139,250,${Math.max(a, 0.04).toFixed(3)})`;
       ctx.fill();
     }
   });
@@ -89,7 +89,7 @@ export function core3D(): HTMLElement {
     const f = h("div.core-face." + cls);
     if (letter) {
       const v = h("span", null, "V");
-      v.style.cssText = "font:700 52px 'Space Grotesk',ui-sans-serif;color:#d9ffee;text-shadow:0 0 26px rgba(110,231,183,.9)";
+      v.style.cssText = "font:700 52px 'Space Grotesk',ui-sans-serif;color:#f0eaff;text-shadow:0 0 26px rgba(196,181,253,.9)";
       f.append(v);
     }
     return f;
@@ -129,7 +129,7 @@ export function wireReveals(scope: HTMLElement): void {
 }
 
 /* ── Interactive 3D source map ─────────────────────────────────────── */
-const CRED_RGB: Record<string, string> = { high: "52,211,153", medium: "250,204,21", low: "248,113,113" };
+const CRED_RGB: Record<string, string> = { high: "163,230,53", medium: "250,204,21", low: "248,113,113" };
 
 export function sourceMap(sources: RSource[], onPick: (id: number) => void): HTMLElement {
   const wrap = h("div.smap");
@@ -214,7 +214,7 @@ export function sourceMap(sources: RSource[], onPick: (id: number) => void): HTM
     projected.length = 0;
 
     const bg = ctx.createRadialGradient(W / 2, H / 2, 10, W / 2, H / 2, W * 0.5);
-    bg.addColorStop(0, "rgba(16,185,129,.09)"); bg.addColorStop(1, "rgba(16,185,129,0)");
+    bg.addColorStop(0, "rgba(139,92,246,.09)"); bg.addColorStop(1, "rgba(139,92,246,0)");
     ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
 
     const c = project({ x: 0, y: 0, z: 0 }, W, H);
@@ -237,10 +237,10 @@ export function sourceMap(sources: RSource[], onPick: (id: number) => void): HTM
 
     // central AI core
     const cg = ctx.createRadialGradient(c.x, c.y, 2, c.x, c.y, W * 0.075 * pulse);
-    cg.addColorStop(0, "#d1fae5"); cg.addColorStop(0.45, "#10b981"); cg.addColorStop(1, "rgba(6,95,70,0)");
+    cg.addColorStop(0, "#ede9fe"); cg.addColorStop(0.45, "#8b5cf6"); cg.addColorStop(1, "rgba(76,29,149,0)");
     ctx.beginPath(); ctx.arc(c.x, c.y, W * 0.075 * pulse, 0, 7); ctx.fillStyle = cg; ctx.fill();
     ctx.font = `700 ${Math.max(11, W / 70)}px 'Space Grotesk',ui-sans-serif`;
-    ctx.textAlign = "center"; ctx.fillStyle = "#04130c";
+    ctx.textAlign = "center"; ctx.fillStyle = "#150926";
     ctx.fillText("V", c.x, c.y + Math.max(4, W / 210));
 
     // nodes + labels
@@ -255,10 +255,10 @@ export function sourceMap(sources: RSource[], onPick: (id: number) => void): HTM
       ctx.fillStyle = `rgba(${col},${hot ? 0.28 : 0.09 * depth})`; ctx.fill();
       ctx.beginPath(); ctx.arc(pr.x, pr.y, rad, 0, 7);
       ctx.fillStyle = `rgba(${col},${hot ? 1 : 0.5 + 0.5 * depth})`; ctx.fill();
-      ctx.strokeStyle = "rgba(4,10,8,.7)"; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.strokeStyle = "rgba(8,5,15,.7)"; ctx.lineWidth = 1.5; ctx.stroke();
       if (hot || depth > 0.6) {
         ctx.font = `${hot ? 700 : 500} ${Math.max(10, W / 78)}px ui-sans-serif,system-ui`;
-        ctx.fillStyle = hot ? "#e7fff3" : `rgba(159,188,172,${0.35 + 0.55 * depth})`;
+        ctx.fillStyle = hot ? "#f3edff" : `rgba(178,166,199,${0.35 + 0.55 * depth})`;
         const label = `[${p.id}] ` + (p.title.length > 26 ? p.title.slice(0, 25) + "…" : p.title);
         ctx.fillText(label, pr.x, pr.y - rad * 2.5);
       }

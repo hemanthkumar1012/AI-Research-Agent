@@ -770,7 +770,7 @@ function particleField(density = 1) {
             const a = (0.22 + 0.28 * Math.sin(t * 1.6 + p.tw)) * p.z;
             ctx.beginPath();
             ctx.arc(p.x * W, p.y * H, Math.max((0.8 + p.z * 1.7) * (W / 1100), 0.6), 0, 7);
-            ctx.fillStyle = `rgba(52,211,153,${Math.max(a, 0.04).toFixed(3)})`;
+            ctx.fillStyle = `rgba(167,139,250,${Math.max(a, 0.04).toFixed(3)})`;
             ctx.fill();
         }
     });
@@ -782,7 +782,7 @@ function core3D() {
         const f = h("div.core-face." + cls);
         if (letter) {
             const v = h("span", null, "V");
-            v.style.cssText = "font:700 52px 'Space Grotesk',ui-sans-serif;color:#d9ffee;text-shadow:0 0 26px rgba(110,231,183,.9)";
+            v.style.cssText = "font:700 52px 'Space Grotesk',ui-sans-serif;color:#f0eaff;text-shadow:0 0 26px rgba(196,181,253,.9)";
             f.append(v);
         }
         return f;
@@ -822,7 +822,7 @@ function wireReveals(scope) {
     els.forEach(e => io.observe(e));
 }
 /* ── Interactive 3D source map ─────────────────────────────────────── */
-const CRED_RGB = { high: "52,211,153", medium: "250,204,21", low: "248,113,113" };
+const CRED_RGB = { high: "163,230,53", medium: "250,204,21", low: "248,113,113" };
 function sourceMap(sources, onPick) {
     const wrap = h("div.smap");
     if (!FX_ON || !sources.length)
@@ -926,8 +926,8 @@ function sourceMap(sources, onPick) {
         ctx.clearRect(0, 0, W, H);
         projected.length = 0;
         const bg = ctx.createRadialGradient(W / 2, H / 2, 10, W / 2, H / 2, W * 0.5);
-        bg.addColorStop(0, "rgba(16,185,129,.09)");
-        bg.addColorStop(1, "rgba(16,185,129,0)");
+        bg.addColorStop(0, "rgba(139,92,246,.09)");
+        bg.addColorStop(1, "rgba(139,92,246,0)");
         ctx.fillStyle = bg;
         ctx.fillRect(0, 0, W, H);
         const c = project({ x: 0, y: 0, z: 0 }, W, H);
@@ -952,16 +952,16 @@ function sourceMap(sources, onPick) {
         });
         // central AI core
         const cg = ctx.createRadialGradient(c.x, c.y, 2, c.x, c.y, W * 0.075 * pulse);
-        cg.addColorStop(0, "#d1fae5");
-        cg.addColorStop(0.45, "#10b981");
-        cg.addColorStop(1, "rgba(6,95,70,0)");
+        cg.addColorStop(0, "#ede9fe");
+        cg.addColorStop(0.45, "#8b5cf6");
+        cg.addColorStop(1, "rgba(76,29,149,0)");
         ctx.beginPath();
         ctx.arc(c.x, c.y, W * 0.075 * pulse, 0, 7);
         ctx.fillStyle = cg;
         ctx.fill();
         ctx.font = `700 ${Math.max(11, W / 70)}px 'Space Grotesk',ui-sans-serif`;
         ctx.textAlign = "center";
-        ctx.fillStyle = "#04130c";
+        ctx.fillStyle = "#150926";
         ctx.fillText("V", c.x, c.y + Math.max(4, W / 210));
         // nodes + labels
         pts.forEach((p, i) => {
@@ -979,12 +979,12 @@ function sourceMap(sources, onPick) {
             ctx.arc(pr.x, pr.y, rad, 0, 7);
             ctx.fillStyle = `rgba(${col},${hot ? 1 : 0.5 + 0.5 * depth})`;
             ctx.fill();
-            ctx.strokeStyle = "rgba(4,10,8,.7)";
+            ctx.strokeStyle = "rgba(8,5,15,.7)";
             ctx.lineWidth = 1.5;
             ctx.stroke();
             if (hot || depth > 0.6) {
                 ctx.font = `${hot ? 700 : 500} ${Math.max(10, W / 78)}px ui-sans-serif,system-ui`;
-                ctx.fillStyle = hot ? "#e7fff3" : `rgba(159,188,172,${0.35 + 0.55 * depth})`;
+                ctx.fillStyle = hot ? "#f3edff" : `rgba(178,166,199,${0.35 + 0.55 * depth})`;
                 const label = `[${p.id}] ` + (p.title.length > 26 ? p.title.slice(0, 25) + "…" : p.title);
                 ctx.fillText(label, pr.x, pr.y - rad * 2.5);
             }
@@ -1737,15 +1737,15 @@ function progressArt() {
     const w = h("div.prog-art");
     w.innerHTML = `<svg viewBox="0 0 200 120" aria-hidden="true">
     <defs><radialGradient id="pg" cx="50%" cy="45%" r="60%">
-      <stop offset="0%" stop-color="#34d399" stop-opacity=".9"/><stop offset="100%" stop-color="#065f46" stop-opacity=".15"/>
+      <stop offset="0%" stop-color="#a78bfa" stop-opacity=".9"/><stop offset="100%" stop-color="#4c1d95" stop-opacity=".15"/>
     </radialGradient></defs>
-    <rect width="200" height="120" rx="10" fill="#07120c"/>
+    <rect width="200" height="120" rx="10" fill="#0e0820"/>
     <circle cx="100" cy="58" r="38" fill="url(#pg)" opacity=".8"/>
-    <g stroke="#6ee7b7" stroke-width=".7" fill="none" opacity=".75">
+    <g stroke="#c4b5fd" stroke-width=".7" fill="none" opacity=".75">
       <ellipse cx="100" cy="58" rx="38" ry="13"/><ellipse cx="100" cy="58" rx="38" ry="26" opacity=".5"/>
       <ellipse cx="100" cy="58" rx="13" ry="38" opacity=".5"/><circle cx="100" cy="58" r="38" opacity=".6"/>
     </g>
-    <g fill="#a7f3d0"><circle cx="70" cy="40" r="1.6" class="tw1"/><circle cx="135" cy="70" r="1.6" class="tw2"/>
+    <g fill="#ddd6fe"><circle cx="70" cy="40" r="1.6" class="tw1"/><circle cx="135" cy="70" r="1.6" class="tw2"/>
     <circle cx="112" cy="30" r="1.3" class="tw3"/><circle cx="85" cy="82" r="1.3" class="tw1"/></g>
   </svg>`;
     return w;
@@ -1882,7 +1882,7 @@ function findingsTab(body, r) {
 function analysisTab(body, meta, r) {
     const s = r.score;
     const donut = chDonut([
-        { label: "Supported", value: s.supported, color: "var(--green-600)" },
+        { label: "Supported", value: s.supported, color: "var(--lime-500)" },
         { label: "Partial", value: s.partial, color: "#f59e0b" },
         { label: "Unsupported", value: s.unsupported, color: "#ef4444" },
         { label: "Unchecked", value: Math.max(0, (s.claims || r.claims.length) - s.supported - s.partial - s.unsupported), color: "#cbd5e1" },
@@ -1972,7 +1972,7 @@ function download(name, mime, content) {
 function reportHtml(r, inc) {
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(r.question)}</title>
 <style>body{font:15px/1.65 -apple-system,Segoe UI,Roboto,sans-serif;color:#1a2332;max-width:760px;margin:40px auto;padding:0 20px}
-h1,h2,h3{line-height:1.25}a{color:#15803d}sup{color:#15803d;font-weight:600}blockquote{border-left:3px solid #d1d5db;margin:0;padding:4px 14px;color:#475467}</style>
+h1,h2,h3{line-height:1.25}a{color:#7c3aed}sup{color:#7c3aed;font-weight:600}blockquote{border-left:3px solid #d1d5db;margin:0;padding:4px 14px;color:#475467}</style>
 </head><body>${md(buildMarkdown(r, inc))}<hr><p style="color:#98a2b3;font-size:13px">Generated by Verity AI</p></body></html>`;
 }
 function exportModal(meta, r) {

@@ -233,15 +233,15 @@ function progressArt(): HTMLElement {
   const w = h("div.prog-art");
   w.innerHTML = `<svg viewBox="0 0 200 120" aria-hidden="true">
     <defs><radialGradient id="pg" cx="50%" cy="45%" r="60%">
-      <stop offset="0%" stop-color="#34d399" stop-opacity=".9"/><stop offset="100%" stop-color="#065f46" stop-opacity=".15"/>
+      <stop offset="0%" stop-color="#a78bfa" stop-opacity=".9"/><stop offset="100%" stop-color="#4c1d95" stop-opacity=".15"/>
     </radialGradient></defs>
-    <rect width="200" height="120" rx="10" fill="#07120c"/>
+    <rect width="200" height="120" rx="10" fill="#0e0820"/>
     <circle cx="100" cy="58" r="38" fill="url(#pg)" opacity=".8"/>
-    <g stroke="#6ee7b7" stroke-width=".7" fill="none" opacity=".75">
+    <g stroke="#c4b5fd" stroke-width=".7" fill="none" opacity=".75">
       <ellipse cx="100" cy="58" rx="38" ry="13"/><ellipse cx="100" cy="58" rx="38" ry="26" opacity=".5"/>
       <ellipse cx="100" cy="58" rx="13" ry="38" opacity=".5"/><circle cx="100" cy="58" r="38" opacity=".6"/>
     </g>
-    <g fill="#a7f3d0"><circle cx="70" cy="40" r="1.6" class="tw1"/><circle cx="135" cy="70" r="1.6" class="tw2"/>
+    <g fill="#ddd6fe"><circle cx="70" cy="40" r="1.6" class="tw1"/><circle cx="135" cy="70" r="1.6" class="tw2"/>
     <circle cx="112" cy="30" r="1.3" class="tw3"/><circle cx="85" cy="82" r="1.3" class="tw1"/></g>
   </svg>`;
   return w;
