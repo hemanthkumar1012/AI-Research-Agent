@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend-tests:
+    name: Backend tests (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Run all test cases
+        run: python -m pytest tests/ -v
+
+  frontend-build:
+    name: Frontend build + bundle check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install TypeScript
+        run: npm install -g typescript@7.0.2
+      - name: Build bundle
+        run: node frontend/build.mjs
+      - name: Bundle must be valid JavaScript
+        run: node -c research_agent/static/app.js
+      - name: Committed bundle must match the source
+        run: |
+          if ! git diff --quiet research_agent/static/app.js; then
+            echo "::error::research_agent/static/app.js is stale — run 'node frontend/build.mjs' and commit the result."
+            git diff --stat research_agent/static/
+            exit 1
+          fi
