@@ -19,7 +19,7 @@ export function renderShell(active: string, view: HTMLElement): HTMLElement {
 
   const sidebar = h("aside.side" + (collapsed ? ".collapsed" : ""), null,
     h("div.side-top", null,
-      h("a.brand", { href: "#/app" }, h("span.brand-mark", null, icon("logo", 18)), h("span.brand-name.side-label", null, "Verity AI")),
+      h("a.brand", { href: "#/app" }, h("span.brand-mark", null, icon("logo", 18)), h("span.brand-name.side-label", null, "Nyna AI")),
       h("button.v-iconbtn.side-collapse", {
         title: collapsed ? "Expand sidebar" : "Collapse sidebar",
         onclick: () => { ST.root.sidebarCollapsed = !ST.root.sidebarCollapsed; ST.save(); rerender(); },
@@ -119,7 +119,7 @@ export function helpModal(): void {
     title: "Help",
     body: frag(
       h("h4.help-h", null, "How research works"),
-      h("p.help-p", null, "Verity plans sub-questions, searches the web and academic sources, reads what it finds, then writes a cited report. Every run shows its steps live, and every claim links back to a numbered source."),
+      h("p.help-p", null, "Nyna plans sub-questions, searches the web and academic sources, reads what it finds, then writes a cited report. Every run shows its steps live, and every claim links back to a numbered source."),
       h("h4.help-h", null, "Shortcuts"),
       row("N", "New research"), row("/", "Focus search on list pages"), row("Esc", "Close dialogs"),
       h("h4.help-h", null, "Your data"),

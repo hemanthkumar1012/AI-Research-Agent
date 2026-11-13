@@ -2,7 +2,7 @@
 (() => {
 
 // ── u.js ──
-/* ── Verity core: dom, icons, markdown, overlays ───────────────────── */
+/* ── Nyna core: dom, icons, markdown, overlays ───────────────────── */
 function esc(s) {
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -47,7 +47,7 @@ function frag(...kids) {
 }
 /* ── Icon set (16/18px stroke icons, inherit currentColor) ─────────── */
 const PATHS = {
-    logo: '<path d="M3 4l5.5 13h2L16 4h-2.6L9.5 13.6 5.7 4z" fill="currentColor" stroke="none"/>',
+    logo: '<path d="M4.5 16.5V3.5h2.6l5.6 8.6V3.5h2.8v13h-2.6L7.3 7.8v8.7z" fill="currentColor" stroke="none"/>',
     search: '<circle cx="8.5" cy="8.5" r="5.5"/><path d="m16 16-3.2-3.2"/>',
     home: '<path d="M3 9.5 10 3l7 6.5V17h-5v-5H8v5H3z"/>',
     folder: '<path d="M2.5 5a1.5 1.5 0 0 1 1.5-1.5h3.6L9.6 5.5H16A1.5 1.5 0 0 1 17.5 7v7.5A1.5 1.5 0 0 1 16 16H4a1.5 1.5 0 0 1-1.5-1.5z"/>',
@@ -279,7 +279,7 @@ function spinner(label) {
 //# sourceMappingURL=u.js.map
 
 // ── store.js ──
-/* ── Verity state: localStorage index + IndexedDB blobs ────────────── */
+/* ── Nyna state: localStorage index + IndexedDB blobs ────────────── */
 
 const LS_KEY = "verity:v1";
 function blankWs() {
@@ -445,7 +445,7 @@ function dbDel(store, key) {
 //# sourceMappingURL=store.js.map
 
 // ── net.js ──
-/* ── Verity network: SSE research client + JSON endpoints ──────────── */
+/* ── Nyna network: SSE research client + JSON endpoints ──────────── */
 /** POST /api/research and parse the SSE stream (works buffered or chunked). */
 function runResearch(q, depth, context, on) {
     const ctrl = new AbortController();
@@ -574,7 +574,7 @@ async function fetchServerHistory() {
 //# sourceMappingURL=net.js.map
 
 // ── charts.js ──
-/* ── Verity charts: dependency-free SVG ────────────────────────────── */
+/* ── Nyna charts: dependency-free SVG ────────────────────────────── */
 
 const NS = "http://www.w3.org/2000/svg";
 function sv(tag, attrs) {
@@ -684,7 +684,7 @@ function chBars(rows, unit = "") {
 //# sourceMappingURL=charts.js.map
 
 // ── fx.js ──
-/* ── Verity FX engine (dependency-free) ────────────────────────────────
+/* ── Nyna FX engine (dependency-free) ────────────────────────────────
    Ambient particles, CSS-3D hero core, scroll reveals, and an
    interactive 3D source map rendered with real rotation + perspective
    projection on Canvas 2D. Honors prefers-reduced-motion; degrades to a
@@ -781,7 +781,7 @@ function core3D() {
     const face = (cls, letter) => {
         const f = h("div.core-face." + cls);
         if (letter) {
-            const v = h("span", null, "V");
+            const v = h("span", null, "N");
             v.style.cssText = "font:700 52px 'Space Grotesk',ui-sans-serif;color:#f0eaff;text-shadow:0 0 26px rgba(196,181,253,.9)";
             f.append(v);
         }
@@ -962,7 +962,7 @@ function sourceMap(sources, onPick) {
         ctx.font = `700 ${Math.max(11, W / 70)}px 'Space Grotesk',ui-sans-serif`;
         ctx.textAlign = "center";
         ctx.fillStyle = "#150926";
-        ctx.fillText("V", c.x, c.y + Math.max(4, W / 210));
+        ctx.fillText("N", c.x, c.y + Math.max(4, W / 210));
         // nodes + labels
         pts.forEach((p, i) => {
             const r3 = rotXY(p, ax, ay), pr = project(r3, W, H);
@@ -1002,7 +1002,7 @@ function sourceMap(sources, onPick) {
 const FEATURES = [
     { icn: "layers", t: "Deep Research", d: "Multi-step agent workflow: planning, web search, source analysis and synthesis — not a single prompt." },
     { icn: "shield", t: "Trusted Sources", d: "Every claim carries numbered citations. Source credibility is rated and verifiable in one click." },
-    { icn: "file", t: "Knowledge Base", d: "Bring your own PDFs, notes and datasets. Verity uses them to focus the research direction." },
+    { icn: "file", t: "Knowledge Base", d: "Bring your own PDFs, notes and datasets. Nyna uses them to focus the research direction." },
     { icn: "download", t: "Export & Share", d: "One-click export to PDF, Markdown, Word and HTML with citations included." },
     { icn: "chart", t: "Research Analytics", d: "Track runs, sources analysed and citation precision across your whole workspace." },
     { icn: "folder", t: "Projects", d: "Organise reports into projects, keep a searchable archive and return to any finding." },
@@ -1015,8 +1015,8 @@ const STEPS = [
 ];
 function renderLanding() {
     const nav = (label, target) => h("a.land-nav-link", { href: "#", onclick: (e) => { e.preventDefault(); document.getElementById(target)?.scrollIntoView({ behavior: "smooth" }); } }, label);
-    const page = h("div.landing", null, h("header.land-head", null, h("div.land-head-in", null, h("a.brand", { href: "#/" }, h("span.brand-mark", null, icon("logo", 18)), h("span.brand-name", null, "Verity AI")), h("nav.land-nav", null, nav("Features", "features"), nav("How it works", "how"), nav("Pricing", "pricing")), h("div.land-cta", null, h("a.v-btn.ghost", { href: "#/signin" }, "Log in"), h("a.v-btn.primary", { href: "#/signin" }, "Get Started")))), h("section.hero", null, particleField(1), h("div.hero-in", null, h("div.hero-copy.fx-reveal", null, h("span.hero-badge", null, icon("spark", 14), "Autonomous AI Research Agent"), h("h1", { html: "From Questions to<br><em>Verified Research</em>" }), h("p.hero-sub", null, "An enterprise-grade AI agent that researches, analyses, synthesises, and delivers trusted, citation-backed insights."), h("div.hero-actions", null, h("a.v-btn.primary.lg.glowbtn", { href: "#/signin" }, "Get Started Free", icon("send", 15)), h("a.v-btn.ghost.lg", { href: "#", onclick: (e) => { e.preventDefault(); document.getElementById("how")?.scrollIntoView({ behavior: "smooth" }); } }, "▶ Watch the flow"))), core3D()), h("div.hero-chips", null, ...[["layers", "Deep Research", "Multi-step analysis"], ["shield", "Trusted Sources", "Citations & links"],
-        ["image", "Multimodal", "Text, PDF, data, tables"], ["download", "Export & Share", "PDF, MD, Word"]].map(([i, t, d]) => h("div.hero-chip.fx-reveal", null, h("span.chip-icn", null, icon(i, 18)), h("div", null, h("strong", null, t), h("span", null, d)))))), h("section.land-sec#features", null, h("div.sec-head", null, h("h2", null, "Research that holds up to scrutiny"), h("p", null, "Built for work where the sources matter as much as the answer.")), h("div.feat-grid", null, ...FEATURES.map(f => h("div.feat-card.fx-reveal", null, h("span.feat-icn", null, icon(f.icn, 19)), h("h3", null, f.t), h("p", null, f.d))))), h("section.land-sec.alt#how", null, h("div.sec-head", null, h("h2", null, "How Verity works"), h("p", null, "A real agent pipeline — every step visible while it runs.")), h("div.steps-row", null, ...STEPS.map(([t, d], i) => h("div.step-card.fx-reveal", null, h("span.step-n", null, String(i + 1)), h("h3", null, t), h("p", null, d))))), h("section.land-sec#pricing", null, h("div.sec-head", null, h("h2", null, "Simple pricing"), h("p", null, "Start free. Upgrade when your team does.")), h("div.price-grid", null, priceCard("Free", "$0", ["Unlimited local projects", "Standard research depth", "Knowledge base uploads", "All export formats"], false), priceCard("Pro", "$16", ["Everything in Free", "Deep research depth", "Priority model capacity", "Research analytics"], true), priceCard("Team", "$49", ["Everything in Pro", "Shared workspaces", "Admin controls", "Priority support"], false))), h("footer.land-foot", null, h("div.land-foot-in", null, h("a.brand.dim", { href: "#/" }, h("span.brand-mark", null, icon("logo", 16)), h("span.brand-name", null, "Verity AI")), h("span.foot-note", null, `© ${new Date().getFullYear()} Verity AI — autonomous research with verifiable sources.`))));
+    const page = h("div.landing", null, h("header.land-head", null, h("div.land-head-in", null, h("a.brand", { href: "#/" }, h("span.brand-mark", null, icon("logo", 18)), h("span.brand-name", null, "Nyna AI")), h("nav.land-nav", null, nav("Features", "features"), nav("How it works", "how"), nav("Pricing", "pricing")), h("div.land-cta", null, h("a.v-btn.ghost", { href: "#/signin" }, "Log in"), h("a.v-btn.primary", { href: "#/signin" }, "Get Started")))), h("section.hero", null, particleField(1), h("div.hero-in", null, h("div.hero-copy.fx-reveal", null, h("span.hero-badge", null, icon("spark", 14), "Autonomous AI Research Agent"), h("h1", { html: "From Questions to<br><em>Verified Research</em>" }), h("p.hero-sub", null, "An enterprise-grade AI agent that researches, analyses, synthesises, and delivers trusted, citation-backed insights."), h("div.hero-actions", null, h("a.v-btn.primary.lg.glowbtn", { href: "#/signin" }, "Get Started Free", icon("send", 15)), h("a.v-btn.ghost.lg", { href: "#", onclick: (e) => { e.preventDefault(); document.getElementById("how")?.scrollIntoView({ behavior: "smooth" }); } }, "▶ Watch the flow"))), core3D()), h("div.hero-chips", null, ...[["layers", "Deep Research", "Multi-step analysis"], ["shield", "Trusted Sources", "Citations & links"],
+        ["image", "Multimodal", "Text, PDF, data, tables"], ["download", "Export & Share", "PDF, MD, Word"]].map(([i, t, d]) => h("div.hero-chip.fx-reveal", null, h("span.chip-icn", null, icon(i, 18)), h("div", null, h("strong", null, t), h("span", null, d)))))), h("section.land-sec#features", null, h("div.sec-head", null, h("h2", null, "Research that holds up to scrutiny"), h("p", null, "Built for work where the sources matter as much as the answer.")), h("div.feat-grid", null, ...FEATURES.map(f => h("div.feat-card.fx-reveal", null, h("span.feat-icn", null, icon(f.icn, 19)), h("h3", null, f.t), h("p", null, f.d))))), h("section.land-sec.alt#how", null, h("div.sec-head", null, h("h2", null, "How Nyna works"), h("p", null, "A real agent pipeline — every step visible while it runs.")), h("div.steps-row", null, ...STEPS.map(([t, d], i) => h("div.step-card.fx-reveal", null, h("span.step-n", null, String(i + 1)), h("h3", null, t), h("p", null, d))))), h("section.land-sec#pricing", null, h("div.sec-head", null, h("h2", null, "Simple pricing"), h("p", null, "Start free. Upgrade when your team does.")), h("div.price-grid", null, priceCard("Free", "$0", ["Unlimited local projects", "Standard research depth", "Knowledge base uploads", "All export formats"], false), priceCard("Pro", "$16", ["Everything in Free", "Deep research depth", "Priority model capacity", "Research analytics"], true), priceCard("Team", "$49", ["Everything in Pro", "Shared workspaces", "Admin controls", "Priority support"], false))), h("footer.land-foot", null, h("div.land-foot-in", null, h("a.brand.dim", { href: "#/" }, h("span.brand-mark", null, icon("logo", 16)), h("span.brand-name", null, "Nyna AI")), h("span.foot-note", null, `© ${new Date().getFullYear()} Nyna AI — autonomous research with verifiable sources.`))));
     wireReveals(page);
     return page;
 }
@@ -1047,7 +1047,7 @@ function renderSignin() {
         ST.log("signin");
         location.hash = "#/app";
     };
-    return h("div.auth-page", null, h("div.auth-card", null, h("a.brand.auth-brand", { href: "#/" }, h("span.brand-mark", null, icon("logo", 18)), h("span.brand-name", null, "Verity AI")), h("h1", null, "Welcome"), h("p.auth-sub", null, "Sign in to your workspace. Your account and research are stored privately in this browser."), h("form.auth-form", { onsubmit: submit }, h("label", null, "Name", name), h("label", null, "Email", email), h("label", null, "Workspace", wsName), h("button.v-btn.primary.block.lg", { type: "submit" }, "Continue", icon("send", 15))), h("p.auth-note", null, "No password needed — this workspace lives in your browser's storage.")));
+    return h("div.auth-page", null, h("div.auth-card", null, h("a.brand.auth-brand", { href: "#/" }, h("span.brand-mark", null, icon("logo", 18)), h("span.brand-name", null, "Nyna AI")), h("h1", null, "Welcome"), h("p.auth-sub", null, "Sign in to your workspace. Your account and research are stored privately in this browser."), h("form.auth-form", { onsubmit: submit }, h("label", null, "Name", name), h("label", null, "Email", email), h("label", null, "Workspace", wsName), h("button.v-btn.primary.block.lg", { type: "submit" }, "Continue", icon("send", 15))), h("p.auth-note", null, "No password needed — this workspace lives in your browser's storage.")));
 }
 //# sourceMappingURL=landing.js.map
 
@@ -1065,7 +1065,7 @@ const NAV = [
 function renderShell(active, view) {
     const collapsed = ST.root.sidebarCollapsed;
     const navLink = (icn, label, href, cls = "") => h("a.side-link" + cls + (active === href ? ".on" : ""), { href, title: label }, icon(icn, 18), h("span.side-label", null, label));
-    const sidebar = h("aside.side" + (collapsed ? ".collapsed" : ""), null, h("div.side-top", null, h("a.brand", { href: "#/app" }, h("span.brand-mark", null, icon("logo", 18)), h("span.brand-name.side-label", null, "Verity AI")), h("button.v-iconbtn.side-collapse", {
+    const sidebar = h("aside.side" + (collapsed ? ".collapsed" : ""), null, h("div.side-top", null, h("a.brand", { href: "#/app" }, h("span.brand-mark", null, icon("logo", 18)), h("span.brand-name.side-label", null, "Nyna AI")), h("button.v-iconbtn.side-collapse", {
         title: collapsed ? "Expand sidebar" : "Collapse sidebar",
         onclick: () => { ST.root.sidebarCollapsed = !ST.root.sidebarCollapsed; ST.save(); rerender(); },
     }, icon("collapse", 16))), h("a.v-btn.primary.side-new" + (active === "#/app/research" ? ".glow" : ""), { href: "#/app/research", title: "New Research" }, icon("plus", 16), h("span.side-label", null, "New Research")), h("nav.side-nav", null, ...NAV.map(([i, l, hr]) => navLink(i, l, hr))), h("div.side-foot", null, navLink("settings", "Settings", "#/app/settings"), h("a.side-link", { href: "#", onclick: (e) => { e.preventDefault(); helpModal(); } }, icon("help", 18), h("span.side-label", null, "Help"))));
@@ -1150,7 +1150,7 @@ function helpModal() {
     const row = (k, d) => h("div.help-row", null, h("kbd", null, k), h("span", null, d));
     const m = modal({
         title: "Help",
-        body: frag(h("h4.help-h", null, "How research works"), h("p.help-p", null, "Verity plans sub-questions, searches the web and academic sources, reads what it finds, then writes a cited report. Every run shows its steps live, and every claim links back to a numbered source."), h("h4.help-h", null, "Shortcuts"), row("N", "New research"), row("/", "Focus search on list pages"), row("Esc", "Close dialogs"), h("h4.help-h", null, "Your data"), h("p.help-p", null, "Projects, reports and knowledge-base files are stored privately in this browser (localStorage + IndexedDB). Use Settings → Export data for a full backup.")),
+        body: frag(h("h4.help-h", null, "How research works"), h("p.help-p", null, "Nyna plans sub-questions, searches the web and academic sources, reads what it finds, then writes a cited report. Every run shows its steps live, and every claim links back to a numbered source."), h("h4.help-h", null, "Shortcuts"), row("N", "New research"), row("/", "Focus search on list pages"), row("Esc", "Close dialogs"), h("h4.help-h", null, "Your data"), h("p.help-p", null, "Projects, reports and knowledge-base files are stored privately in this browser (localStorage + IndexedDB). Use Settings → Export data for a full backup.")),
         footer: h("button.v-btn.primary", { onclick: () => m.close() }, "Got it"),
     });
 }
@@ -1538,7 +1538,7 @@ function exportData() {
     const data = JSON.stringify(ST.root, null, 2);
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([data], { type: "application/json" }));
-    a.download = "verity-backup.json";
+    a.download = "nyna-backup.json";
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 400);
     toast("Backup downloaded.");
@@ -1623,7 +1623,7 @@ function renderResearchHome() {
         }
     });
     const recent = ST.ws.reports.slice(0, 3);
-    return h("div.page.ask-page", null, h("div.ask-hero", null, h("h1", null, "What do you want to research today?"), h("p.ask-sub", null, "Ask anything, from market analysis to complex technical topics."), h("div.ask-card", null, ta, h("div.ask-row", null, h("div.ask-row-left", null, depthBtn, h("span.pill-static", { title: "Verity always researches with live web search" }, icon("globe", 15), "Web"), filesBtn), h("button.v-btn.primary.send-btn", { "aria-label": "Start research", onclick: () => void start() }, icon("send", 17)))), h("div.ask-sugs", null, ...SUGGESTIONS.map(s => h("button.sug", { onclick: () => { ta.value = s; ta.focus(); } }, h("span", null, s), icon("external", 13)))), recent.length ? h("div.ask-recent", null, h("h3", null, "Recent research"), ...recent.map(r => h("a.recent-row", { href: "#/app/report/" + r.id }, icon("doc", 16), h("span.recent-q", null, r.question), h("span.recent-meta", null, `${r.sources} sources`)))) : null));
+    return h("div.page.ask-page", null, h("div.ask-hero", null, h("h1", null, "What do you want to research today?"), h("p.ask-sub", null, "Ask anything, from market analysis to complex technical topics."), h("div.ask-card", null, ta, h("div.ask-row", null, h("div.ask-row-left", null, depthBtn, h("span.pill-static", { title: "Nyna always researches with live web search" }, icon("globe", 15), "Web"), filesBtn), h("button.v-btn.primary.send-btn", { "aria-label": "Start research", onclick: () => void start() }, icon("send", 17)))), h("div.ask-sugs", null, ...SUGGESTIONS.map(s => h("button.sug", { onclick: () => { ta.value = s; ta.focus(); } }, h("span", null, s), icon("external", 13)))), recent.length ? h("div.ask-recent", null, h("h3", null, "Recent research"), ...recent.map(r => h("a.recent-row", { href: "#/app/report/" + r.id }, icon("doc", 16), h("span.recent-q", null, r.question), h("span.recent-meta", null, `${r.sources} sources`)))) : null));
 }
 /* ── live progress ─────────────────────────────────────────────────── */
 function beginRun(q, depth, context) {
@@ -1973,7 +1973,7 @@ function reportHtml(r, inc) {
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(r.question)}</title>
 <style>body{font:15px/1.65 -apple-system,Segoe UI,Roboto,sans-serif;color:#1a2332;max-width:760px;margin:40px auto;padding:0 20px}
 h1,h2,h3{line-height:1.25}a{color:#7c3aed}sup{color:#7c3aed;font-weight:600}blockquote{border-left:3px solid #d1d5db;margin:0;padding:4px 14px;color:#475467}</style>
-</head><body>${md(buildMarkdown(r, inc))}<hr><p style="color:#98a2b3;font-size:13px">Generated by Verity AI</p></body></html>`;
+</head><body>${md(buildMarkdown(r, inc))}<hr><p style="color:#98a2b3;font-size:13px">Generated by Nyna AI</p></body></html>`;
 }
 function exportModal(meta, r) {
     let fmt = "pdf";
@@ -2029,7 +2029,7 @@ function printPdf(r, inc) {
     setTimeout(() => { w.focus(); w.print(); }, 250);
 }
 function shareModal(meta, r) {
-    const summary = `${r.question}\n\n${firstParagraph(r.markdown).replace(/\[\d+\]/g, "")}\n\n— researched with Verity AI (${r.sources.length} sources, ${meta.precision}% citation precision)`;
+    const summary = `${r.question}\n\n${firstParagraph(r.markdown).replace(/\[\d+\]/g, "")}\n\n— researched with Nyna AI (${r.sources.length} sources, ${meta.precision}% citation precision)`;
     const ta = h("textarea.v-input.share-ta", { rows: 7 });
     ta.value = summary;
     const m = modal({
@@ -2081,7 +2081,7 @@ function wireCites(scope, r) {
 //# sourceMappingURL=report.js.map
 
 // ── main.js ──
-/* ── Verity router + boot ──────────────────────────────────────────── */
+/* ── Nyna router + boot ──────────────────────────────────────────── */
 
 
 

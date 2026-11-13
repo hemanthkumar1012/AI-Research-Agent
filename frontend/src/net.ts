@@ -1,4 +1,4 @@
-/* ── Verity network: SSE research client + JSON endpoints ──────────── */
+/* ── Nyna network: SSE research client + JSON endpoints ──────────── */
 
 export interface RSource {
   id: number; title: string; url: string; passages: string[];

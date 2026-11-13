@@ -6,7 +6,7 @@ import { particleField, core3D, wireReveals } from "./fx.js";
 const FEATURES = [
   { icn: "layers", t: "Deep Research", d: "Multi-step agent workflow: planning, web search, source analysis and synthesis — not a single prompt." },
   { icn: "shield", t: "Trusted Sources", d: "Every claim carries numbered citations. Source credibility is rated and verifiable in one click." },
-  { icn: "file", t: "Knowledge Base", d: "Bring your own PDFs, notes and datasets. Verity uses them to focus the research direction." },
+  { icn: "file", t: "Knowledge Base", d: "Bring your own PDFs, notes and datasets. Nyna uses them to focus the research direction." },
   { icn: "download", t: "Export & Share", d: "One-click export to PDF, Markdown, Word and HTML with citations included." },
   { icn: "chart", t: "Research Analytics", d: "Track runs, sources analysed and citation precision across your whole workspace." },
   { icn: "folder", t: "Projects", d: "Organise reports into projects, keep a searchable archive and return to any finding." },
@@ -26,7 +26,7 @@ export function renderLanding(): HTMLElement {
   const page = h("div.landing", null,
     h("header.land-head", null,
       h("div.land-head-in", null,
-        h("a.brand", { href: "#/" }, h("span.brand-mark", null, icon("logo", 18)), h("span.brand-name", null, "Verity AI")),
+        h("a.brand", { href: "#/" }, h("span.brand-mark", null, icon("logo", 18)), h("span.brand-name", null, "Nyna AI")),
         h("nav.land-nav", null, nav("Features", "features"), nav("How it works", "how"), nav("Pricing", "pricing")),
         h("div.land-cta", null,
           h("a.v-btn.ghost", { href: "#/signin" }, "Log in"),
@@ -57,7 +57,7 @@ export function renderLanding(): HTMLElement {
         h("div.feat-card.fx-reveal", null, h("span.feat-icn", null, icon(f.icn, 19)), h("h3", null, f.t), h("p", null, f.d))))),
 
     h("section.land-sec.alt#how", null,
-      h("div.sec-head", null, h("h2", null, "How Verity works"), h("p", null, "A real agent pipeline — every step visible while it runs.")),
+      h("div.sec-head", null, h("h2", null, "How Nyna works"), h("p", null, "A real agent pipeline — every step visible while it runs.")),
       h("div.steps-row", null, ...STEPS.map(([t, d], i) =>
         h("div.step-card.fx-reveal", null, h("span.step-n", null, String(i + 1)), h("h3", null, t), h("p", null, d))))),
 
@@ -70,8 +70,8 @@ export function renderLanding(): HTMLElement {
 
     h("footer.land-foot", null,
       h("div.land-foot-in", null,
-        h("a.brand.dim", { href: "#/" }, h("span.brand-mark", null, icon("logo", 16)), h("span.brand-name", null, "Verity AI")),
-        h("span.foot-note", null, `© ${new Date().getFullYear()} Verity AI — autonomous research with verifiable sources.`))));
+        h("a.brand.dim", { href: "#/" }, h("span.brand-mark", null, icon("logo", 16)), h("span.brand-name", null, "Nyna AI")),
+        h("span.foot-note", null, `© ${new Date().getFullYear()} Nyna AI — autonomous research with verifiable sources.`))));
   wireReveals(page);
   return page;
 }
@@ -104,7 +104,7 @@ export function renderSignin(): HTMLElement {
 
   return h("div.auth-page", null,
     h("div.auth-card", null,
-      h("a.brand.auth-brand", { href: "#/" }, h("span.brand-mark", null, icon("logo", 18)), h("span.brand-name", null, "Verity AI")),
+      h("a.brand.auth-brand", { href: "#/" }, h("span.brand-mark", null, icon("logo", 18)), h("span.brand-name", null, "Nyna AI")),
       h("h1", null, "Welcome"),
       h("p.auth-sub", null, "Sign in to your workspace. Your account and research are stored privately in this browser."),
       h("form.auth-form", { onsubmit: submit },

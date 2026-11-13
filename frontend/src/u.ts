@@ -1,4 +1,4 @@
-/* ── Verity core: dom, icons, markdown, overlays ───────────────────── */
+/* ── Nyna core: dom, icons, markdown, overlays ───────────────────── */
 
 export function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -40,7 +40,7 @@ export function frag(...kids: (Node | string | null | false | undefined)[]): Doc
 
 /* ── Icon set (16/18px stroke icons, inherit currentColor) ─────────── */
 const PATHS: Record<string, string> = {
-  logo: '<path d="M3 4l5.5 13h2L16 4h-2.6L9.5 13.6 5.7 4z" fill="currentColor" stroke="none"/>',
+  logo: '<path d="M4.5 16.5V3.5h2.6l5.6 8.6V3.5h2.8v13h-2.6L7.3 7.8v8.7z" fill="currentColor" stroke="none"/>',
   search: '<circle cx="8.5" cy="8.5" r="5.5"/><path d="m16 16-3.2-3.2"/>',
   home: '<path d="M3 9.5 10 3l7 6.5V17h-5v-5H8v5H3z"/>',
   folder: '<path d="M2.5 5a1.5 1.5 0 0 1 1.5-1.5h3.6L9.6 5.5H16A1.5 1.5 0 0 1 17.5 7v7.5A1.5 1.5 0 0 1 16 16H4a1.5 1.5 0 0 1-1.5-1.5z"/>',

@@ -1,4 +1,4 @@
-/* ── Verity charts: dependency-free SVG ────────────────────────────── */
+/* ── Nyna charts: dependency-free SVG ────────────────────────────── */
 import { h } from "./u.js";
 
 const NS = "http://www.w3.org/2000/svg";

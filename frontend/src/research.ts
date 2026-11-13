@@ -88,7 +88,7 @@ export function renderResearchHome(): HTMLElement {
         h("div.ask-row", null,
           h("div.ask-row-left", null,
             depthBtn,
-            h("span.pill-static", { title: "Verity always researches with live web search" }, icon("globe", 15), "Web"),
+            h("span.pill-static", { title: "Nyna always researches with live web search" }, icon("globe", 15), "Web"),
             filesBtn),
           h("button.v-btn.primary.send-btn", { "aria-label": "Start research", onclick: () => void start() }, icon("send", 17)))),
       h("div.ask-sugs", null, ...SUGGESTIONS.map(s =>

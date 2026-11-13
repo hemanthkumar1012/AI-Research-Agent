@@ -449,7 +449,7 @@ function exportData(): void {
   const data = JSON.stringify(ST.root, null, 2);
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([data], { type: "application/json" }));
-  a.download = "verity-backup.json"; a.click();
+  a.download = "nyna-backup.json"; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 400);
   toast("Backup downloaded.");
 }

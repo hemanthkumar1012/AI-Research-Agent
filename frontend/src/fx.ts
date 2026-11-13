@@ -1,4 +1,4 @@
-/* ── Verity FX engine (dependency-free) ────────────────────────────────
+/* ── Nyna FX engine (dependency-free) ────────────────────────────────
    Ambient particles, CSS-3D hero core, scroll reveals, and an
    interactive 3D source map rendered with real rotation + perspective
    projection on Canvas 2D. Honors prefers-reduced-motion; degrades to a
@@ -88,7 +88,7 @@ export function core3D(): HTMLElement {
   const face = (cls: string, letter?: boolean) => {
     const f = h("div.core-face." + cls);
     if (letter) {
-      const v = h("span", null, "V");
+      const v = h("span", null, "N");
       v.style.cssText = "font:700 52px 'Space Grotesk',ui-sans-serif;color:#f0eaff;text-shadow:0 0 26px rgba(196,181,253,.9)";
       f.append(v);
     }
@@ -241,7 +241,7 @@ export function sourceMap(sources: RSource[], onPick: (id: number) => void): HTM
     ctx.beginPath(); ctx.arc(c.x, c.y, W * 0.075 * pulse, 0, 7); ctx.fillStyle = cg; ctx.fill();
     ctx.font = `700 ${Math.max(11, W / 70)}px 'Space Grotesk',ui-sans-serif`;
     ctx.textAlign = "center"; ctx.fillStyle = "#150926";
-    ctx.fillText("V", c.x, c.y + Math.max(4, W / 210));
+    ctx.fillText("N", c.x, c.y + Math.max(4, W / 210));
 
     // nodes + labels
     pts.forEach((p, i) => {

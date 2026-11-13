@@ -1,4 +1,4 @@
-/* ── Verity router + boot ──────────────────────────────────────────── */
+/* ── Nyna router + boot ──────────────────────────────────────────── */
 import { ST } from "./store.js";
 import { renderLanding, renderSignin } from "./landing.js";
 import { renderShell } from "./shell.js";

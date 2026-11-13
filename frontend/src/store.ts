@@ -1,4 +1,4 @@
-/* ── Verity state: localStorage index + IndexedDB blobs ────────────── */
+/* ── Nyna state: localStorage index + IndexedDB blobs ────────────── */
 import { uid } from "./u.js";
 
 export interface VUser { name: string; email: string }
