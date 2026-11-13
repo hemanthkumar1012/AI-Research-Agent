@@ -1,4196 +1,1853 @@
 "use strict";
 (() => {
 
-// ── types.js ──
-/* ── Core domain types for AI Research Agent ────────── */
-
-//# sourceMappingURL=types.js.map
-
-// ── utils.js ──
-/* ── Utility functions ────────────────────────────────── */
-/** Escape HTML entities */
+// ── u.js ──
+/* ── Verity core: dom, icons, markdown, overlays ───────────────────── */
 function esc(s) {
-    return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] ?? c));
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
-/** Format a float as a percentage string */
-function pct(x) {
-    return Math.round((x || 0) * 100) + "%";
-}
-/** Shorthand for getElementById */
-function $(id) {
-    return document.getElementById(id);
-}
-/** Type-safe query selector */
-function $q(sel, root = document) {
-    return root.querySelector(sel);
-}
-/** Format number with locale separators */
-function fmt(n) {
-    return n.toLocaleString();
-}
-/** Generate a unique ID */
 function uid() {
-    return Math.random().toString(36).slice(2, 10);
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
-/** Debounce a function */
-function debounce(fn, ms) {
-    let timer;
-    return ((...args) => {
-        clearTimeout(timer);
-        timer = setTimeout(() => fn(...args), ms);
-    });
+/** Tiny element builder: h("div.card#x", {onclick}, child, "text") */
+function h(spec, attrs, ...kids) {
+    const [tagPart] = spec.split(/(?=[.#])/);
+    const el = document.createElement(tagPart || "div");
+    const classes = spec.match(/\.[\w-]+/g);
+    if (classes)
+        el.className = classes.map(c => c.slice(1)).join(" ");
+    const id = spec.match(/#([\w-]+)/);
+    if (id)
+        el.id = id[1];
+    if (attrs)
+        for (const [k, v] of Object.entries(attrs)) {
+            if (v === undefined || v === false)
+                continue;
+            if (k.startsWith("on") && typeof v === "function")
+                el.addEventListener(k.slice(2), v);
+            else if (k === "html")
+                el.innerHTML = String(v);
+            else
+                el.setAttribute(k, String(v));
+        }
+    for (const k of kids) {
+        if (k === null || k === undefined || k === false)
+            continue;
+        el.append(typeof k === "string" ? document.createTextNode(k) : k);
+    }
+    return el;
 }
-/** Clamp a number between min and max */
-function clamp(n, min, max) {
-    return Math.min(Math.max(n, min), max);
+function frag(...kids) {
+    const f = document.createDocumentFragment();
+    for (const k of kids)
+        if (k)
+            f.append(typeof k === "string" ? document.createTextNode(k) : k);
+    return f;
 }
-/** Format a date string relative to now */
-function timeAgo(date) {
-    const d = new Date(date);
-    const now = Date.now();
-    const diff = now - d.getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1)
+/* ── Icon set (16/18px stroke icons, inherit currentColor) ─────────── */
+const PATHS = {
+    logo: '<path d="M3 4l5.5 13h2L16 4h-2.6L9.5 13.6 5.7 4z" fill="currentColor" stroke="none"/>',
+    search: '<circle cx="8.5" cy="8.5" r="5.5"/><path d="m16 16-3.2-3.2"/>',
+    home: '<path d="M3 9.5 10 3l7 6.5V17h-5v-5H8v5H3z"/>',
+    folder: '<path d="M2.5 5a1.5 1.5 0 0 1 1.5-1.5h3.6L9.6 5.5H16A1.5 1.5 0 0 1 17.5 7v7.5A1.5 1.5 0 0 1 16 16H4a1.5 1.5 0 0 1-1.5-1.5z"/>',
+    doc: '<path d="M5 2.5h6.5L15 6v11.5H5z"/><path d="M11.5 2.5V6H15"/><path d="M7.5 10h5M7.5 13h5"/>',
+    book: '<path d="M3.5 4A1.5 1.5 0 0 1 5 2.5h11.5v13H5A1.5 1.5 0 0 0 3.5 17z"/><path d="M3.5 15.5A1.5 1.5 0 0 1 5 14h11.5"/>',
+    chart: '<path d="M3 17h14"/><path d="M5.5 13v-3M9.5 13V6M13.5 13V9"/>',
+    settings: '<circle cx="10" cy="10" r="2.6"/><path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M15.1 4.9l-1.4 1.4M6.3 13.7l-1.4 1.4"/>',
+    help: '<circle cx="10" cy="10" r="7.5"/><path d="M7.8 7.7a2.3 2.3 0 0 1 4.5.7c0 1.5-2.2 1.8-2.2 3.1"/><circle cx="10" cy="14.3" r=".4" fill="currentColor"/>',
+    bell: '<path d="M10 3a4.5 4.5 0 0 1 4.5 4.5c0 3.6 1.5 4.8 1.5 4.8H4s1.5-1.2 1.5-4.8A4.5 4.5 0 0 1 10 3z"/><path d="M8.3 15.5a1.8 1.8 0 0 0 3.4 0"/>',
+    plus: '<path d="M10 4v12M4 10h12"/>',
+    send: '<path d="M3 10 17 3l-3.5 14-4-5.5z"/><path d="M9.5 11.5 17 3"/>',
+    globe: '<circle cx="10" cy="10" r="7.5"/><path d="M2.5 10h15M10 2.5c2.5 2.5 2.5 12.5 0 15M10 2.5c-2.5 2.5-2.5 12.5 0 15"/>',
+    file: '<path d="M5.5 2.5h6L15 6v11.5h-9.5z"/><path d="M11 2.5V6.5h4"/>',
+    image: '<rect x="3" y="4" width="14" height="12" rx="1.5"/><circle cx="7.5" cy="8.5" r="1.3"/><path d="m4 14 4-4 3 3 2.5-2.5L17 14"/>',
+    check: '<path d="m4 10.5 4 4L16.5 6"/>',
+    x: '<path d="m5 5 10 10M15 5 5 15"/>',
+    dots: '<circle cx="4.5" cy="10" r="1.3" fill="currentColor" stroke="none"/><circle cx="10" cy="10" r="1.3" fill="currentColor" stroke="none"/><circle cx="15.5" cy="10" r="1.3" fill="currentColor" stroke="none"/>',
+    external: '<path d="M8.5 5H4.5A1.5 1.5 0 0 0 3 6.5v9A1.5 1.5 0 0 0 4.5 17h9a1.5 1.5 0 0 0 1.5-1.5v-4"/><path d="M11 3h6v6M17 3l-8 8"/>',
+    download: '<path d="M10 3v9.5M6 9l4 4 4-4"/><path d="M3.5 16.5h13"/>',
+    share: '<circle cx="14.5" cy="4.5" r="2"/><circle cx="5" cy="10" r="2"/><circle cx="14.5" cy="15.5" r="2"/><path d="m6.8 9 5.9-3.4M6.8 11l5.9 3.4"/>',
+    back: '<path d="M12.5 4 6.5 10l6 6"/>',
+    upload: '<path d="M10 13V3.5M6 7l4-4 4 4"/><path d="M3.5 16.5h13"/>',
+    clock: '<circle cx="10" cy="10" r="7.5"/><path d="M10 5.5V10l3 2"/>',
+    spark: '<path d="M10 2.5 11.8 7.6 17 9l-5.2 1.6L10 16l-1.8-5.4L3 9l5.2-1.4z"/>',
+    shield: '<path d="M10 2.5 16.5 5v5c0 4.2-2.8 6.6-6.5 7.5C6.3 16.6 3.5 14.2 3.5 10V5z"/><path d="m7.3 10 1.9 1.9 3.5-3.8"/>',
+    layers: '<path d="m10 3 7 3.8-7 3.7-7-3.7z"/><path d="m3.5 10.5 6.5 3.5 6.5-3.5M3.5 13.8 10 17.3l6.5-3.5"/>',
+    menu: '<path d="M3.5 6h13M3.5 10h13M3.5 14h13"/>',
+    collapse: '<path d="M12 4 6 10l6 6"/><path d="M16.5 4v12"/>',
+    trash: '<path d="M4 6h12M8 6V4.5h4V6M6 6l.7 10h6.6L14 6"/><path d="M8.5 9v4.5M11.5 9v4.5"/>',
+    edit: '<path d="m12.8 3.7 3.5 3.5L7 16.5l-4 .5.5-4z"/>',
+    copy: '<rect x="7" y="7" width="9.5" height="9.5" rx="1.5"/><path d="M4.5 13H4a1.5 1.5 0 0 1-1.5-1.5v-7A1.5 1.5 0 0 1 4 3h7a1.5 1.5 0 0 1 1.5 1.5V5"/>',
+    refresh: '<path d="M16.5 8A6.7 6.7 0 0 0 4.6 5.6L3 7.5M3.5 12a6.7 6.7 0 0 0 11.9 2.4l1.6-1.9"/><path d="M3 3.5v4h4M17 16.5v-4h-4"/>',
+    user: '<circle cx="10" cy="6.8" r="3.2"/><path d="M3.8 17a6.4 6.4 0 0 1 12.4 0"/>',
+    grid: '<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="11" y="3" width="6" height="6" rx="1"/><rect x="3" y="11" width="6" height="6" rx="1"/><rect x="11" y="11" width="6" height="6" rx="1"/>',
+    zap: '<path d="M11 2.5 4 11.5h5L9 17.5l7-9h-5z"/>',
+    chevd: '<path d="m5.5 7.5 4.5 5 4.5-5"/>',
+    link: '<path d="M8.5 11.5a3.5 3.5 0 0 0 5 0l2.5-2.5a3.5 3.5 0 0 0-5-5L9.8 5.2"/><path d="M11.5 8.5a3.5 3.5 0 0 0-5 0L4 11a3.5 3.5 0 0 0 5 5l1.2-1.2"/>',
+    alert: '<path d="M10 3 2.5 16h15z"/><path d="M10 8v4M10 14.6v.2"/>',
+    database: '<ellipse cx="10" cy="4.5" rx="6.5" ry="2.3"/><path d="M3.5 4.5v11c0 1.3 2.9 2.3 6.5 2.3s6.5-1 6.5-2.3v-11"/><path d="M3.5 10c0 1.3 2.9 2.3 6.5 2.3s6.5-1 6.5-2.3"/>',
+    logout: '<path d="M8 3.5H4.5v13H8"/><path d="M13 6.5 16.5 10 13 13.5M16.5 10h-9"/>',
+};
+function icon(name, size = 18) {
+    const s = h("span.icn");
+    s.innerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PATHS[name] || PATHS.doc}</svg>`;
+    return s;
+}
+/* ── Formatting helpers ────────────────────────────────────────────── */
+function fmtSize(b) {
+    if (b < 1024)
+        return b + " B";
+    if (b < 1048576)
+        return (b / 1024).toFixed(1) + " KB";
+    return (b / 1048576).toFixed(1) + " MB";
+}
+function timeAgo(t) {
+    const s = (Date.now() - t) / 1000;
+    if (s < 60)
         return "just now";
-    if (mins < 60)
-        return `${mins}m ago`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24)
-        return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    if (days < 30)
-        return `${days}d ago`;
-    return d.toLocaleDateString();
+    if (s < 3600)
+        return Math.floor(s / 60) + " min ago";
+    if (s < 86400)
+        return Math.floor(s / 3600) + " hours ago";
+    const d = Math.floor(s / 86400);
+    if (d === 1)
+        return "yesterday";
+    if (d < 7)
+        return d + " days ago";
+    if (d < 30)
+        return Math.floor(d / 7) + " weeks ago";
+    return new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
-//# sourceMappingURL=utils.js.map
-
-// ── markdown.js ──
-/* ── Markdown renderer with fallback ──────────────────── */
-
-/** Minimal markdown → HTML (fallback when marked.js CDN fails) */
-function miniMd(src) {
+function fmtDate(t) {
+    return new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+function hostOf(url) {
+    try {
+        return new URL(url).hostname.replace(/^www\./, "");
+    }
+    catch {
+        return url;
+    }
+}
+function debounce(fn, ms) {
+    let t = 0;
+    return ((...a) => { clearTimeout(t); t = window.setTimeout(() => fn(...a), ms); });
+}
+/* ── Markdown (safe, minimal, citation-aware) ──────────────────────── */
+function md(src) {
+    const lines = (src || "").split("\n");
     const out = [];
-    let inList = false;
+    let inList = false, inOl = false, para = [];
     const inline = (t) => {
-        const links = [];
-        t = t.replace(/\[([^\]]+)\]\((https?:[^)\s]+|file:[^)\s]+)\)/g, (_, txt, url) => {
-            links.push(`<a href="${esc(url)}" target="_blank" rel="noopener">${esc(txt)}</a>`);
-            return `\u0000${links.length - 1}\u0000`;
-        });
-        return esc(t)
-            .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
-            .replace(/\*(.+?)\*/g, "<i>$1</i>")
-            .replace(/(^|\s)_(.+?)_(?=\s|$)/g, "$1<i>$2</i>")
-            .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
-            .replace(/\u0000(\d+)\u0000/g, (_, i) => links[+i]);
+        const x = esc(t)
+            .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, (_m, a, u) => `<a href="${u}" target="_blank" rel="noopener">${a}</a>`)
+            .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+            .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>")
+            .replace(/`([^`]+)`/g, "<code>$1</code>")
+            .replace(/(^|[\s(·])_([^_\n]+)_(?=[\s).,;:·]|$)/g, "$1<em>$2</em>")
+            .replace(/\[(\d{1,2})\]/g, '<sup class="cite" data-cite="$1">[$1]</sup>');
+        return x;
     };
-    for (const line of (src || "").split("\n")) {
-        const heading = line.match(/^(#{1,4})\s+(.*)/);
-        const listItem = line.match(/^\s*(?:[-*]|\d+\.)\s+(.*)/);
-        if (!listItem && inList) {
+    const flushP = () => {
+        if (para.length) {
+            out.push(`<p>${inline(para.join(" "))}</p>`);
+            para = [];
+        }
+    };
+    const closeLists = () => {
+        if (inList) {
             out.push("</ul>");
             inList = false;
         }
-        if (heading) {
-            out.push(`<h${heading[1].length}>${inline(heading[2])}</h${heading[1].length}>`);
+        if (inOl) {
+            out.push("</ol>");
+            inOl = false;
         }
-        else if (listItem) {
+    };
+    for (const raw of lines) {
+        const line = raw.trimEnd();
+        const hm = /^(#{1,4})\s+(.*)/.exec(line);
+        if (hm) {
+            flushP();
+            closeLists();
+            out.push(`<h${hm[1].length + 1}>${inline(hm[2])}</h${hm[1].length + 1}>`);
+            continue;
+        }
+        if (/^[-*]\s+/.test(line)) {
+            flushP();
+            if (inOl) {
+                out.push("</ol>");
+                inOl = false;
+            }
             if (!inList) {
                 out.push("<ul>");
                 inList = true;
             }
-            out.push(`<li>${inline(listItem[1])}</li>`);
-        }
-        else if (line.trim()) {
-            out.push(`<p>${inline(line)}</p>`);
-        }
-    }
-    if (inList)
-        out.push("</ul>");
-    return out.join("");
-}
-/** Render markdown to HTML, using marked.js if available */
-function renderMarkdown(src) {
-    const div = document.createElement("div");
-    div.innerHTML =
-        typeof marked !== "undefined" ? marked.parse(src || "") : miniMd(src);
-    div.querySelectorAll("a").forEach((a) => {
-        a.target = "_blank";
-        a.rel = "noopener";
-    });
-    return div.innerHTML;
-}
-//# sourceMappingURL=markdown.js.map
-
-// ── theme.js ──
-/* ── Theme Engine — professional light/dark with smooth transitions ── */
-const THEMES = {
-    light: {
-        bg: "#f8fafc", bg2: "#ffffff",
-        surface: "rgba(124,183,90,0.03)", surfaceHover: "rgba(124,183,90,0.06)",
-        border: "rgba(124,183,90,0.12)", borderHi: "rgba(124,183,90,0.2)",
-        text: "#0f172a", text2: "#475569", text3: "#94a3b8",
-        accent: "#7cb75a", accent2: "#a98fd6", accentGlow: "rgba(124,183,90,0.1)",
-        green: "#10b981", amber: "#f59e0b", red: "#ef4444",
-        cardBg: "#ffffff", headerBg: "rgba(255,255,255,0.75)",
-    },
-    dark: {
-        bg: "#0f0f13", bg2: "#1a1a22",
-        surface: "rgba(255,255,255,0.04)", surfaceHover: "rgba(255,255,255,0.07)",
-        border: "rgba(255,255,255,0.08)", borderHi: "rgba(255,255,255,0.15)",
-        text: "#e8e8f0", text2: "#9898a8", text3: "#68687a",
-        accent: "#e8e8f0", accent2: "#bbbbcc", accentGlow: "rgba(255,255,255,0.06)",
-        green: "#4ade80", amber: "#fbbf24", red: "#f87171",
-        cardBg: "rgba(255,255,255,0.04)", headerBg: "rgba(15,15,19,0.85)",
-    },
-    midnight: {
-        bg: "#08081a", bg2: "#0e0e28",
-        surface: "rgba(124,183,90,0.04)", surfaceHover: "rgba(124,183,90,0.08)",
-        border: "rgba(124,183,90,0.12)", borderHi: "rgba(124,183,90,0.2)",
-        text: "#d4d4f8", text2: "#8888b8", text3: "#5555888",
-        accent: "#9ccf7d", accent2: "#b7dd9e", accentGlow: "rgba(124,183,90,0.15)",
-        green: "#34d399", amber: "#fbbf24", red: "#fb7185",
-        cardBg: "rgba(124,183,90,0.04)", headerBg: "rgba(8,8,26,0.85)",
-    },
-};
-class ThemeEngine {
-    current;
-    listeners = [];
-    constructor() {
-        // Default to light for the professional gray/white look
-        const stored = localStorage.getItem("theme");
-        this.current = stored || "light";
-        this.apply(this.current);
-        window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
-            if (!localStorage.getItem("theme"))
-                this.apply(this.systemPref());
-        });
-    }
-    systemPref() {
-        return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    }
-    get theme() { return this.current; }
-    cycle() {
-        const order = ["light", "dark"];
-        const next = order[(order.indexOf(this.current) + 1) % order.length];
-        this.set(next);
-        return next;
-    }
-    set(name) {
-        localStorage.setItem("theme", name);
-        this.apply(name);
-    }
-    apply(name) {
-        this.current = name;
-        const root = document.documentElement;
-        // Clear any inline vars from older versions so the stylesheet palette wins
-        root.removeAttribute("style");
-        root.dataset.theme = name;
-        if (document.body)
-            document.body.dataset.theme = name;
-        const meta = document.querySelector('meta[name="theme-color"]');
-        if (meta)
-            meta.setAttribute("content", name === "light" ? "#faf9f5" : name === "dark" ? "#262624" : "#1b1a18");
-        this.listeners.forEach((fn) => fn(name));
-    }
-    onChange(fn) { this.listeners.push(fn); }
-}
-//# sourceMappingURL=theme.js.map
-
-// ── particles.js ──
-/* ── Advanced Particle System ─────────────────────────── */
-/* Modes: field (drift), constellation (network), vortex  */
-class ParticleField {
-    canvas;
-    ctx;
-    particles = [];
-    raf = 0;
-    mouse = { x: -1000, y: -1000 };
-    count = 60;
-    connectDist = 140;
-    mode = "field";
-    time = 0;
-    hueBase = 220;
-    constructor(container) {
-        this.canvas = document.createElement("canvas");
-        this.canvas.id = "particles";
-        this.canvas.style.cssText =
-            "position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;opacity:.35";
-        container.prepend(this.canvas);
-        this.ctx = this.canvas.getContext("2d");
-        this.resize();
-        this.spawn();
-        window.addEventListener("resize", () => this.resize());
-        document.addEventListener("mousemove", (e) => {
-            this.mouse.x = e.clientX;
-            this.mouse.y = e.clientY;
-        });
-        this.animate();
-    }
-    setMode(m) {
-        this.mode = m;
-        if (m === "constellation") {
-            this.count = 40;
-            this.connectDist = 200;
-        }
-        else if (m === "vortex") {
-            this.count = 80;
-            this.connectDist = 100;
-        }
-        else {
-            this.count = 60;
-            this.connectDist = 140;
-        }
-        this.spawn();
-    }
-    setHue(h) { this.hueBase = h; }
-    setDensity(n) {
-        this.count = Math.max(10, Math.min(200, n));
-        this.spawn();
-    }
-    resize() {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
-    }
-    spawn() {
-        this.particles = [];
-        for (let i = 0; i < this.count; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = Math.random() * 0.5 + 0.1;
-            this.particles.push({
-                x: Math.random() * this.canvas.width,
-                y: Math.random() * this.canvas.height,
-                vx: Math.cos(angle) * speed * 0.4,
-                vy: Math.sin(angle) * speed * 0.4,
-                r: Math.random() * 2.5 + 0.6,
-                opacity: Math.random() * 0.5 + 0.15,
-                hue: this.hueBase + Math.random() * 60 - 30,
-                life: 0,
-                maxLife: 600 + Math.random() * 400,
-                angle,
-                speed,
-            });
-        }
-    }
-    animate = () => {
-        const { ctx, canvas, particles, mouse } = this;
-        this.time++;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        for (const p of particles) {
-            p.life++;
-            // Mode-specific movement
-            if (this.mode === "vortex") {
-                const cx = canvas.width / 2;
-                const cy = canvas.height / 2;
-                const dx = p.x - cx;
-                const dy = p.y - cy;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                const angle = Math.atan2(dy, dx) + 0.02;
-                p.vx = Math.cos(angle) * dist * 0.003;
-                p.vy = Math.sin(angle) * dist * 0.003;
-                p.vx += (cx + Math.cos(angle) * dist - p.x) * 0.001;
-                p.vy += (cy + Math.sin(angle) * dist - p.y) * 0.001;
-            }
-            else if (this.mode === "constellation") {
-                // Gentle drift with slight attraction to center
-                p.vx += (canvas.width / 2 - p.x) * 0.00001;
-                p.vy += (canvas.height / 2 - p.y) * 0.00001;
-            }
-            p.x += p.vx;
-            p.y += p.vy;
-            // Bounds
-            if (p.x < -20)
-                p.x = canvas.width + 20;
-            if (p.x > canvas.width + 20)
-                p.x = -20;
-            if (p.y < -20)
-                p.y = canvas.height + 20;
-            if (p.y > canvas.height + 20)
-                p.y = -20;
-            // Mouse repulsion
-            const dx = p.x - mouse.x;
-            const dy = p.y - mouse.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < 150) {
-                const force = (150 - dist) / 150;
-                p.vx += (dx / dist) * force * 0.2;
-                p.vy += (dy / dist) * force * 0.2;
-            }
-            // Damping
-            p.vx *= 0.997;
-            p.vy *= 0.997;
-            // Fade based on life
-            const lifeFade = p.life < 30 ? p.life / 30 :
-                p.life > p.maxLife - 30 ? (p.maxLife - p.life) / 30 : 1;
-            // Draw particle with glow
-            const op = p.opacity * lifeFade;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-            ctx.fillStyle = `hsla(${p.hue + this.time * 0.05}, 70%, 70%, ${op})`;
-            ctx.fill();
-            // Glow for larger particles
-            if (p.r > 1.5) {
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.r * 3, 0, Math.PI * 2);
-                ctx.fillStyle = `hsla(${p.hue}, 70%, 70%, ${op * 0.1})`;
-                ctx.fill();
-            }
-            // Respawn dead particles
-            if (p.life >= p.maxLife) {
-                p.x = Math.random() * canvas.width;
-                p.y = Math.random() * canvas.height;
-                p.life = 0;
-                p.hue = this.hueBase + Math.random() * 60 - 30;
-            }
-        }
-        // Connection lines
-        for (let i = 0; i < particles.length; i++) {
-            for (let j = i + 1; j < particles.length; j++) {
-                const dx = particles[i].x - particles[j].x;
-                const dy = particles[i].y - particles[j].y;
-                const d = Math.sqrt(dx * dx + dy * dy);
-                if (d < this.connectDist) {
-                    const alpha = (1 - d / this.connectDist) * 0.15;
-                    ctx.beginPath();
-                    ctx.moveTo(particles[i].x, particles[i].y);
-                    ctx.lineTo(particles[j].x, particles[j].y);
-                    const avgHue = (particles[i].hue + particles[j].hue) / 2;
-                    ctx.strokeStyle = `hsla(${avgHue}, 60%, 65%, ${alpha})`;
-                    ctx.lineWidth = this.mode === "constellation" ? 0.8 : 0.5;
-                    ctx.stroke();
-                }
-            }
-        }
-        // Mouse attraction lines (constellation mode)
-        if (this.mode === "constellation" && mouse.x > 0) {
-            for (const p of particles) {
-                const dx = p.x - mouse.x;
-                const dy = p.y - mouse.y;
-                const d = Math.sqrt(dx * dx + dy * dy);
-                if (d < 200) {
-                    ctx.beginPath();
-                    ctx.moveTo(mouse.x, mouse.y);
-                    ctx.lineTo(p.x, p.y);
-                    ctx.strokeStyle = `hsla(${this.hueBase}, 80%, 75%, ${(1 - d / 200) * 0.2})`;
-                    ctx.lineWidth = 0.4;
-                    ctx.stroke();
-                }
-            }
-        }
-        this.raf = requestAnimationFrame(this.animate);
-    };
-    destroy() {
-        cancelAnimationFrame(this.raf);
-        this.canvas.remove();
-    }
-}
-//# sourceMappingURL=particles.js.map
-
-// ── graph.js ──
-/* ── Interactive Citation Graph (SVG bipartite) ──────── */
-
-const GRAPH_CRED_COLORS = {
-    user: "#6d9fff",
-    high: "#34d399",
-    medium: "#fbbf24",
-    low: "#f87171",
-};
-const LABEL_COLORS = {
-    supported: "#34d399",
-    partial: "#fbbf24",
-    unsupported: "#f87171",
-    unchecked: "#64748b",
-};
-function drawGraph(data, container) {
-    const S = data.sources;
-    const C = data.claims;
-    const W = 860;
-    const rowS = Math.max(34, Math.min(56, 520 / Math.max(S.length, 1)));
-    const rowC = 30;
-    const H = Math.max(S.length * rowS, C.length * rowC) + 40;
-    const sx = 20, sw = 300, cx = W - 400, cw = 380;
-    const sy = (i) => 20 + i * ((H - 40) / Math.max(S.length, 1)) + 8;
-    const cy = (i) => 20 + i * ((H - 40) / Math.max(C.length, 1)) + 4;
-    const idx = new Map(S.map((s, i) => [s.id, i]));
-    let edges = "";
-    let nodes = "";
-    // Draw edges
-    C.forEach((c, j) => c.cites.forEach((id) => {
-        const si = idx.get(id);
-        if (si === undefined)
-            return;
-        const y1 = sy(si) + 13, y2 = cy(j) + 11;
-        edges += `<path class="e" data-s="${id}" data-c="${c.id}" ` +
-            `d="M${sx + sw} ${y1} C ${sx + sw + 120} ${y1}, ${cx - 120} ${y2}, ${cx} ${y2}" ` +
-            `stroke="${LABEL_COLORS[c.label] || "#64748b"}"/>`;
-    }));
-    // Draw source nodes
-    S.forEach((s, i) => {
-        const t = esc(s.title.length > 38 ? s.title.slice(0, 36) + "…" : s.title);
-        const col = GRAPH_CRED_COLORS[s.credibility] || "#555";
-        nodes += `<g class="n" data-s="${s.id}">` +
-            `<rect x="${sx}" y="${sy(i)}" width="${sw}" height="26" rx="7" fill="#151c2e" stroke="${col}"/>` +
-            `<circle cx="${sx + 14}" cy="${sy(i) + 13}" r="4.5" fill="${col}"/>` +
-            `<text x="${sx + 26}" y="${sy(i) + 17.5}" font-size="12.5" fill="#e8ecf4">[${s.id}] ${t}</text></g>`;
-    });
-    // Draw claim nodes
-    C.forEach((c, j) => {
-        const t = esc(c.text.length > 52 ? c.text.slice(0, 50) + "…" : c.text);
-        nodes += `<g class="n" data-c="${c.id}">` +
-            `<rect x="${cx}" y="${cy(j)}" width="${cw}" height="22" rx="6" fill="#151c2e" stroke="${LABEL_COLORS[c.label]}"/>` +
-            `<text x="${cx + 10}" y="${cy(j) + 15}" font-size="11.5" fill="#c8d0e0">${t}</text></g>`;
-    });
-    container.innerHTML =
-        `<div class="graph-legend">Sources (left, coloured by credibility) → claims (right, coloured by verdict). Click a node for details.</div>` +
-            `<svg viewBox="0 0 ${W} ${H}" font-family="Inter,system-ui,sans-serif">${edges}${nodes}</svg>` +
-            `<div id="gdetail"></div>`;
-    // Interaction
-    container.querySelectorAll(".n").forEach((g) => {
-        g.addEventListener("click", () => {
-            container.querySelectorAll(".n").forEach((x) => x.classList.remove("sel"));
-            g.classList.add("sel");
-            const sid = g.dataset.s;
-            const cid = g.dataset.c;
-            container.querySelectorAll(".e").forEach((p) => {
-                p.classList.toggle("hl", (!!sid && p.dataset.s === sid) || (!!cid && p.dataset.c === cid));
-            });
-            const detail = document.getElementById("gdetail");
-            if (cid) {
-                const c = C.find((x) => String(x.id) === cid);
-                detail.innerHTML =
-                    `<div class="detail"><span class="tag" style="color:${LABEL_COLORS[c.label]}">${c.label}</span> ` +
-                        `${esc(c.text)}<div class="usage" style="margin-top:6px">${esc(c.reason || "")} · cites ${c.cites.map((x) => "[" + x + "]").join("")}</div>` +
-                        (c.facts || [])
-                            .map((f) => `<div class="fact"><span style="color:${f.supported ? "#34d399" : "#f87171"}">${f.supported ? "✔" : "✖"}</span>` +
-                            `<div>${esc(f.fact)}${f.quote ? `<span class="quote">"${esc(f.quote)}"${f.source ? " — [" + f.source + "]" : ""}</span>` : ""}</div></div>`)
-                            .join("") +
-                        "</div>";
-            }
-            else if (sid) {
-                const s = S.find((x) => String(x.id) === sid);
-                const used = C.filter((c) => c.cites.includes(+sid));
-                detail.innerHTML =
-                    `<div class="detail"><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a> ` +
-                        `<span class="tag ${esc(s.credibility)}">${esc(s.credibility)}</span>` +
-                        (s.date ? ` <span class="tag">${esc(s.date)}</span>` : "") +
-                        `<div class="usage" style="margin-top:6px">Cited by ${used.length} claim(s): ${used.filter((c) => c.label === "supported").length} supported</div></div>`;
-            }
-        });
-    });
-}
-//# sourceMappingURL=graph.js.map
-
-// ── api.js ──
-/* ── API client for the Research Agent backend ────────── */
-const BASE = ""; // same-origin
-/** Type-safe SSE event stream */
-class ResearchStream {
-    es;
-    constructor(question, depth, fileTokens) {
-        const params = new URLSearchParams({
-            q: question,
-            depth,
-            files: fileTokens.join(","),
-        });
-        this.es = new EventSource(`${BASE}/api/research?${params}`);
-    }
-    on(event, handler) {
-        this.es.addEventListener(event, ((ev) => {
-            // The browser fires a native "error" event (no data) on disconnect
-            if (typeof ev.data !== "string" || !ev.data)
-                return;
-            let parsed;
-            try {
-                parsed = JSON.parse(ev.data);
-            }
-            catch {
-                return;
-            }
-            try {
-                handler(parsed);
-            }
-            catch (err) {
-                console.error(`[${String(event)}] handler failed`, err);
-            }
-        }));
-        return this;
-    }
-    onError(handler) {
-        this.es.onerror = handler;
-        return this;
-    }
-    close() {
-        this.es.close();
-    }
-}
-/** Upload a file to the server */
-async function uploadFile(file) {
-    const res = await fetch(`${BASE}/api/upload`, {
-        method: "POST",
-        headers: { "X-Filename": file.name },
-        body: file,
-    });
-    return res.json();
-}
-/** Fetch report history */
-async function fetchHistory() {
-    const res = await fetch(`${BASE}/api/history`);
-    return res.json();
-}
-/** Fetch a single saved report by ID */
-async function fetchReport(id) {
-    const res = await fetch(`${BASE}/api/report?id=${encodeURIComponent(id)}`);
-    return res.json();
-}
-/** Ask a follow-up question about a report */
-async function askFollowUp(reportId, question, history) {
-    const res = await fetch(`${BASE}/api/ask`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: reportId, question, history }),
-    });
-    return res.json();
-}
-//# sourceMappingURL=api.js.map
-
-// ── commands.js ──
-/* ── Command Palette (Ctrl+K) + Toast notifications ──── */
-
-const TOAST_ICONS = {
-    info: "💡", success: "✅", warn: "⚠️", error: "❌",
-};
-let toastContainer = null;
-function ensureToastContainer() {
-    if (!toastContainer) {
-        toastContainer = document.createElement("div");
-        toastContainer.className = "toast-container";
-        document.body.appendChild(toastContainer);
-    }
-    return toastContainer;
-}
-function toast(message, kind = "info", duration = 4000) {
-    // Quiet UI: only surface problems. Routine actions speak for themselves.
-    if (kind !== "error")
-        return;
-    const c = ensureToastContainer();
-    const el = document.createElement("div");
-    el.className = `toast toast-${kind}`;
-    el.innerHTML = `<span class="toast-icon">${TOAST_ICONS[kind]}</span><span>${esc(message)}</span>`;
-    c.appendChild(el);
-    requestAnimationFrame(() => el.classList.add("toast-in"));
-    setTimeout(() => {
-        el.classList.add("toast-out");
-        el.addEventListener("animationend", () => el.remove());
-    }, duration);
-}
-let cmdOverlay = null;
-let registered = [];
-let isOpen = false;
-function registerCommands(cmds) {
-    registered = [...registered, ...cmds];
-}
-function openPalette() {
-    if (isOpen) {
-        closePalette();
-        return;
-    }
-    isOpen = true;
-    cmdOverlay = document.createElement("div");
-    cmdOverlay.className = "cmd-overlay";
-    cmdOverlay.innerHTML = `
-    <div class="cmd-palette">
-      <div class="cmd-header">
-        <input class="cmd-input" type="text" placeholder="Type a command…" autofocus>
-        <kbd class="cmd-esc">ESC</kbd>
-      </div>
-      <div class="cmd-list"></div>
-    </div>
-  `;
-    document.body.appendChild(cmdOverlay);
-    const input = cmdOverlay.querySelector(".cmd-input");
-    const list = cmdOverlay.querySelector(".cmd-list");
-    let selected = 0;
-    function render(filter) {
-        const q = filter.toLowerCase();
-        const filtered = registered.filter((c) => c.label.toLowerCase().includes(q) ||
-            (c.category || "").toLowerCase().includes(q));
-        list.innerHTML = filtered.length
-            ? filtered
-                .map((c, i) => `<div class="cmd-item${i === selected ? " cmd-sel" : ""}" data-idx="${i}">` +
-                `<span class="cmd-icon">${c.icon}</span>` +
-                `<div class="cmd-text"><span class="cmd-label">${esc(c.label)}</span>` +
-                (c.category ? `<span class="cmd-cat">${esc(c.category)}</span>` : "") +
-                `</div>` +
-                (c.shortcut ? `<kbd class="cmd-key">${esc(c.shortcut)}</kbd>` : "") +
-                `</div>`)
-                .join("")
-            : '<div class="cmd-empty">No matching commands</div>';
-        // Click handlers
-        list.querySelectorAll(".cmd-item").forEach((el) => {
-            el.addEventListener("click", () => {
-                const idx = parseInt(el.dataset.idx || "0");
-                filtered[idx]?.action();
-                closePalette();
-            });
-        });
-    }
-    render("");
-    input.addEventListener("input", () => {
-        selected = 0;
-        render(input.value);
-    });
-    input.addEventListener("keydown", (e) => {
-        const items = list.querySelectorAll(".cmd-item");
-        if (e.key === "ArrowDown") {
-            e.preventDefault();
-            selected = Math.min(selected + 1, items.length - 1);
-            render(input.value);
-        }
-        if (e.key === "ArrowUp") {
-            e.preventDefault();
-            selected = Math.max(selected - 1, 0);
-            render(input.value);
-        }
-        if (e.key === "Enter") {
-            e.preventDefault();
-            const sel = items[selected];
-            sel?.click();
-        }
-        if (e.key === "Escape")
-            closePalette();
-    });
-    cmdOverlay.addEventListener("click", (e) => {
-        if (e.target === cmdOverlay)
-            closePalette();
-    });
-    setTimeout(() => input.focus(), 50);
-}
-function closePalette() {
-    isOpen = false;
-    cmdOverlay?.remove();
-    cmdOverlay = null;
-}
-function initCommandPalette() {
-    document.addEventListener("keydown", (e) => {
-        if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-            e.preventDefault();
-            openPalette();
-        }
-    });
-}
-//# sourceMappingURL=commands.js.map
-
-// ── inspector.js ──
-/* ── Source Inspector — expandable source detail panel ── */
-
-function renderInspector(data, container) {
-    const { sources, claims } = data;
-    // Source stats
-    const sourceStats = sources.map((s) => {
-        const citing = claims.filter((c) => c.cites.includes(s.id));
-        const supported = citing.filter((c) => c.label === "supported").length;
-        const partial = citing.filter((c) => c.label === "partial").length;
-        const unsupported = citing.filter((c) => c.label === "unsupported").length;
-        return { ...s, citing: citing.length, supported, partial, unsupported };
-    });
-    // Sort by citation count descending
-    sourceStats.sort((a, b) => b.citing - a.citing);
-    // Overview bar
-    const totalClaims = claims.length;
-    const supCount = claims.filter((c) => c.label === "supported").length;
-    const parCount = claims.filter((c) => c.label === "partial").length;
-    const unsCount = claims.filter((c) => c.label === "unsupported").length;
-    const unchCount = totalClaims - supCount - parCount - unsCount;
-    const barSegments = [
-        { pct: supCount / totalClaims * 100, cls: "bar-sup", label: `${supCount} supported` },
-        { pct: parCount / totalClaims * 100, cls: "bar-par", label: `${parCount} partial` },
-        { pct: unsCount / totalClaims * 100, cls: "bar-uns", label: `${unsCount} unsupported` },
-        { pct: unchCount / totalClaims * 100, cls: "bar-unc", label: `${unchCount} unchecked` },
-    ];
-    container.innerHTML = `
-    <div class="insp">
-      <div class="insp-header">
-        <h3>🔍 Source Inspector</h3>
-        <span class="insp-count">${sources.length} sources · ${totalClaims} claims</span>
-      </div>
-
-      <div class="insp-bar">
-        ${barSegments.filter((s) => s.pct > 0).map((s) => `<div class="${s.cls}" style="width:${s.pct}%" title="${s.label}"></div>`).join("")}
-      </div>
-      <div class="insp-bar-legend">
-        ${barSegments.filter((s) => s.pct > 0).map((s) => `<span class="${s.cls}-label">${s.label}</span>`).join("")}
-      </div>
-
-      <div class="insp-sources">
-        ${sourceStats.map((s) => `
-          <details class="insp-source" data-cred="${s.credibility}">
-            <summary>
-              <span class="insp-src-dot cred-${esc(s.credibility)}"></span>
-              <span class="insp-src-id">[${s.id}]</span>
-              <span class="insp-src-title">${esc(s.title)}</span>
-              <span class="insp-src-badges">
-                <span class="tag ${esc(s.credibility)}">${esc(s.credibility)}</span>
-                <span class="tag">${s.citing} citation${s.citing !== 1 ? "s" : ""}</span>
-                ${s.date ? `<span class="tag">${esc(s.date)}</span>` : ""}
-              </span>
-            </summary>
-            <div class="insp-src-detail">
-              <a href="${esc(s.url)}" target="_blank" rel="noopener" class="insp-src-url">${esc(s.url)}</a>
-              <div class="insp-src-metrics">
-                <span class="ok">✓ ${s.supported}</span>
-                <span class="warn">◐ ${s.partial}</span>
-                <span class="bad">✗ ${s.unsupported}</span>
-              </div>
-              <div class="insp-src-claims">
-                ${claims.filter((c) => c.cites.includes(s.id)).map((c) => `
-                  <div class="insp-claim">
-                    <span class="insp-claim-label label-${esc(c.label)}">${esc(c.label)}</span>
-                    <span>${esc(c.text)}</span>
-                  </div>
-                `).join("")}
-              </div>
-            </div>
-          </details>
-        `).join("")}
-      </div>
-    </div>
-  `;
-}
-//# sourceMappingURL=inspector.js.map
-
-// ── timeline.js ──
-/* ── Research Timeline — real-time process visualization ─ */
-
-class ResearchTimeline {
-    entries = [];
-    container;
-    startTime;
-    el = null;
-    constructor(container) {
-        this.container = container;
-        this.startTime = Date.now();
-    }
-    add(stage, icon, label, detail) {
-        const now = Date.now();
-        // Set duration on previous entry
-        if (this.entries.length > 0) {
-            const prev = this.entries[this.entries.length - 1];
-            prev.duration = now - prev.time;
-        }
-        this.entries.push({ time: now, stage, icon, label, detail });
-        this.render();
-    }
-    finish() {
-        if (this.entries.length > 0) {
-            const last = this.entries[this.entries.length - 1];
-            last.duration = Date.now() - last.time;
-        }
-        this.render();
-    }
-    reset() {
-        this.entries = [];
-        this.startTime = Date.now();
-        if (this.el)
-            this.el.remove();
-        this.el = null;
-    }
-    formatDuration(ms) {
-        if (ms < 1000)
-            return `${ms}ms`;
-        return `${(ms / 1000).toFixed(1)}s`;
-    }
-    render() {
-        if (!this.el) {
-            this.el = document.createElement("div");
-            this.el.className = "timeline";
-            this.container.appendChild(this.el);
-        }
-        const totalMs = Date.now() - this.startTime;
-        this.el.innerHTML = `
-      <div class="timeline-header">
-        <span class="timeline-title">⏱ Research Timeline</span>
-        <span class="timeline-total">${this.formatDuration(totalMs)} elapsed</span>
-      </div>
-      <div class="timeline-track">
-        ${this.entries.map((e, i) => {
-            const widthPct = e.duration
-                ? Math.max(2, (e.duration / totalMs) * 100)
-                : 10;
-            return `
-            <div class="timeline-segment stage-${esc(e.stage)}" style="flex:${widthPct}" title="${esc(e.label)}${e.duration ? " (" + this.formatDuration(e.duration) + ")" : ""}">
-              <div class="timeline-seg-fill${!e.duration ? " timeline-seg-active" : ""}"></div>
-            </div>
-          `;
-        }).join("")}
-      </div>
-      <div class="timeline-entries">
-        ${this.entries.map((e, i) => `
-          <div class="timeline-entry${i === this.entries.length - 1 && !e.duration ? " timeline-current" : ""}">
-            <div class="timeline-dot stage-dot-${esc(e.stage)}"></div>
-            <div class="timeline-entry-content">
-              <span class="timeline-icon">${e.icon}</span>
-              <span class="timeline-label">${esc(e.label)}</span>
-              ${e.duration ? `<span class="timeline-dur">${this.formatDuration(e.duration)}</span>` : '<span class="timeline-dur timeline-running">running…</span>'}
-            </div>
-          </div>
-        `).join("")}
-      </div>
-    `;
-    }
-}
-//# sourceMappingURL=timeline.js.map
-
-// ── perfmon.js ──
-/* ── Performance Monitor Widget ──────────────────────── */
-class PerfMonitor {
-    el = null;
-    raf = 0;
-    frames = [];
-    lastTime = 0;
-    visible = false;
-    container;
-    eventCount = 0;
-    sseLatency = [];
-    constructor(container) {
-        this.container = container;
-    }
-    toggle() {
-        this.visible = !this.visible;
-        if (this.visible)
-            this.start();
-        else
-            this.stop();
-    }
-    recordEvent() { this.eventCount++; }
-    recordLatency(ms) {
-        this.sseLatency.push(ms);
-        if (this.sseLatency.length > 50)
-            this.sseLatency.shift();
-    }
-    start() {
-        if (!this.el) {
-            this.el = document.createElement("div");
-            this.el.className = "perfmon";
-            this.container.appendChild(this.el);
-        }
-        this.el.classList.remove("hidden");
-        this.lastTime = performance.now();
-        this.tick();
-    }
-    stop() {
-        cancelAnimationFrame(this.raf);
-        this.el?.classList.add("hidden");
-    }
-    tick = () => {
-        const now = performance.now();
-        const delta = now - this.lastTime;
-        this.lastTime = now;
-        this.frames.push(1000 / delta);
-        if (this.frames.length > 60)
-            this.frames.shift();
-        const avgFps = this.frames.reduce((a, b) => a + b, 0) / this.frames.length;
-        const avgLatency = this.sseLatency.length
-            ? this.sseLatency.reduce((a, b) => a + b, 0) / this.sseLatency.length
-            : 0;
-        // Mini sparkline
-        const spark = this.frames.slice(-30).map((f) => {
-            const h = Math.min(20, (f / 60) * 20);
-            return `<div class="perfmon-bar" style="height:${h}px"></div>`;
-        }).join("");
-        if (this.el) {
-            this.el.innerHTML = `
-        <div class="perfmon-row">
-          <span class="perfmon-label">FPS</span>
-          <span class="perfmon-val ${avgFps < 30 ? "bad" : avgFps < 50 ? "warn" : "ok"}">${avgFps.toFixed(0)}</span>
-        </div>
-        <div class="perfmon-spark">${spark}</div>
-        <div class="perfmon-row">
-          <span class="perfmon-label">SSE events</span>
-          <span class="perfmon-val">${this.eventCount}</span>
-        </div>
-        <div class="perfmon-row">
-          <span class="perfmon-label">Avg latency</span>
-          <span class="perfmon-val">${avgLatency.toFixed(0)}ms</span>
-        </div>
-        <div class="perfmon-row">
-          <span class="perfmon-label">Memory</span>
-          <span class="perfmon-val">${this.getMemory()}</span>
-        </div>
-      `;
-        }
-        this.raf = requestAnimationFrame(this.tick);
-    };
-    getMemory() {
-        const perf = performance;
-        if (perf.memory) {
-            const mb = perf.memory.usedJSHeapSize / 1048576;
-            return `${mb.toFixed(1)} MB`;
-        }
-        return "N/A";
-    }
-    destroy() {
-        cancelAnimationFrame(this.raf);
-        this.el?.remove();
-        this.el = null;
-    }
-}
-//# sourceMappingURL=perfmon.js.map
-
-// ── pipeline.js ──
-/* ── Animated pipeline progress indicator ─────────────── */
-const STAGES = [
-    { key: "plan", icon: "🧭", label: "Planning" },
-    { key: "search", icon: "🔎", label: "Searching" },
-    { key: "read", icon: "📄", label: "Reading" },
-    { key: "write", icon: "📝", label: "Writing" },
-    { key: "verify", icon: "✅", label: "Verifying" },
-    { key: "done", icon: "✨", label: "Complete" },
-];
-class PipelineIndicator {
-    el;
-    activeIdx = -1;
-    constructor(container) {
-        this.el = document.createElement("div");
-        this.el.className = "pipeline";
-        this.el.innerHTML = STAGES.map((s, i) => `<div class="pipeline-stage" data-stage="${s.key}">` +
-            `<div class="pipeline-dot"><span>${s.icon}</span></div>` +
-            `<div class="pipeline-label">${s.label}</div>` +
-            (i < STAGES.length - 1 ? `<div class="pipeline-connector"></div>` : "") +
-            `</div>`).join("");
-        container.prepend(this.el);
-    }
-    setStage(key) {
-        const idx = STAGES.findIndex((s) => s.key === key);
-        if (idx < 0 || idx <= this.activeIdx)
-            return;
-        this.activeIdx = idx;
-        this.el.querySelectorAll(".pipeline-stage").forEach((el, i) => {
-            el.classList.toggle("active", i === idx);
-            el.classList.toggle("complete", i < idx);
-            el.classList.remove("pending");
-            if (i > idx)
-                el.classList.add("pending");
-        });
-    }
-    reset() {
-        this.activeIdx = -1;
-        this.el.querySelectorAll(".pipeline-stage").forEach((el) => {
-            el.classList.remove("active", "complete");
-            el.classList.add("pending");
-        });
-    }
-    destroy() {
-        this.el.remove();
-    }
-}
-//# sourceMappingURL=pipeline.js.map
-
-// ── analytics.js ──
-/* ── Analytics Dashboard ───────────────────────────────── */
-/* Reading time, word stats, source breakdown, depth gauge  */
-
-const WPM = 230; // average reading speed
-function computeAnalytics(d) {
-    const words = d.markdown.split(/\s+/).filter(Boolean);
-    const sentences = d.markdown.split(/[.!?]+/).filter((s) => s.trim().length > 5);
-    const wordCount = words.length;
-    const credMap = { high: 0, medium: 0, low: 0, user: 0 };
-    for (const s of d.sources)
-        credMap[s.credibility] = (credMap[s.credibility] || 0) + 1;
-    const claimMap = { supported: 0, partial: 0, unsupported: 0, unchecked: 0 };
-    for (const c of d.claims)
-        claimMap[c.label] = (claimMap[c.label] || 0) + 1;
-    // Depth score: combination of sources, claims, word count
-    const srcScore = Math.min(d.sources.length / 20, 1) * 30;
-    const claimScore = Math.min(d.claims.length / 30, 1) * 30;
-    const wordScore = Math.min(wordCount / 3000, 1) * 25;
-    const precScore = d.score.citation_precision * 15;
-    return {
-        wordCount,
-        readingMinutes: Math.ceil(wordCount / WPM),
-        sentenceCount: sentences.length,
-        avgSentenceLen: sentences.length ? Math.round(wordCount / sentences.length) : 0,
-        sourceBreakdown: [
-            { label: "High", count: credMap.high, color: "var(--green)" },
-            { label: "Medium", count: credMap.medium, color: "var(--amber)" },
-            { label: "Low", count: credMap.low, color: "var(--red)" },
-            { label: "User", count: credMap.user, color: "#6d9fff" },
-        ].filter((x) => x.count > 0),
-        claimBreakdown: [
-            { label: "Supported", count: claimMap.supported, color: "var(--green)" },
-            { label: "Partial", count: claimMap.partial, color: "var(--amber)" },
-            { label: "Unsupported", count: claimMap.unsupported, color: "var(--red)" },
-            { label: "Unchecked", count: claimMap.unchecked, color: "var(--text3)" },
-        ].filter((x) => x.count > 0),
-        depthScore: Math.round(srcScore + claimScore + wordScore + precScore),
-    };
-}
-function renderAnalytics(d, container) {
-    const a = computeAnalytics(d);
-    const barHTML = (items) => {
-        const total = items.reduce((s, x) => s + x.count, 0);
-        if (!total)
-            return '<div class="ana-bar-empty">No data</div>';
-        return `<div class="ana-bar">${items
-            .map((x) => `<div class="ana-bar-seg" style="width:${(x.count / total) * 100}%;background:${x.color}" title="${x.label}: ${x.count}"></div>`)
-            .join("")}</div>
-    <div class="ana-bar-legend">${items
-            .map((x) => `<span style="color:${x.color}">● ${x.label} (${x.count})</span>`)
-            .join(" ")}</div>`;
-    };
-    const gaugeAngle = (a.depthScore / 100) * 180;
-    container.innerHTML = `
-    <div class="analytics">
-      <div class="ana-header">
-        <h3>📊 Report Analytics</h3>
-        <span class="ana-badge">${a.readingMinutes} min read</span>
-      </div>
-
-      <div class="ana-grid">
-        <div class="ana-stat">
-          <div class="ana-stat-val">${a.wordCount.toLocaleString()}</div>
-          <div class="ana-stat-label">Words</div>
-        </div>
-        <div class="ana-stat">
-          <div class="ana-stat-val">${a.sentenceCount}</div>
-          <div class="ana-stat-label">Sentences</div>
-        </div>
-        <div class="ana-stat">
-          <div class="ana-stat-val">${a.avgSentenceLen}</div>
-          <div class="ana-stat-label">Avg words/sentence</div>
-        </div>
-        <div class="ana-stat">
-          <div class="ana-stat-val">${d.sources.length}</div>
-          <div class="ana-stat-label">Sources</div>
-        </div>
-        <div class="ana-stat">
-          <div class="ana-stat-val">${d.claims.length}</div>
-          <div class="ana-stat-label">Claims</div>
-        </div>
-        <div class="ana-stat">
-          <div class="ana-stat-val">${pct(d.score.citation_precision)}</div>
-          <div class="ana-stat-label">Precision</div>
-        </div>
-      </div>
-
-      <div class="ana-section">
-        <h4>Research Depth</h4>
-        <div class="ana-gauge-wrap">
-          <svg class="ana-gauge" viewBox="0 0 200 110">
-            <path d="M 10 100 A 90 90 0 0 1 190 100" fill="none" stroke="var(--border)" stroke-width="12" stroke-linecap="round"/>
-            <path d="M 10 100 A 90 90 0 0 1 190 100" fill="none" stroke="url(#gaugeGrad)" stroke-width="12" stroke-linecap="round"
-              stroke-dasharray="${(gaugeAngle / 180) * 283} 283" class="ana-gauge-fill"/>
-            <defs><linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="var(--red)"/><stop offset="50%" stop-color="var(--amber)"/><stop offset="100%" stop-color="var(--green)"/>
-            </linearGradient></defs>
-            <text x="100" y="90" text-anchor="middle" fill="var(--text)" font-size="28" font-weight="700">${a.depthScore}</text>
-            <text x="100" y="108" text-anchor="middle" fill="var(--text3)" font-size="11">/ 100</text>
-          </svg>
-        </div>
-      </div>
-
-      <div class="ana-section">
-        <h4>Source Credibility</h4>
-        ${barHTML(a.sourceBreakdown)}
-      </div>
-
-      <div class="ana-section">
-        <h4>Claim Verification</h4>
-        ${barHTML(a.claimBreakdown)}
-      </div>
-    </div>
-  `;
-}
-//# sourceMappingURL=analytics.js.map
-
-// ── heatmap.js ──
-/* ── Source Credibility Heatmap ─────────────────────────── */
-/* Treemap-style visualization of source trust & citation   */
-
-const CRED_COLORS = {
-    high: { bg: "rgba(0,206,201,0.15)", border: "var(--green)" },
-    medium: { bg: "rgba(253,203,110,0.15)", border: "var(--amber)" },
-    low: { bg: "rgba(255,118,117,0.12)", border: "var(--red)" },
-    user: { bg: "rgba(109,159,255,0.12)", border: "#6d9fff" },
-};
-function renderHeatmap(d, container) {
-    // Build claim count per source
-    const map = new Map();
-    for (const c of d.claims) {
-        for (const sid of c.cites) {
-            const entry = map.get(sid) || { total: 0, supported: 0 };
-            entry.total++;
-            if (c.label === "supported")
-                entry.supported++;
-            map.set(sid, entry);
-        }
-    }
-    const cells = d.sources.map((s) => {
-        const m = map.get(s.id) || { total: 0, supported: 0 };
-        return {
-            source: s,
-            claimCount: m.total,
-            supportedPct: m.total ? m.supported / m.total : 0,
-        };
-    }).sort((a, b) => b.claimCount - a.claimCount);
-    const maxClaims = Math.max(1, ...cells.map((c) => c.claimCount));
-    container.innerHTML = `
-    <div class="heatmap">
-      <div class="heatmap-header">
-        <h3>🗺 Source Credibility Heatmap</h3>
-        <span class="heatmap-hint">Size = citations · Color = credibility · Opacity = support rate</span>
-      </div>
-      <div class="heatmap-grid">
-        ${cells.map((c) => {
-        const colors = CRED_COLORS[c.source.credibility] || CRED_COLORS.medium;
-        const size = 0.5 + (c.claimCount / maxClaims) * 0.5;
-        const opacity = 0.4 + c.supportedPct * 0.6;
-        return `<div class="heatmap-cell" style="
-            flex: ${Math.max(1, Math.round(size * 3))};
-            background: ${colors.bg};
-            border-color: ${colors.border};
-            opacity: ${opacity};
-          " title="${esc(c.source.title)} — ${c.claimCount} citations, ${Math.round(c.supportedPct * 100)}% supported">
-            <div class="heatmap-cell-id">[${c.source.id}]</div>
-            <div class="heatmap-cell-title">${esc(c.source.title.slice(0, 30))}${c.source.title.length > 30 ? "…" : ""}</div>
-            <div class="heatmap-cell-stats">
-              <span class="heatmap-cred ${c.source.credibility}">${c.source.credibility}</span>
-              <span>${c.claimCount} cites</span>
-            </div>
-          </div>`;
-    }).join("")}
-      </div>
-      <div class="heatmap-legend">
-        <span>🟢 High</span>
-        <span>🟡 Medium</span>
-        <span>🔴 Low</span>
-        <span>🔵 User-provided</span>
-        <span style="margin-left:auto">Larger = more citations</span>
-      </div>
-    </div>
-  `;
-}
-//# sourceMappingURL=heatmap.js.map
-
-// ── focus.js ──
-/* ── Focus Mode (Distraction-Free Reading) ─────────────── */
-/* Hides chrome, centers report, adds reading progress bar  */
-
-let focusActive = false;
-let focusOverlay = null;
-function toggleFocus() {
-    focusActive = !focusActive;
-    if (focusActive)
-        enterFocus();
-    else
-        exitFocus();
-    return focusActive;
-}
-function isFocusActive() { return focusActive; }
-function enterFocus() {
-    focusOverlay = document.createElement("div");
-    focusOverlay.className = "focus-overlay";
-    // Close button
-    const close = document.createElement("button");
-    close.className = "focus-close";
-    close.innerHTML = "✕ Exit Focus";
-    close.addEventListener("click", () => toggleFocus());
-    focusOverlay.appendChild(close);
-    // Reading progress
-    const progress = document.createElement("div");
-    progress.className = "focus-progress";
-    const bar = document.createElement("div");
-    bar.className = "focus-progress-bar";
-    progress.appendChild(bar);
-    focusOverlay.appendChild(progress);
-    // Content wrapper
-    const wrap = document.createElement("div");
-    wrap.className = "focus-content";
-    // Clone report
-    const report = $("report");
-    wrap.innerHTML = report.innerHTML;
-    focusOverlay.appendChild(wrap);
-    // Scroll tracking
-    wrap.addEventListener("scroll", () => {
-        const pct = wrap.scrollTop / (wrap.scrollHeight - wrap.clientHeight);
-        bar.style.width = `${Math.min(100, pct * 100)}%`;
-    });
-    // Keyboard: Escape to close
-    const onKey = (e) => {
-        if (e.key === "Escape") {
-            toggleFocus();
-            document.removeEventListener("keydown", onKey);
-        }
-    };
-    document.addEventListener("keydown", onKey);
-    document.body.appendChild(focusOverlay);
-    document.body.classList.add("focus-active");
-    // Animate in
-    requestAnimationFrame(() => focusOverlay?.classList.add("focus-visible"));
-}
-function exitFocus() {
-    if (focusOverlay) {
-        focusOverlay.classList.remove("focus-visible");
-        setTimeout(() => {
-            focusOverlay?.remove();
-            focusOverlay = null;
-        }, 300);
-    }
-    document.body.classList.remove("focus-active");
-}
-//# sourceMappingURL=focus.js.map
-
-// ── confidence.js ──
-/* ── AI Confidence Meter ───────────────────────────────── */
-/* Animated radial gauge showing overall research confidence */
-
-function renderConfidence(d, container) {
-    const prec = d.score.citation_precision;
-    const srcCount = d.sources.length;
-    const claimCount = d.claims.length;
-    const highCred = d.sources.filter((s) => s.credibility === "high").length;
-    // Composite confidence: precision (40%), source diversity (20%), claim coverage (20%), high-cred ratio (20%)
-    const srcDiv = Math.min(srcCount / 15, 1);
-    const coverage = claimCount > 0 ? (d.score.supported + d.score.partial) / claimCount : 0;
-    const credRatio = srcCount > 0 ? highCred / srcCount : 0;
-    const confidence = prec * 0.4 + srcDiv * 0.2 + coverage * 0.2 + credRatio * 0.2;
-    const level = confidence >= 0.8 ? "high" : confidence >= 0.5 ? "medium" : "low";
-    const levelLabel = confidence >= 0.8 ? "High Confidence" : confidence >= 0.5 ? "Moderate" : "Low Confidence";
-    const levelColor = confidence >= 0.8 ? "var(--green)" : confidence >= 0.5 ? "var(--amber)" : "var(--red)";
-    const circumference = 2 * Math.PI * 70;
-    const dashOffset = circumference * (1 - confidence);
-    container.innerHTML = `
-    <div class="confidence">
-      <div class="conf-gauge">
-        <svg viewBox="0 0 160 160" class="conf-svg">
-          <circle cx="80" cy="80" r="70" fill="none" stroke="var(--border)" stroke-width="8"/>
-          <circle cx="80" cy="80" r="70" fill="none" stroke="${levelColor}" stroke-width="8"
-            stroke-linecap="round" stroke-dasharray="${circumference}" stroke-dashoffset="${dashOffset}"
-            transform="rotate(-90 80 80)" class="conf-ring"/>
-          <text x="80" y="72" text-anchor="middle" fill="var(--text)" font-size="28" font-weight="700">
-            ${Math.round(confidence * 100)}
-          </text>
-          <text x="80" y="92" text-anchor="middle" fill="${levelColor}" font-size="11" font-weight="500">
-            ${levelLabel}
-          </text>
-        </svg>
-      </div>
-
-      <div class="conf-factors">
-        <div class="conf-header">Confidence Breakdown</div>
-        ${renderFactor("Citation Precision", prec, 0.4)}
-        ${renderFactor("Source Diversity", srcDiv, 0.2)}
-        ${renderFactor("Claim Coverage", coverage, 0.2)}
-        ${renderFactor("High-Cred Ratio", credRatio, 0.2)}
-      </div>
-    </div>
-  `;
-    // Animate ring on load
-    const ring = container.querySelector(".conf-ring");
-    if (ring) {
-        ring.style.strokeDashoffset = String(circumference);
-        requestAnimationFrame(() => {
-            ring.style.transition = "stroke-dashoffset 1.2s ease-out";
-            ring.style.strokeDashoffset = String(dashOffset);
-        });
-    }
-}
-function renderFactor(label, value, weight) {
-    const color = value >= 0.8 ? "var(--green)" : value >= 0.5 ? "var(--amber)" : "var(--red)";
-    return `
-    <div class="conf-factor">
-      <div class="conf-factor-head">
-        <span class="conf-factor-label">${label}</span>
-        <span class="conf-factor-val" style="color:${color}">${pct(value)}</span>
-        <span class="conf-factor-weight">×${weight}</span>
-      </div>
-      <div class="conf-factor-bar">
-        <div class="conf-factor-fill" style="width:${value * 100}%;background:${color}"></div>
-      </div>
-    </div>
-  `;
-}
-//# sourceMappingURL=confidence.js.map
-
-// ── autosuggest.js ──
-/* ── Auto-Suggest for Search Input ──────────────────────── */
-/* Shows suggestion dropdown based on history + templates   */
-
-const TEMPLATES = [
-    "What are the latest developments in {topic}?",
-    "Compare {A} vs {B}: comprehensive analysis",
-    "Explain how {topic} works with real-world examples",
-    "What are the pros and cons of {topic}?",
-    "Current state of {field} research in 2025",
-    "Historical timeline of {topic}",
-    "Best practices for {topic}",
-    "Impact of {topic} on {industry}",
-];
-let dropdown = null;
-let selectedIdx = -1;
-function initAutoSuggest() {
-    const input = $("q");
-    if (!input)
-        return;
-    // Create dropdown
-    dropdown = document.createElement("div");
-    dropdown.className = "suggest-dropdown hidden";
-    input.parentElement?.appendChild(dropdown);
-    const update = debounce(() => showSuggestions(input.value.trim()), 200);
-    input.addEventListener("input", update);
-    input.addEventListener("focus", () => {
-        if (input.value.trim())
-            update();
-    });
-    // Close on outside click
-    document.addEventListener("click", (e) => {
-        if (!e.target.closest(".search-input-wrap")) {
-            hideSuggestions();
-        }
-    });
-    // Keyboard nav
-    input.addEventListener("keydown", (e) => {
-        if (!dropdown || dropdown.classList.contains("hidden"))
-            return;
-        const items = dropdown.querySelectorAll(".suggest-item");
-        if (e.key === "ArrowDown") {
-            e.preventDefault();
-            selectedIdx = Math.min(selectedIdx + 1, items.length - 1);
-            highlightItem(items);
-        }
-        else if (e.key === "ArrowUp") {
-            e.preventDefault();
-            selectedIdx = Math.max(selectedIdx - 1, -1);
-            highlightItem(items);
-        }
-        else if (e.key === "Enter" && selectedIdx >= 0) {
-            e.preventDefault();
-            const sel = items[selectedIdx];
-            if (sel) {
-                input.value = sel.dataset.value || "";
-                hideSuggestions();
-            }
-        }
-        else if (e.key === "Escape") {
-            hideSuggestions();
-        }
-    });
-}
-function showSuggestions(query) {
-    if (!dropdown)
-        return;
-    selectedIdx = -1;
-    const suggestions = [];
-    // History-based suggestions
-    const histItems = document.querySelectorAll(".hist");
-    histItems.forEach((h) => {
-        const title = h.querySelector(".hist-title")?.textContent || "";
-        if (title.toLowerCase().includes(query.toLowerCase())) {
-            suggestions.push({ text: title, kind: "history" });
-        }
-    });
-    // Template suggestions
-    if (query.length >= 2) {
-        for (const tmpl of TEMPLATES) {
-            const filled = tmpl.replace(/\{[^}]+\}/g, query);
-            if (!suggestions.some((s) => s.text === filled)) {
-                suggestions.push({ text: filled, kind: "template" });
-            }
-        }
-    }
-    if (!suggestions.length || !query) {
-        hideSuggestions();
-        return;
-    }
-    const shown = suggestions.slice(0, 6);
-    dropdown.innerHTML = shown
-        .map((s, i) => `<div class="suggest-item" data-value="${esc(s.text)}">
-          <span class="suggest-icon">${s.kind === "history" ? "🕐" : "💡"}</span>
-          <span class="suggest-text">${highlightMatch(s.text, query)}</span>
-          <span class="suggest-kind">${s.kind}</span>
-        </div>`)
-        .join("");
-    dropdown.classList.remove("hidden");
-    // Click to select
-    dropdown.querySelectorAll(".suggest-item").forEach((item) => {
-        item.addEventListener("click", () => {
-            $("q").value = item.dataset.value || "";
-            hideSuggestions();
-            $("q").focus();
-        });
-    });
-}
-function hideSuggestions() {
-    dropdown?.classList.add("hidden");
-    selectedIdx = -1;
-}
-function highlightItem(items) {
-    items.forEach((it, i) => it.classList.toggle("suggest-sel", i === selectedIdx));
-}
-function highlightMatch(text, query) {
-    if (!query)
-        return esc(text);
-    const idx = text.toLowerCase().indexOf(query.toLowerCase());
-    if (idx < 0)
-        return esc(text);
-    return (esc(text.slice(0, idx)) +
-        `<mark>${esc(text.slice(idx, idx + query.length))}</mark>` +
-        esc(text.slice(idx + query.length)));
-}
-//# sourceMappingURL=autosuggest.js.map
-
-// ── accessibility.js ──
-/* ── Accessibility Enhancements ─────────────────────────── */
-/* ARIA labels, focus traps, reduced motion, screen reader  */
-function initAccessibility() {
-    addAriaLabels();
-    addSkipLink();
-    setupReducedMotion();
-    addLiveRegion();
-    setupFocusVisible();
-}
-function addAriaLabels() {
-    const pairs = [
-        ["q", "role", "searchbox"],
-        ["q", "aria-label", "Research question input"],
-        ["f", "role", "search"],
-        ["history", "role", "navigation"],
-        ["history", "aria-label", "Research history"],
-        ["report", "role", "article"],
-        ["report", "aria-label", "Research report"],
-        ["log", "role", "log"],
-        ["log", "aria-label", "Research trace log"],
-        ["chat", "role", "log"],
-        ["chat", "aria-label", "Follow-up conversation"],
-    ];
-    for (const [id, attr, val] of pairs) {
-        const el = document.getElementById(id);
-        if (el)
-            el.setAttribute(attr, val);
-    }
-    // Tab buttons
-    document.querySelectorAll(".tab").forEach((t) => {
-        t.setAttribute("role", "tab");
-        t.setAttribute("aria-selected", t.classList.contains("on") ? "true" : "false");
-    });
-    document.querySelector(".tabs")?.setAttribute("role", "tablist");
-}
-function addSkipLink() {
-    const link = document.createElement("a");
-    link.href = "#q";
-    link.className = "skip-link";
-    link.textContent = "Skip to search";
-    document.body.insertBefore(link, document.body.firstChild);
-}
-function setupReducedMotion() {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const apply = (matches) => {
-        document.body.classList.toggle("reduced-motion", matches);
-    };
-    apply(mq.matches);
-    mq.addEventListener("change", (e) => apply(e.matches));
-}
-function addLiveRegion() {
-    // Screen reader announcements for dynamic content
-    const region = document.createElement("div");
-    region.id = "sr-announce";
-    region.setAttribute("role", "status");
-    region.setAttribute("aria-live", "polite");
-    region.setAttribute("aria-atomic", "true");
-    region.className = "sr-only";
-    document.body.appendChild(region);
-}
-function announce(message) {
-    const region = document.getElementById("sr-announce");
-    if (region) {
-        region.textContent = "";
-        requestAnimationFrame(() => { region.textContent = message; });
-    }
-}
-function setupFocusVisible() {
-    // Show focus rings only for keyboard navigation
-    let usingKeyboard = false;
-    document.addEventListener("keydown", (e) => {
-        if (e.key === "Tab") {
-            usingKeyboard = true;
-            document.body.classList.add("keyboard-nav");
-        }
-    });
-    document.addEventListener("mousedown", () => {
-        usingKeyboard = false;
-        document.body.classList.remove("keyboard-nav");
-    });
-}
-//# sourceMappingURL=accessibility.js.map
-
-// ── wordcloud.js ──
-/* ── Word Cloud Visualizer ──────────────────────────────── */
-/* Extracts key terms from report and renders an interactive  */
-/* word cloud with hover highlights and click-to-search       */
-
-const STOP_WORDS = new Set([
-    "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with",
-    "by", "from", "is", "are", "was", "were", "be", "been", "being", "have", "has",
-    "had", "do", "does", "did", "will", "would", "could", "should", "may", "might",
-    "shall", "can", "that", "this", "these", "those", "it", "its", "not", "no",
-    "than", "into", "about", "also", "such", "more", "most", "very", "just", "only",
-    "some", "any", "all", "each", "every", "both", "few", "many", "much", "own",
-    "other", "new", "old", "first", "last", "same", "well", "even", "still", "out",
-    "up", "one", "two", "three", "our", "we", "they", "their", "them", "which",
-    "what", "when", "where", "how", "who", "whom", "whose", "between", "through",
-    "during", "before", "after", "above", "below", "while", "however", "although",
-    "because", "since", "until", "over", "under", "here", "there", "then", "so",
-]);
-function extractWords(markdown) {
-    const text = markdown
-        .replace(/#+\s/g, "")
-        .replace(/\[.*?\]\(.*?\)/g, "")
-        .replace(/[*_`~]/g, "")
-        .replace(/\d+/g, " ");
-    const freq = new Map();
-    for (const w of text.split(/\s+/)) {
-        const lower = w.toLowerCase().replace(/[^a-z'-]/g, "");
-        if (lower.length < 3 || STOP_WORDS.has(lower))
+            out.push(`<li>${inline(line.replace(/^[-*]\s+/, ""))}</li>`);
             continue;
-        freq.set(lower, (freq.get(lower) || 0) + 1);
-    }
-    const sorted = [...freq.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 60);
-    if (!sorted.length)
-        return [];
-    const maxCount = sorted[0][1];
-    const minCount = sorted[sorted.length - 1][1];
-    const range = maxCount - minCount || 1;
-    return sorted.map(([word, count]) => ({
-        word,
-        count,
-        size: 0.6 + ((count - minCount) / range) * 2.4, // 0.6rem to 3rem
-    }));
-}
-const CLOUD_COLORS = [
-    "var(--accent)", "var(--accent2)", "var(--green)", "var(--amber)",
-    "#6d9fff", "#a78bfa", "#f472b6", "#34d399",
-];
-function renderWordCloud(d, container) {
-    const words = extractWords(d.markdown);
-    if (!words.length) {
-        container.innerHTML = `<div class="empty-state"><div class="empty-icon">☁</div>
-      <div class="empty-title">No Keywords</div>
-      <div class="empty-sub">Report too short for word cloud</div></div>`;
-        return;
-    }
-    // Shuffle for visual variety
-    for (let i = words.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [words[i], words[j]] = [words[j], words[i]];
-    }
-    container.innerHTML = `
-    <div class="wordcloud">
-      <div class="wc-header">
-        <h3>☁ Key Terms Word Cloud</h3>
-        <span class="wc-count">${words.length} terms extracted</span>
-      </div>
-      <div class="wc-canvas" role="img" aria-label="Word cloud of key research terms">
-        ${words.map((w, i) => {
-        const color = CLOUD_COLORS[i % CLOUD_COLORS.length];
-        const rotation = (Math.random() - 0.5) * 20;
-        return `<span class="wc-word" style="
-            font-size: ${w.size}rem;
-            color: ${color};
-            transform: rotate(${rotation}deg);
-            opacity: ${0.6 + (w.size / 3) * 0.4};
-          " data-word="${esc(w.word)}" data-count="${w.count}"
-            title="${w.word} (${w.count} occurrences)">${esc(w.word)}</span>`;
-    }).join("")}
-      </div>
-      <div class="wc-legend">Click a word to search · Size = frequency</div>
-    </div>
-  `;
-    // Click to search
-    container.querySelectorAll(".wc-word").forEach((el) => {
-        el.addEventListener("click", () => {
-            const q = document.getElementById("q");
-            if (q) {
-                q.value = el.dataset.word || "";
-                q.focus();
-            }
-        });
-        el.addEventListener("mouseenter", () => el.style.textShadow = `0 0 20px currentColor`);
-        el.addEventListener("mouseleave", () => el.style.textShadow = "none");
-    });
-}
-//# sourceMappingURL=wordcloud.js.map
-
-// ── shortcuts.js ──
-/* ── Keyboard Shortcut Cheat Sheet ──────────────────────── */
-/* Toggleable overlay showing all keyboard shortcuts          */
-let scOverlay = null;
-let scVisible = false;
-const GROUPS = [
-    {
-        title: "Navigation",
-        items: [
-            { key: "/", label: "Focus search input" },
-            { key: "⌘K", label: "Open command palette" },
-            { key: "[", label: "Toggle sidebar" },
-            { key: "?", label: "Show this cheat sheet" },
-        ],
-    },
-    {
-        title: "Appearance",
-        items: [
-            { key: "T", label: "Cycle theme (dark → light → midnight)" },
-            { key: "R", label: "Toggle focus / reading mode" },
-            { key: "F", label: "Toggle fullscreen" },
-            { key: "P", label: "Toggle performance monitor" },
-        ],
-    },
-    {
-        title: "Actions",
-        items: [
-            { key: "Enter", label: "Submit research question" },
-            { key: "Esc", label: "Close overlay / blur input" },
-            { key: "↑↓", label: "Navigate suggestions / commands" },
-        ],
-    },
-    {
-        title: "Export",
-        items: [
-            { key: "⌘K → md", label: "Export Markdown" },
-            { key: "⌘K → json", label: "Export JSON" },
-            { key: "⌘K → html", label: "Export HTML" },
-            { key: "⌘K → print", label: "Print report" },
-        ],
-    },
-];
-function toggleShortcuts() {
-    scVisible = !scVisible;
-    if (scVisible)
-        showSheet();
-    else
-        hideSheet();
-    return scVisible;
-}
-function showSheet() {
-    scOverlay = document.createElement("div");
-    scOverlay.className = "shortcuts-overlay";
-    const card = document.createElement("div");
-    card.className = "shortcuts-card";
-    card.innerHTML = `
-    <div class="shortcuts-header">
-      <h2>⌨ Keyboard Shortcuts</h2>
-      <button class="shortcuts-close">✕</button>
-    </div>
-    <div class="shortcuts-grid">
-      ${GROUPS.map((g) => `
-        <div class="shortcuts-group">
-          <h3>${g.title}</h3>
-          ${g.items.map((i) => `
-            <div class="shortcut-row">
-              <kbd class="shortcut-key">${i.key}</kbd>
-              <span class="shortcut-label">${i.label}</span>
-            </div>
-          `).join("")}
-        </div>
-      `).join("")}
-    </div>
-    <div class="shortcuts-footer">Press <kbd>?</kbd> or <kbd>Esc</kbd> to close</div>
-  `;
-    scOverlay.appendChild(card);
-    document.body.appendChild(scOverlay);
-    // Animate in
-    requestAnimationFrame(() => scOverlay?.classList.add("shortcuts-visible"));
-    // Close handlers
-    scOverlay.querySelector(".shortcuts-close")?.addEventListener("click", () => toggleShortcuts());
-    scOverlay.addEventListener("click", (e) => {
-        if (e.target === scOverlay)
-            toggleShortcuts();
-    });
-    const onScKey = (e) => {
-        if (e.key === "Escape" && scVisible) {
-            e.stopPropagation();
-            toggleShortcuts();
-            document.removeEventListener("keydown", onScKey, true);
         }
-    };
-    document.addEventListener("keydown", onScKey, true);
+        if (/^\d+\.\s+/.test(line)) {
+            flushP();
+            if (inList) {
+                out.push("</ul>");
+                inList = false;
+            }
+            if (!inOl) {
+                out.push("<ol>");
+                inOl = true;
+            }
+            out.push(`<li>${inline(line.replace(/^\d+\.\s+/, ""))}</li>`);
+            continue;
+        }
+        if (/^>\s?/.test(line)) {
+            flushP();
+            closeLists();
+            out.push(`<blockquote>${inline(line.replace(/^>\s?/, ""))}</blockquote>`);
+            continue;
+        }
+        if (line === "") {
+            flushP();
+            closeLists();
+            continue;
+        }
+        para.push(line);
+    }
+    flushP();
+    closeLists();
+    return out.join("\n");
 }
-function hideSheet() {
-    if (scOverlay) {
-        scOverlay.classList.remove("shortcuts-visible");
-        setTimeout(() => { scOverlay?.remove(); scOverlay = null; }, 300);
+/* ── Toast (errors + confirmations only) ───────────────────────────── */
+let toastWrap = null;
+function toast(msg, kind = "success") {
+    if (!toastWrap) {
+        toastWrap = h("div.v-toasts");
+        document.body.append(toastWrap);
     }
+    const t = h("div.v-toast." + kind, null, icon(kind === "error" ? "alert" : "check", 16), h("span", null, msg));
+    toastWrap.append(t);
+    requestAnimationFrame(() => t.classList.add("in"));
+    setTimeout(() => { t.classList.remove("in"); setTimeout(() => t.remove(), 300); }, kind === "error" ? 6000 : 3200);
 }
-//# sourceMappingURL=shortcuts.js.map
-
-// ── share.js ──
-/* ── Share Report ───────────────────────────────────────── */
-/* Copy shareable link, copy to clipboard, or share via       */
-/* Web Share API. Generates a self-contained data URL.        */
-
-
-
-function shareReport(d, method) {
-    if (method === "copy") {
-        copyToClipboard(d);
-    }
-    else if (method === "link") {
-        copyShareLink(d);
-    }
-    else if (method === "share") {
-        webShare(d);
-    }
+/* ── Modal ─────────────────────────────────────────────────────────── */
+function modal(opts) {
+    const close = () => { wrap.classList.remove("in"); setTimeout(() => wrap.remove(), 180); document.removeEventListener("keydown", onKey, true); };
+    const onKey = (e) => { if (e.key === "Escape") {
+        e.stopPropagation();
+        close();
+    } };
+    const card = h("div.v-modal" + (opts.wide ? ".wide" : ""), null, h("div.v-modal-head", null, h("div", null, h("h3", null, opts.title), opts.sub ? h("p.v-modal-sub", null, opts.sub) : null), h("button.v-iconbtn", { onclick: close, "aria-label": "Close" }, icon("x", 16))), h("div.v-modal-body", null, opts.body), opts.footer ? h("div.v-modal-foot", null, opts.footer) : null);
+    const wrap = h("div.v-overlay", { onclick: (e) => { if (e.target === wrap)
+            close(); } }, card);
+    document.body.append(wrap);
+    document.addEventListener("keydown", onKey, true);
+    requestAnimationFrame(() => wrap.classList.add("in"));
+    return { close, el: card };
 }
-async function copyToClipboard(d) {
-    const text = `# ${d.question}\n\n${d.markdown}\n\n---\n` +
-        `Sources: ${d.sources.length} · Precision: ${pct(d.score.citation_precision)}\n` +
-        `Generated by AI Research Agent`;
+function confirmBox(title, text, action, onYes, danger = true) {
+    const m = modal({
+        title, body: h("p.v-confirm-text", null, text),
+        footer: frag(h("button.v-btn.ghost", { onclick: () => m.close() }, "Cancel"), h("button.v-btn" + (danger ? ".danger" : ".primary"), { onclick: () => { m.close(); onYes(); } }, action)),
+    });
+}
+/* ── Popover menu ──────────────────────────────────────────────────── */
+function popMenu(anchor, items) {
+    document.querySelectorAll(".v-pop").forEach(p => p.remove());
+    const pop = h("div.v-pop");
+    for (const it of items) {
+        pop.append(h("button.v-pop-item" + (it.danger ? ".danger" : ""), {
+            onclick: () => { pop.remove(); it.on(); },
+        }, it.icon ? icon(it.icon, 15) : null, h("span", null, it.label)));
+    }
+    document.body.append(pop);
+    const r = anchor.getBoundingClientRect();
+    pop.style.top = Math.min(r.bottom + 6, innerHeight - pop.offsetHeight - 10) + "px";
+    pop.style.left = Math.min(r.right - pop.offsetWidth, innerWidth - pop.offsetWidth - 10) + "px";
+    const off = (e) => { if (!pop.contains(e.target)) {
+        pop.remove();
+        document.removeEventListener("click", off, true);
+    } };
+    setTimeout(() => document.addEventListener("click", off, true), 0);
+}
+/* ── Empty state ───────────────────────────────────────────────────── */
+function emptyState(icn, title, sub, action) {
+    return h("div.v-empty", null, h("div.v-empty-icn", null, icon(icn, 26)), h("h3", null, title), h("p", null, sub), action || null);
+}
+function spinner(label) {
+    return h("div.v-loading", null, h("span.v-spin"), label ? h("span", null, label) : null);
+}
+//# sourceMappingURL=u.js.map
+
+// ── store.js ──
+/* ── Verity state: localStorage index + IndexedDB blobs ────────────── */
+
+const LS_KEY = "verity:v1";
+function blankWs() {
+    return { projects: [], reports: [], docs: [], events: [], notifs: [] };
+}
+function loadRoot() {
     try {
-        await navigator.clipboard.writeText(text);
-        toast("Report copied to clipboard!", "success");
+        const r = JSON.parse(localStorage.getItem(LS_KEY) || "");
+        if (r && r.workspaces)
+            return r;
     }
-    catch {
-        // Fallback
-        const ta = document.createElement("textarea");
-        ta.value = text;
-        ta.style.cssText = "position:fixed;left:-9999px";
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        ta.remove();
-        toast("Report copied!", "success");
-    }
+    catch { /* fresh */ }
+    const wsId = uid();
+    return { user: null, workspaces: [{ id: wsId, name: "Personal Workspace", created: Date.now() }], activeWs: wsId, byWs: { [wsId]: blankWs() }, sidebarCollapsed: false };
 }
-function copyShareLink(d) {
-    // Generate a self-contained HTML data URI
-    const html = buildShareHTML(d);
-    const blob = new Blob([html], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    // Open in new tab for now (actual link sharing would need a backend)
-    window.open(url, "_blank");
-    toast("Report opened in new tab", "info");
-}
-async function webShare(d) {
-    if (!navigator.share) {
-        toast("Web Share not supported — copied to clipboard instead", "warn");
-        copyToClipboard(d);
-        return;
-    }
-    try {
-        await navigator.share({
-            title: `Research: ${d.question}`,
-            text: `AI Research Report: ${d.question}\n\n${d.markdown.slice(0, 200)}…`,
-        });
-        toast("Shared successfully!", "success");
-    }
-    catch (e) {
-        if (e.name !== "AbortError")
-            toast("Share cancelled", "info");
-    }
-}
-function buildShareHTML(d) {
-    return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Research: ${esc(d.question)}</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,-apple-system,sans-serif;max-width:800px;margin:0 auto;padding:32px 20px;
-  line-height:1.7;color:#e0e0e0;background:#0a0a0f}
-h1{font-size:1.8rem;margin-bottom:8px;background:linear-gradient(135deg,#6c5ce7,#00cec9);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.meta{color:#888;font-size:.85rem;margin-bottom:32px;font-family:monospace}
-h2{font-size:1.3rem;margin:28px 0 12px;color:#e8e8e8;border-bottom:1px solid #222;padding-bottom:6px}
-h3{font-size:1.1rem;margin:20px 0 8px;color:#d0d0d0}
-p{margin:12px 0}
-a{color:#6c5ce7}
-code{background:#161622;padding:2px 6px;border-radius:4px;font-size:.88em}
-pre{background:#161622;padding:16px;border-radius:8px;overflow-x:auto;margin:16px 0}
-blockquote{border-left:3px solid #6c5ce7;padding-left:16px;color:#999;margin:12px 0}
-ul,ol{padding-left:24px;margin:8px 0}
-li{margin:4px 0}
-.badge{display:inline-block;padding:3px 10px;border-radius:100px;font-size:.78rem;margin:2px}
-.badge-ok{background:rgba(0,206,201,0.15);color:#00cec9}
-.badge-warn{background:rgba(253,203,110,0.15);color:#fdcb6e}
-.badge-bad{background:rgba(255,118,117,0.12);color:#ff7675}
-.footer{margin-top:40px;padding-top:16px;border-top:1px solid #222;font-size:.78rem;color:#666;font-family:monospace}
-</style></head><body>
-<h1>${esc(d.question)}</h1>
-<div class="meta">
-  <span class="badge badge-ok">Precision: ${pct(d.score.citation_precision)}</span>
-  <span class="badge">${d.sources.length} sources</span>
-  <span class="badge">${d.claims.length} claims</span>
-  <span class="badge badge-ok">${d.score.supported} supported</span>
-  <span class="badge badge-warn">${d.score.partial} partial</span>
-  <span class="badge badge-bad">${d.score.unsupported} unsupported</span>
-</div>
-${renderMarkdown(d.markdown)}
-<div class="footer">Generated by AI Research Agent · ${new Date().toLocaleDateString()}</div>
-</body></html>`;
-}
-function initShareButtons() {
-    // Will be wired in app.ts
-}
-//# sourceMappingURL=share.js.map
-
-// ── i18n.js ──
-/* ── Internationalization Framework ─────────────────────── */
-/* Simple i18n with language detection, localStorage persist  */
-const TRANSLATIONS = {
-    en: {
-        "app.title": "AI Research Agent",
-        "app.subtitle": "Multi-source verified research · Citation graphs · Claim verification",
-        "search.placeholder": "Ask a research question…",
-        "search.button": "Research",
-        "search.depth.standard": "Standard",
-        "search.depth.deep": "🔬 Deep",
-        "search.depth.deeper": "🏔 Deeper",
-        "search.attach": "📎 Attach files",
-        "search.hint": "(or drag & drop)",
-        "history.title": "Research History",
-        "history.empty": "No past research yet",
-        "trace.title": "Research Trace",
-        "trace.waiting": "Waiting for a query…",
-        "tab.report": "📄 Report",
-        "tab.graph": "🕸 Graph",
-        "tab.inspector": "🔍 Inspector",
-        "tab.timeline": "⏱ Timeline",
-        "tab.analytics": "📊 Analytics",
-        "tab.heatmap": "🗺 Heatmap",
-        "tab.confidence": "🎯 Confidence",
-        "tab.wordcloud": "☁ Words",
-        "empty.report.title": "Ready to Research",
-        "empty.report.sub": "Enter a question above to generate a verified research report",
-        "chat.title": "💬 Follow-up Questions",
-        "chat.placeholder": "Ask a follow-up…",
-        "chat.button": "Ask",
-        "export.md": "⬇ Markdown",
-        "export.json": "📦 JSON",
-        "export.html": "🌐 HTML",
-        "toast.researching": "Researching",
-        "toast.complete": "Research complete!",
-        "toast.error": "Research failed",
-        "toast.copied": "Copied to clipboard!",
-        "toast.noReport": "No report to export",
-    },
-    es: {
-        "app.title": "Agente de Investigación IA",
-        "app.subtitle": "Investigación verificada · Grafos de citación · Verificación de afirmaciones",
-        "search.placeholder": "Haz una pregunta de investigación…",
-        "search.button": "Investigar",
-        "history.title": "Historial",
-        "history.empty": "Sin investigaciones previas",
-        "toast.complete": "¡Investigación completa!",
-        "toast.copied": "¡Copiado al portapapeles!",
-        "empty.report.title": "Listo para Investigar",
-        "empty.report.sub": "Ingresa una pregunta para generar un informe verificado",
-    },
-    fr: {
-        "app.title": "Agent de Recherche IA",
-        "search.placeholder": "Posez une question de recherche…",
-        "search.button": "Rechercher",
-        "history.title": "Historique",
-        "toast.complete": "Recherche terminée !",
-        "empty.report.title": "Prêt à Rechercher",
-    },
-    de: {
-        "app.title": "KI-Forschungsagent",
-        "search.placeholder": "Stellen Sie eine Forschungsfrage…",
-        "search.button": "Forschen",
-        "toast.complete": "Forschung abgeschlossen!",
-        "empty.report.title": "Bereit zur Forschung",
-    },
-    ja: {
-        "app.title": "AI研究エージェント",
-        "search.placeholder": "研究の質問を入力…",
-        "search.button": "研究",
-        "toast.complete": "研究完了！",
-        "empty.report.title": "研究準備完了",
-    },
-    zh: {
-        "app.title": "AI研究代理",
-        "search.placeholder": "输入研究问题…",
-        "search.button": "研究",
-        "toast.complete": "研究完成！",
-        "empty.report.title": "准备就绪",
-    },
-    hi: {
-        "app.title": "AI अनुसंधान एजेंट",
-        "search.placeholder": "एक शोध प्रश्न पूछें…",
-        "search.button": "शोध करें",
-        "toast.complete": "शोध पूरा!",
-    },
-    te: {
-        "app.title": "AI పరిశోధన ఏజెంట్",
-        "search.placeholder": "పరిశోధన ప్రశ్న అడగండి…",
-        "search.button": "పరిశోధన",
-        "toast.complete": "పరిశోధన పూర్తయింది!",
-    },
-};
-let currentLang = "en";
-function initI18n() {
-    // Detect from localStorage, then browser
-    const stored = localStorage.getItem("ra-lang");
-    if (stored && stored in TRANSLATIONS) {
-        currentLang = stored;
-    }
-    else {
-        const browserLang = navigator.language.split("-")[0];
-        if (browserLang in TRANSLATIONS)
-            currentLang = browserLang;
-    }
-}
-function t(key) {
-    return TRANSLATIONS[currentLang]?.[key] || TRANSLATIONS.en[key] || key;
-}
-function setLang(lang) {
-    currentLang = lang;
-    localStorage.setItem("ra-lang", lang);
-}
-function getLang() { return currentLang; }
-function getAvailableLangs() {
-    return [
-        { code: "en", name: "English" },
-        { code: "es", name: "Español" },
-        { code: "fr", name: "Français" },
-        { code: "de", name: "Deutsch" },
-        { code: "ja", name: "日本語" },
-        { code: "zh", name: "中文" },
-        { code: "hi", name: "हिन्दी" },
-        { code: "te", name: "తెలుగు" },
-    ];
-}
-//# sourceMappingURL=i18n.js.map
-
-// ── sourcemap.js ──
-/* ── Source Relationship Map (Force-Directed) ──────────── */
-/* Interactive SVG graph showing source co-citation links     */
-/* Sources that cite the same claims are connected            */
-const SMAP_CRED_COLORS = {
-    high: "var(--green)",
-    medium: "var(--amber)",
-    low: "var(--red)",
-    user: "#6d9fff",
-};
-function renderSourceMap(d, container) {
-    if (d.sources.length < 2) {
-        container.innerHTML = `<div class="empty-state"><div class="empty-icon">🗺</div>
-      <div class="empty-title">Not Enough Sources</div>
-      <div class="empty-sub">Need at least 2 sources for relationship map</div></div>`;
-        return;
-    }
-    // Build co-citation edges
-    const edgeMap = new Map();
-    for (const claim of d.claims) {
-        const cites = claim.cites;
-        for (let i = 0; i < cites.length; i++) {
-            for (let j = i + 1; j < cites.length; j++) {
-                const key = `${Math.min(cites[i], cites[j])}-${Math.max(cites[i], cites[j])}`;
-                edgeMap.set(key, (edgeMap.get(key) || 0) + 1);
-            }
-        }
-    }
-    // Count claims per source
-    const claimCounts = new Map();
-    for (const c of d.claims) {
-        for (const sid of c.cites) {
-            claimCounts.set(sid, (claimCounts.get(sid) || 0) + 1);
-        }
-    }
-    const W = 600, H = 400;
-    const maxClaims = Math.max(1, ...d.sources.map((s) => claimCounts.get(s.id) || 0));
-    // Create nodes
-    const nodes = d.sources.map((s, i) => {
-        const cc = claimCounts.get(s.id) || 0;
-        const angle = (i / d.sources.length) * Math.PI * 2;
-        const r = 120 + Math.random() * 40;
-        return {
-            id: s.id,
-            title: s.title.slice(0, 25),
-            credibility: s.credibility,
-            claimCount: cc,
-            x: W / 2 + Math.cos(angle) * r,
-            y: H / 2 + Math.sin(angle) * r,
-            vx: 0, vy: 0,
-            radius: 6 + (cc / maxClaims) * 14,
-        };
-    });
-    const edges = [];
-    for (const [key, weight] of edgeMap) {
-        const [a, b] = key.split("-").map(Number);
-        edges.push({ a, b, weight });
-    }
-    // Simple force simulation (50 iterations)
-    const nodeMap = new Map(nodes.map((n) => [n.id, n]));
-    for (let iter = 0; iter < 50; iter++) {
-        // Repulsion between all nodes
-        for (let i = 0; i < nodes.length; i++) {
-            for (let j = i + 1; j < nodes.length; j++) {
-                const dx = nodes[j].x - nodes[i].x;
-                const dy = nodes[j].y - nodes[i].y;
-                const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-                const force = 800 / (dist * dist);
-                const fx = (dx / dist) * force;
-                const fy = (dy / dist) * force;
-                nodes[i].vx -= fx;
-                nodes[i].vy -= fy;
-                nodes[j].vx += fx;
-                nodes[j].vy += fy;
-            }
-        }
-        // Attraction along edges
-        for (const e of edges) {
-            const na = nodeMap.get(e.a);
-            const nb = nodeMap.get(e.b);
-            if (!na || !nb)
-                continue;
-            const dx = nb.x - na.x;
-            const dy = nb.y - na.y;
-            const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-            const force = (dist - 80) * 0.005 * e.weight;
-            const fx = (dx / dist) * force;
-            const fy = (dy / dist) * force;
-            na.vx += fx;
-            na.vy += fy;
-            nb.vx -= fx;
-            nb.vy -= fy;
-        }
-        // Center gravity
-        for (const n of nodes) {
-            n.vx += (W / 2 - n.x) * 0.01;
-            n.vy += (H / 2 - n.y) * 0.01;
-            n.x += n.vx * 0.3;
-            n.y += n.vy * 0.3;
-            n.vx *= 0.8;
-            n.vy *= 0.8;
-            n.x = Math.max(30, Math.min(W - 30, n.x));
-            n.y = Math.max(30, Math.min(H - 30, n.y));
-        }
-    }
-    const maxEdgeW = Math.max(1, ...edges.map((e) => e.weight));
-    container.innerHTML = `
-    <div class="srcmap">
-      <div class="srcmap-header">
-        <h3>🗺 Source Relationship Map</h3>
-        <span class="srcmap-hint">Lines = shared claims · Size = citation count</span>
-      </div>
-      <svg class="srcmap-svg" viewBox="0 0 ${W} ${H}">
-        <defs>
-          <filter id="srcglow"><feGaussianBlur stdDeviation="3" result="blur"/>
-            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-        </defs>
-        ${edges.map((e) => {
-        const na = nodeMap.get(e.a);
-        const nb = nodeMap.get(e.b);
-        if (!na || !nb)
-            return "";
-        const opacity = 0.15 + (e.weight / maxEdgeW) * 0.45;
-        return `<line x1="${na.x}" y1="${na.y}" x2="${nb.x}" y2="${nb.y}"
-            stroke="var(--accent)" stroke-width="${0.5 + e.weight * 0.8}" opacity="${opacity}"/>`;
-    }).join("")}
-        ${nodes.map((n) => `
-          <g class="srcmap-node" data-id="${n.id}">
-            <circle cx="${n.x}" cy="${n.y}" r="${n.radius}" fill="${SMAP_CRED_COLORS[n.credibility] || "var(--text3)"}"
-              opacity="0.8" filter="url(#srcglow)" stroke="var(--bg)" stroke-width="1.5"/>
-            <text x="${n.x}" y="${n.y + n.radius + 12}" text-anchor="middle" fill="var(--text3)"
-              font-size="8" font-family="var(--sans)">[${n.id}]</text>
-          </g>
-        `).join("")}
-      </svg>
-      <div class="srcmap-legend">
-        <span style="color:var(--green)">● High</span>
-        <span style="color:var(--amber)">● Medium</span>
-        <span style="color:var(--red)">● Low</span>
-        <span style="color:#6d9fff">● User</span>
-      </div>
-    </div>
-  `;
-    // Hover tooltip
-    container.querySelectorAll(".srcmap-node").forEach((g) => {
-        g.addEventListener("mouseenter", () => {
-            const circle = g.querySelector("circle");
-            if (circle) {
-                circle.setAttribute("opacity", "1");
-                circle.setAttribute("r", String(parseFloat(circle.getAttribute("r") || "8") * 1.3));
-            }
-        });
-        g.addEventListener("mouseleave", () => {
-            const circle = g.querySelector("circle");
-            if (circle) {
-                const n = nodes.find((x) => x.id === Number(g.dataset.id));
-                circle.setAttribute("opacity", "0.8");
-                circle.setAttribute("r", String(n?.radius || 8));
-            }
-        });
-    });
-}
-//# sourceMappingURL=sourcemap.js.map
-
-// ── reading.js ──
-/* ── Reading Progress & Estimated Time ─────────────────── */
-/* Floating progress indicator with reading time estimate     */
-
-let progressEl = null;
-let timerEl = null;
-let percentEl = null;
-let barEl = null;
-let readingActive = false;
-let totalWords = 0;
-const READING_WPM = 230;
-function initReadingProgress() {
-    // Create floating indicator
-    progressEl = document.createElement("div");
-    progressEl.className = "reading-progress-float hidden";
-    progressEl.innerHTML = `
-    <div class="rpf-bar-wrap"><div class="rpf-bar"></div></div>
-    <span class="rpf-percent">0%</span>
-    <span class="rpf-divider">·</span>
-    <span class="rpf-time">0 min left</span>
-  `;
-    document.body.appendChild(progressEl);
-    barEl = progressEl.querySelector(".rpf-bar");
-    percentEl = progressEl.querySelector(".rpf-percent");
-    timerEl = progressEl.querySelector(".rpf-time");
-    // Listen to scroll
-    const main = document.querySelector(".main");
-    if (main) {
-        main.addEventListener("scroll", () => updateProgress(main));
-    }
-}
-function setReadingContent(wordCount) {
-    totalWords = wordCount;
-    readingActive = wordCount > 50;
-    if (progressEl)
-        progressEl.classList.toggle("hidden", !readingActive);
-}
-function updateProgress(scrollContainer) {
-    if (!readingActive || !barEl || !percentEl || !timerEl)
-        return;
-    const report = $("report");
-    if (!report || report.classList.contains("empty")) {
-        if (progressEl)
-            progressEl.classList.add("hidden");
-        return;
-    }
-    // Calculate how far the report is scrolled
-    const rect = report.getBoundingClientRect();
-    const containerRect = scrollContainer.getBoundingClientRect();
-    const reportTop = rect.top - containerRect.top;
-    const reportHeight = rect.height;
-    const viewHeight = containerRect.height;
-    // Progress: how much of the report has scrolled past top
-    let progress = 0;
-    if (reportTop >= 0) {
-        progress = 0;
-    }
-    else if (reportTop + reportHeight <= viewHeight) {
-        progress = 1;
-    }
-    else {
-        progress = Math.abs(reportTop) / (reportHeight - viewHeight);
-    }
-    progress = Math.max(0, Math.min(1, progress));
-    const pctVal = Math.round(progress * 100);
-    const wordsLeft = Math.round(totalWords * (1 - progress));
-    const minsLeft = Math.ceil(wordsLeft / READING_WPM);
-    barEl.style.width = `${pctVal}%`;
-    percentEl.textContent = `${pctVal}%`;
-    timerEl.textContent = progress >= 1
-        ? "Done ✓"
-        : `${minsLeft} min left`;
-    if (progressEl) {
-        progressEl.classList.toggle("hidden", !readingActive);
-        progressEl.classList.toggle("rpf-done", progress >= 1);
-    }
-}
-//# sourceMappingURL=reading.js.map
-
-// ── voice.js ──
-/* ── Voice Input ────────────────────────────────────────── */
-/* Web Speech API for dictating research questions            */
-/* Animated microphone button with live transcript feedback   */
-
-
-let recognition = null;
-let listening = false;
-let voiceBtn = null;
-function initVoiceInput() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition)
-        return; // Browser doesn't support it
-    recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
-    // Create mic button
-    voiceBtn = document.createElement("button");
-    voiceBtn.type = "button";
-    voiceBtn.className = "voice-btn";
-    voiceBtn.innerHTML = '<span class="voice-icon">🎙</span>';
-    voiceBtn.title = "Voice input (click to dictate)";
-    const wrap = document.querySelector(".search-input-wrap");
-    if (wrap)
-        wrap.appendChild(voiceBtn);
-    voiceBtn.addEventListener("click", toggleVoice);
-    recognition.onresult = (event) => {
-        const input = $("q");
-        let transcript = "";
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-            transcript += event.results[i][0].transcript;
-        }
-        input.value = transcript;
-        input.dispatchEvent(new Event("input"));
-    };
-    recognition.onend = () => {
-        listening = false;
-        if (voiceBtn) {
-            voiceBtn.classList.remove("voice-active");
-            voiceBtn.innerHTML = '<span class="voice-icon">🎙</span>';
-        }
-    };
-    recognition.onerror = (event) => {
-        listening = false;
-        if (voiceBtn) {
-            voiceBtn.classList.remove("voice-active");
-            voiceBtn.innerHTML = '<span class="voice-icon">🎙</span>';
-        }
-        if (event.error === "not-allowed") {
-            toast("Microphone access denied", "error");
-        }
-        else if (event.error !== "aborted") {
-            toast("Voice input error: " + event.error, "warn");
-        }
-    };
-}
-function toggleVoice() {
-    if (!recognition)
-        return;
-    if (listening) {
-        recognition.stop();
-        listening = false;
-        toast("Voice input stopped", "info");
-    }
-    else {
+class Store {
+    root = loadRoot();
+    save() {
         try {
-            recognition.start();
-            listening = true;
-            if (voiceBtn) {
-                voiceBtn.classList.add("voice-active");
-                voiceBtn.innerHTML = '<span class="voice-icon voice-pulse">🔴</span>';
-            }
-            toast("Listening… speak your question", "info", 2000);
+            localStorage.setItem(LS_KEY, JSON.stringify(this.root));
         }
-        catch {
-            toast("Could not start voice input", "error");
-        }
+        catch { /* quota — metadata only, should not happen */ }
     }
-}
-function isVoiceSupported() {
-    return !!window.SpeechRecognition || !!window.webkitSpeechRecognition;
-}
-//# sourceMappingURL=voice.js.map
-
-// ── diff.js ──
-/* ── Report Comparison / Diff ──────────────────────────── */
-/* Side-by-side diff of two research reports                 */
-/* Highlights added, removed, and changed sections           */
-
-function computeDiff(a, b) {
-    const linesA = a.split("\n");
-    const linesB = b.split("\n");
-    const result = [];
-    // Simple LCS-based diff
-    const m = linesA.length;
-    const n = linesB.length;
-    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
-    for (let i = 1; i <= m; i++) {
-        for (let j = 1; j <= n; j++) {
-            dp[i][j] = linesA[i - 1] === linesB[j - 1]
-                ? dp[i - 1][j - 1] + 1
-                : Math.max(dp[i - 1][j], dp[i][j - 1]);
+    get ws() {
+        if (!this.root.byWs[this.root.activeWs])
+            this.root.byWs[this.root.activeWs] = blankWs();
+        return this.root.byWs[this.root.activeWs];
+    }
+    get wsMeta() {
+        return this.root.workspaces.find(w => w.id === this.root.activeWs) || this.root.workspaces[0];
+    }
+    /* auth */
+    signIn(name, email) { this.root.user = { name, email }; this.save(); }
+    signOut() { this.root.user = null; this.save(); }
+    /* workspaces */
+    addWorkspace(name) {
+        const w = { id: uid(), name, created: Date.now() };
+        this.root.workspaces.push(w);
+        this.root.byWs[w.id] = blankWs();
+        this.root.activeWs = w.id;
+        this.save();
+    }
+    switchWorkspace(id) { this.root.activeWs = id; this.save(); }
+    renameWorkspace(id, name) {
+        const w = this.root.workspaces.find(x => x.id === id);
+        if (w) {
+            w.name = name;
+            this.save();
         }
     }
-    // Backtrack
-    let i = m, j = n;
-    const ops = [];
-    while (i > 0 || j > 0) {
-        if (i > 0 && j > 0 && linesA[i - 1] === linesB[j - 1]) {
-            ops.push({ type: "same", text: linesA[i - 1] });
-            i--;
-            j--;
+    deleteWorkspace(id) {
+        if (this.root.workspaces.length < 2)
+            return false;
+        this.root.workspaces = this.root.workspaces.filter(w => w.id !== id);
+        delete this.root.byWs[id];
+        if (this.root.activeWs === id)
+            this.root.activeWs = this.root.workspaces[0].id;
+        this.save();
+        return true;
+    }
+    /* projects */
+    addProject(name) {
+        const p = { id: uid(), name, created: Date.now(), updated: Date.now() };
+        this.ws.projects.unshift(p);
+        this.save();
+        return p;
+    }
+    project(id) { return this.ws.projects.find(p => p.id === id); }
+    renameProject(id, name) {
+        const p = this.project(id);
+        if (p) {
+            p.name = name;
+            p.updated = Date.now();
+            this.save();
         }
-        else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
-            ops.push({ type: "added", text: linesB[j - 1] });
-            j--;
-        }
-        else {
-            ops.push({ type: "removed", text: linesA[i - 1] });
-            i--;
-        }
     }
-    return ops.reverse();
-}
-function renderDiff(reportA, reportB, container) {
-    const diff = computeDiff(reportA, reportB);
-    const added = diff.filter(d => d.type === "added").length;
-    const removed = diff.filter(d => d.type === "removed").length;
-    const same = diff.filter(d => d.type === "same").length;
-    const total = diff.length || 1;
-    let html = `<div class="diff-view">`;
-    html += `<div class="diff-header">`;
-    html += `<div class="diff-stat">`;
-    html += `<span class="diff-stat-same">${same} unchanged</span>`;
-    html += `<span class="diff-stat-add">+${added} added</span>`;
-    html += `<span class="diff-stat-rm">-${removed} removed</span>`;
-    html += `</div>`;
-    html += `<div class="diff-bar">`;
-    html += `<div class="diff-bar-same" style="width:${(same / total) * 100}%"></div>`;
-    html += `<div class="diff-bar-add" style="width:${(added / total) * 100}%"></div>`;
-    html += `<div class="diff-bar-rm" style="width:${(removed / total) * 100}%"></div>`;
-    html += `</div></div>`;
-    html += `<div class="diff-lines">`;
-    let lineNum = 0;
-    for (const line of diff) {
-        lineNum++;
-        const cls = line.type === "added" ? "diff-add" : line.type === "removed" ? "diff-rm" : "diff-ctx";
-        const prefix = line.type === "added" ? "+" : line.type === "removed" ? "-" : " ";
-        html += `<div class="diff-line ${cls}">`;
-        html += `<span class="diff-ln">${lineNum}</span>`;
-        html += `<span class="diff-prefix">${prefix}</span>`;
-        html += `<span class="diff-text">${esc(line.text)}</span>`;
-        html += `</div>`;
+    deleteProject(id) {
+        this.ws.projects = this.ws.projects.filter(p => p.id !== id);
+        for (const r of this.ws.reports)
+            if (r.projectId === id)
+                delete r.projectId;
+        this.save();
     }
-    html += `</div></div>`;
-    container.innerHTML = html;
-}
-// Store previous reports for comparison
-let reportHistory = [];
-function pushReport(markdown) {
-    reportHistory.push(markdown);
-    if (reportHistory.length > 10)
-        reportHistory.shift();
-}
-function getReportHistory() {
-    return [...reportHistory];
-}
-function canDiff() {
-    return reportHistory.length >= 2;
-}
-//# sourceMappingURL=diff.js.map
-
-// ── credibility.js ──
-/* ── Source Credibility Scoring ────────────────────────── */
-/* Visual credibility breakdown per source with badges       */
-/* Factors: domain authority, HTTPS, citation count, age     */
-
-const TRUSTED_DOMAINS = [
-    "nature.com", "science.org", "ieee.org", "acm.org", "arxiv.org",
-    "nih.gov", "who.int", "cdc.gov", "edu", "gov",
-    "reuters.com", "apnews.com", "bbc.com", "nytimes.com"
-];
-function scoreDomain(url) {
-    let domain = "";
-    try {
-        domain = new URL(url).hostname.replace("www.", "");
+    touchProject(id) { const p = this.project(id); if (p) {
+        p.updated = Date.now();
+        this.save();
+    } }
+    reportsIn(projectId) { return this.ws.reports.filter(r => r.projectId === projectId); }
+    /* reports */
+    addReport(m) { this.ws.reports.unshift(m); this.save(); }
+    reportMeta(id) { return this.ws.reports.find(r => r.id === id); }
+    assignReport(id, projectId) {
+        const r = this.reportMeta(id);
+        if (!r)
+            return;
+        r.projectId = projectId;
+        if (projectId)
+            this.touchProject(projectId);
+        this.save();
     }
-    catch {
-        domain = url;
+    deleteReport(id) {
+        this.ws.reports = this.ws.reports.filter(r => r.id !== id);
+        this.save();
+        void dbDel("reports", id);
     }
-    const factors = [];
-    // HTTPS check
-    const isHttps = url.startsWith("https://");
-    factors.push({ label: "HTTPS", value: isHttps ? 20 : 0, max: 20 });
-    // Domain trust
-    const isTrusted = TRUSTED_DOMAINS.some(d => domain.endsWith(d));
-    factors.push({ label: "Domain Trust", value: isTrusted ? 30 : 10, max: 30 });
-    // TLD quality
-    const tld = domain.split(".").pop() || "";
-    const tldScore = ["gov", "edu", "org"].includes(tld) ? 20 : ["com", "net"].includes(tld) ? 10 : 5;
-    factors.push({ label: "TLD Quality", value: tldScore, max: 20 });
-    // Domain length (shorter = more established usually)
-    const lenScore = domain.length < 15 ? 15 : domain.length < 25 ? 10 : 5;
-    factors.push({ label: "Establishment", value: lenScore, max: 15 });
-    // Subdomain depth
-    const parts = domain.split(".");
-    const depthScore = parts.length <= 2 ? 15 : parts.length <= 3 ? 10 : 5;
-    factors.push({ label: "Direct Source", value: depthScore, max: 15 });
-    const total = factors.reduce((s, f) => s + f.value, 0);
-    const tier = total >= 70 ? "high" : total >= 40 ? "medium" : "low";
-    return { url, domain, score: total, factors, tier };
+    /* knowledge base */
+    addDoc(d) { this.ws.docs.unshift(d); this.save(); }
+    deleteDoc(id) {
+        this.ws.docs = this.ws.docs.filter(d => d.id !== id);
+        this.save();
+        void dbDel("files", id);
+    }
+    /* analytics + notifications */
+    log(type, n, label) {
+        this.ws.events.push({ t: Date.now(), type, n, label });
+        if (this.ws.events.length > 3000)
+            this.ws.events = this.ws.events.slice(-2500);
+        this.save();
+    }
+    notify(text, reportId) {
+        this.ws.notifs.unshift({ t: Date.now(), text, reportId, read: false });
+        this.ws.notifs = this.ws.notifs.slice(0, 30);
+        this.save();
+    }
+    markNotifsRead() { for (const n of this.ws.notifs)
+        n.read = true; this.save(); }
 }
-function renderCredibilityPanel(sources, container) {
-    if (!sources.length) {
-        container.innerHTML = `<div class="empty-state"><span class="es-icon">🔍</span><h3>No Sources</h3><p>Run a research query first</p></div>`;
-        return;
-    }
-    const scored = sources.map(s => ({ ...s, cred: scoreDomain(s.url) }));
-    scored.sort((a, b) => b.cred.score - a.cred.score);
-    const avgScore = Math.round(scored.reduce((s, x) => s + x.cred.score, 0) / scored.length);
-    const highCount = scored.filter(s => s.cred.tier === "high").length;
-    const lowCount = scored.filter(s => s.cred.tier === "low").length;
-    let html = `<div class="cred-panel">`;
-    html += `<div class="cred-overview">`;
-    html += `<div class="cred-avg"><span class="cred-avg-num">${avgScore}</span><span class="cred-avg-label">Avg Score</span></div>`;
-    html += `<div class="cred-counts">`;
-    html += `<span class="cred-badge cred-high">${highCount} High</span>`;
-    html += `<span class="cred-badge cred-med">${scored.length - highCount - lowCount} Med</span>`;
-    html += `<span class="cred-badge cred-low">${lowCount} Low</span>`;
-    html += `</div></div>`;
-    for (const s of scored) {
-        const tierCls = s.cred.tier;
-        html += `<div class="cred-card cred-tier-${tierCls}">`;
-        html += `<div class="cred-card-head">`;
-        html += `<span class="cred-score-circle cred-${tierCls}">${s.cred.score}</span>`;
-        html += `<div class="cred-card-info">`;
-        html += `<div class="cred-domain">${esc(s.cred.domain)}</div>`;
-        html += `<div class="cred-title">${esc(s.title)}</div>`;
-        html += `</div></div>`;
-        html += `<div class="cred-factors">`;
-        for (const f of s.cred.factors) {
-            const pct = (f.value / f.max) * 100;
-            html += `<div class="cred-factor">`;
-            html += `<span class="cred-factor-label">${f.label}</span>`;
-            html += `<div class="cred-factor-bar"><div class="cred-factor-fill" style="width:${pct}%"></div></div>`;
-            html += `<span class="cred-factor-val">${f.value}/${f.max}</span>`;
-            html += `</div>`;
-        }
-        html += `</div></div>`;
-    }
-    html += `</div>`;
-    container.innerHTML = html;
+const ST = new Store();
+/* ── IndexedDB for large payloads (full reports, file blobs) ───────── */
+let dbp = null;
+function db() {
+    if (!dbp)
+        dbp = new Promise((res, rej) => {
+            const req = indexedDB.open("verity-db", 1);
+            req.onupgradeneeded = () => {
+                const d = req.result;
+                if (!d.objectStoreNames.contains("reports"))
+                    d.createObjectStore("reports");
+                if (!d.objectStoreNames.contains("files"))
+                    d.createObjectStore("files");
+            };
+            req.onsuccess = () => res(req.result);
+            req.onerror = () => rej(req.error);
+        });
+    return dbp;
 }
-//# sourceMappingURL=credibility.js.map
-
-// ── claimgraph.js ──
-/* ── Claim Dependency Graph ────────────────────────────── */
-/* Interactive SVG graph showing how claims depend on each    */
-/* other and which sources back each claim                    */
-
-function renderClaimGraph(claims, allSources, container) {
-    if (!claims.length) {
-        container.innerHTML = `<div class="empty-state"><span class="es-icon">🔗</span><h3>No Claims</h3><p>Run a research query to see claim dependencies</p></div>`;
-        return;
-    }
-    const W = container.clientWidth || 700;
-    const H = 500;
-    const R = 24;
-    // Build nodes
-    const nodes = claims.map((c, i) => ({
-        id: i,
-        text: c.text.length > 60 ? c.text.slice(0, 57) + "…" : c.text,
-        sources: c.sources.map(s => allSources.findIndex(src => src.url === s || src.title === s)).filter(x => x >= 0),
-        x: W / 2 + (Math.random() - 0.5) * W * 0.6,
-        y: H / 2 + (Math.random() - 0.5) * H * 0.6,
-        vx: 0,
-        vy: 0
+function tx(store, mode, fn) {
+    return db().then(d => new Promise((res, rej) => {
+        const r = fn(d.transaction(store, mode).objectStore(store));
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
     }));
-    // Build edges: claims sharing sources are connected
-    const edges = [];
-    for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-            const shared = nodes[i].sources.filter(s => nodes[j].sources.includes(s));
-            if (shared.length > 0) {
-                edges.push({ from: i, to: j, type: "supports" });
-            }
+}
+function dbPut(store, key, val) {
+    return tx(store, "readwrite", s => s.put(val, key));
+}
+function dbGet(store, key) {
+    return tx(store, "readonly", s => s.get(key));
+}
+function dbDel(store, key) {
+    return tx(store, "readwrite", s => s.delete(key));
+}
+//# sourceMappingURL=store.js.map
+
+// ── net.js ──
+/* ── Verity network: SSE research client + JSON endpoints ──────────── */
+/** POST /api/research and parse the SSE stream (works buffered or chunked). */
+function runResearch(q, depth, context, on) {
+    const ctrl = new AbortController();
+    let finished = false;
+    const done = (async () => {
+        let resp;
+        try {
+            resp = await fetch("/api/research", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ q, depth, context }),
+                signal: ctrl.signal,
+            });
         }
-    }
-    // Force simulation
-    for (let iter = 0; iter < 60; iter++) {
-        // Repulsion
-        for (let i = 0; i < nodes.length; i++) {
-            for (let j = i + 1; j < nodes.length; j++) {
-                let dx = nodes[j].x - nodes[i].x;
-                let dy = nodes[j].y - nodes[i].y;
-                const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
-                const force = 8000 / (dist * dist);
-                const fx = (dx / dist) * force;
-                const fy = (dy / dist) * force;
-                nodes[i].vx -= fx;
-                nodes[i].vy -= fy;
-                nodes[j].vx += fx;
-                nodes[j].vy += fy;
-            }
-        }
-        // Edge attraction
-        for (const e of edges) {
-            const a = nodes[e.from];
-            const b = nodes[e.to];
-            const dx = b.x - a.x;
-            const dy = b.y - a.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            const force = (dist - 120) * 0.02;
-            const fx = (dx / (dist || 1)) * force;
-            const fy = (dy / (dist || 1)) * force;
-            a.vx += fx;
-            a.vy += fy;
-            b.vx -= fx;
-            b.vy -= fy;
-        }
-        // Center gravity
-        for (const n of nodes) {
-            n.vx += (W / 2 - n.x) * 0.005;
-            n.vy += (H / 2 - n.y) * 0.005;
-            n.x += n.vx * 0.3;
-            n.y += n.vy * 0.3;
-            n.vx *= 0.85;
-            n.vy *= 0.85;
-            n.x = Math.max(R + 10, Math.min(W - R - 10, n.x));
-            n.y = Math.max(R + 10, Math.min(H - R - 10, n.y));
-        }
-    }
-    // Render SVG
-    const colors = ["var(--accent)", "var(--green)", "var(--amber)", "#e879f9", "#38bdf8", "#fb923c"];
-    let svg = `<svg class="claim-graph-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
-    svg += `<defs><filter id="cg-glow"><feGaussianBlur stdDeviation="3" result="blur"/>`;
-    svg += `<feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`;
-    // Edges
-    for (const e of edges) {
-        const a = nodes[e.from];
-        const b = nodes[e.to];
-        svg += `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.6"/>`;
-    }
-    // Nodes
-    for (const n of nodes) {
-        const col = colors[n.id % colors.length];
-        const srcCount = n.sources.length;
-        const r = R + srcCount * 3;
-        svg += `<g class="cg-node" data-id="${n.id}">`;
-        svg += `<circle cx="${n.x}" cy="${n.y}" r="${r}" fill="${col}" opacity="0.15" stroke="${col}" stroke-width="2" filter="url(#cg-glow)"/>`;
-        svg += `<circle cx="${n.x}" cy="${n.y}" r="${r - 4}" fill="var(--surface)" opacity="0.9"/>`;
-        svg += `<text x="${n.x}" y="${n.y - 4}" text-anchor="middle" fill="var(--text)" font-size="9" font-weight="600">C${n.id + 1}</text>`;
-        svg += `<text x="${n.x}" y="${n.y + 8}" text-anchor="middle" fill="var(--text3)" font-size="7">${srcCount} src</text>`;
-        // Tooltip
-        svg += `<title>${esc(n.text)} (${srcCount} sources)</title>`;
-        svg += `</g>`;
-    }
-    svg += `</svg>`;
-    // Legend
-    let html = `<div class="claim-graph">`;
-    html += svg;
-    html += `<div class="cg-legend">`;
-    html += `<span class="cg-legend-item">● Node = Claim</span>`;
-    html += `<span class="cg-legend-item">--- Shared sources</span>`;
-    html += `<span class="cg-legend-item">Size = Source count</span>`;
-    html += `</div>`;
-    // Claim list
-    html += `<div class="cg-claims">`;
-    for (const n of nodes) {
-        const col = colors[n.id % colors.length];
-        html += `<div class="cg-claim-item">`;
-        html += `<span class="cg-claim-id" style="background:${col}">C${n.id + 1}</span>`;
-        html += `<span class="cg-claim-text">${esc(n.text)}</span>`;
-        html += `</div>`;
-    }
-    html += `</div></div>`;
-    container.innerHTML = html;
-}
-//# sourceMappingURL=claimgraph.js.map
-
-// ── bookmarks.js ──
-/* ── Research Session Bookmarks ────────────────────────── */
-/* Save and restore research sessions from localStorage      */
-/* Includes session naming, tagging, and quick recall         */
-
-
-const STORAGE_KEY = "ai-research-bookmarks";
-function loadBookmarks() {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? JSON.parse(raw) : [];
-    }
-    catch {
-        return [];
-    }
-}
-function saveBookmarks(bookmarks) {
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(bookmarks));
-    }
-    catch { /* quota exceeded */ }
-}
-function addBookmark(query, report, sourceCount, claimCount, score) {
-    const bookmarks = loadBookmarks();
-    const preview = report.replace(/[#*_`>]/g, "").slice(0, 150);
-    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    bookmarks.unshift({
-        id,
-        query,
-        title: query.slice(0, 80),
-        tags: extractTags(query),
-        timestamp: Date.now(),
-        reportPreview: preview,
-        sourceCount,
-        claimCount,
-        score
-    });
-    // Keep max 50
-    if (bookmarks.length > 50)
-        bookmarks.length = 50;
-    saveBookmarks(bookmarks);
-    toast("Research bookmarked ★", "info", 2000);
-}
-function removeBookmark(id) {
-    const bookmarks = loadBookmarks().filter(b => b.id !== id);
-    saveBookmarks(bookmarks);
-}
-function extractTags(query) {
-    const tags = [];
-    const words = query.toLowerCase().split(/\s+/);
-    const tagWords = ["ai", "ml", "science", "health", "tech", "finance", "crypto", "climate", "politics", "security", "education", "research"];
-    for (const w of words) {
-        if (tagWords.includes(w) && !tags.includes(w))
-            tags.push(w);
-    }
-    return tags.slice(0, 3);
-}
-function renderBookmarksPanel(container, onLoad) {
-    const bookmarks = loadBookmarks();
-    if (!bookmarks.length) {
-        container.innerHTML = `<div class="empty-state"><span class="es-icon">★</span><h3>No Bookmarks</h3><p>Bookmark research sessions for quick recall</p></div>`;
-        return;
-    }
-    let html = `<div class="bm-panel">`;
-    html += `<div class="bm-header"><span class="bm-count">${bookmarks.length} saved</span></div>`;
-    for (const b of bookmarks) {
-        const date = new Date(b.timestamp);
-        const ago = formatAgo(date);
-        html += `<div class="bm-card" data-id="${b.id}">`;
-        html += `<div class="bm-card-top">`;
-        html += `<span class="bm-title">${esc(b.title)}</span>`;
-        html += `<button class="bm-delete" data-del="${b.id}" title="Remove">✕</button>`;
-        html += `</div>`;
-        html += `<div class="bm-preview">${esc(b.reportPreview)}…</div>`;
-        html += `<div class="bm-meta">`;
-        html += `<span class="bm-time">${ago}</span>`;
-        html += `<span class="bm-stat">${b.sourceCount} sources</span>`;
-        html += `<span class="bm-stat">${b.claimCount} claims</span>`;
-        html += `<span class="bm-score">${b.score}/100</span>`;
-        html += `</div>`;
-        if (b.tags.length) {
-            html += `<div class="bm-tags">`;
-            for (const t of b.tags)
-                html += `<span class="bm-tag">${t}</span>`;
-            html += `</div>`;
-        }
-        html += `<button class="bm-load" data-query="${esc(b.query)}">Load Research →</button>`;
-        html += `</div>`;
-    }
-    html += `</div>`;
-    container.innerHTML = html;
-    // Event delegation
-    container.addEventListener("click", (e) => {
-        const target = e.target;
-        if (target.classList.contains("bm-load")) {
-            const query = target.getAttribute("data-query") || "";
-            onLoad(query);
-        }
-        if (target.classList.contains("bm-delete")) {
-            const id = target.getAttribute("data-del") || "";
-            removeBookmark(id);
-            renderBookmarksPanel(container, onLoad);
-        }
-    });
-}
-function formatAgo(date) {
-    const diff = Date.now() - date.getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60)
-        return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24)
-        return `${hrs}h ago`;
-    const days = Math.floor(hrs / 24);
-    if (days < 30)
-        return `${days}d ago`;
-    return date.toLocaleDateString();
-}
-function getBookmarkCount() {
-    return loadBookmarks().length;
-}
-//# sourceMappingURL=bookmarks.js.map
-
-// ── transitions.js ──
-/* ── Animated Transitions System ───────────────────────── */
-/* Smooth page transitions, panel morphing, and micro-        */
-/* animations for all interactive elements                    */
-function fadeIn(el, duration = 300) {
-    return new Promise(resolve => {
-        el.style.opacity = "0";
-        el.style.transform = "translateY(8px)";
-        el.style.transition = `opacity ${duration}ms ease, transform ${duration}ms ease`;
-        el.offsetHeight; // force reflow
-        el.style.opacity = "1";
-        el.style.transform = "translateY(0)";
-        setTimeout(resolve, duration);
-    });
-}
-function fadeOut(el, duration = 200) {
-    return new Promise(resolve => {
-        el.style.transition = `opacity ${duration}ms ease, transform ${duration}ms ease`;
-        el.style.opacity = "0";
-        el.style.transform = "translateY(-4px)";
-        setTimeout(resolve, duration);
-    });
-}
-function slideIn(el, direction = "left", duration = 300) {
-    const transforms = {
-        left: "translateX(-20px)",
-        right: "translateX(20px)",
-        up: "translateY(-20px)",
-        down: "translateY(20px)"
-    };
-    return new Promise(resolve => {
-        el.style.opacity = "0";
-        el.style.transform = transforms[direction];
-        el.style.transition = `opacity ${duration}ms ease, transform ${duration}ms cubic-bezier(0.22,1,0.36,1)`;
-        el.offsetHeight;
-        el.style.opacity = "1";
-        el.style.transform = "translate(0,0)";
-        setTimeout(resolve, duration);
-    });
-}
-function scaleIn(el, duration = 250) {
-    return new Promise(resolve => {
-        el.style.opacity = "0";
-        el.style.transform = "scale(0.92)";
-        el.style.transition = `opacity ${duration}ms ease, transform ${duration}ms cubic-bezier(0.34,1.56,0.64,1)`;
-        el.offsetHeight;
-        el.style.opacity = "1";
-        el.style.transform = "scale(1)";
-        setTimeout(resolve, duration);
-    });
-}
-function morphPanel(from, to, duration = 350) {
-    return new Promise(resolve => {
-        const fromRect = from.getBoundingClientRect();
-        from.style.transition = `opacity ${duration / 2}ms ease, transform ${duration / 2}ms ease`;
-        from.style.opacity = "0";
-        from.style.transform = "scale(0.96)";
-        setTimeout(() => {
-            from.style.display = "none";
-            to.style.display = "";
-            to.style.opacity = "0";
-            to.style.transform = "scale(1.02)";
-            to.style.transition = `opacity ${duration / 2}ms ease, transform ${duration / 2}ms ease`;
-            to.offsetHeight;
-            to.style.opacity = "1";
-            to.style.transform = "scale(1)";
-            setTimeout(resolve, duration / 2);
-        }, duration / 2);
-    });
-}
-function staggerChildren(parent, selector, delay = 50) {
-    const children = parent.querySelectorAll(selector);
-    children.forEach((child, i) => {
-        const el = child;
-        el.style.opacity = "0";
-        el.style.transform = "translateY(10px)";
-        el.style.transition = `opacity 300ms ease ${i * delay}ms, transform 300ms ease ${i * delay}ms`;
-        requestAnimationFrame(() => {
-            el.style.opacity = "1";
-            el.style.transform = "translateY(0)";
-        });
-    });
-}
-function pulseElement(el) {
-    el.style.transition = "transform 150ms ease";
-    el.style.transform = "scale(1.05)";
-    setTimeout(() => {
-        el.style.transform = "scale(1)";
-    }, 150);
-}
-function shakeElement(el) {
-    el.style.animation = "none";
-    el.offsetHeight;
-    el.style.animation = "shake 0.4s ease";
-    setTimeout(() => { el.style.animation = ""; }, 400);
-}
-// CSS keyframes injected once
-let injected = false;
-function injectTransitionStyles() {
-    if (injected)
-        return;
-    injected = true;
-    const style = document.createElement("style");
-    style.textContent = `
-    @keyframes shake {
-      0%, 100% { transform: translateX(0); }
-      20% { transform: translateX(-4px); }
-      40% { transform: translateX(4px); }
-      60% { transform: translateX(-2px); }
-      80% { transform: translateX(2px); }
-    }
-    @keyframes ripple {
-      to { transform: scale(2); opacity: 0; }
-    }
-    .ripple-effect {
-      position: absolute;
-      border-radius: 50%;
-      background: var(--accent);
-      opacity: 0.3;
-      pointer-events: none;
-      animation: ripple 0.5s ease-out forwards;
-    }
-  `;
-    document.head.appendChild(style);
-}
-function addRipple(el, event) {
-    const rect = el.getBoundingClientRect();
-    const ripple = document.createElement("span");
-    ripple.className = "ripple-effect";
-    const size = Math.max(rect.width, rect.height);
-    ripple.style.width = ripple.style.height = size + "px";
-    ripple.style.left = (event.clientX - rect.left - size / 2) + "px";
-    ripple.style.top = (event.clientY - rect.top - size / 2) + "px";
-    el.style.position = "relative";
-    el.style.overflow = "hidden";
-    el.appendChild(ripple);
-    setTimeout(() => ripple.remove(), 500);
-}
-//# sourceMappingURL=transitions.js.map
-
-// ── notifications.js ──
-/* ── Notification Center ──────────────────────────────── */
-/* Collects research events into a dismissable feed panel    */
-/* Supports priorities, grouping, and auto-dismiss           */
-
-const notifications = [];
-let onUpdate = null;
-const ICONS = {
-    info: "ℹ️",
-    success: "✅",
-    warn: "⚠️",
-    error: "❌"
-};
-function notify(title, message, priority = "info") {
-    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
-    notifications.unshift({
-        id,
-        title,
-        message,
-        priority,
-        timestamp: Date.now(),
-        read: false,
-        icon: ICONS[priority]
-    });
-    // Keep max 100
-    if (notifications.length > 100)
-        notifications.length = 100;
-    if (onUpdate)
-        onUpdate();
-}
-function markRead(id) {
-    const n = notifications.find(x => x.id === id);
-    if (n)
-        n.read = true;
-    if (onUpdate)
-        onUpdate();
-}
-function markAllRead() {
-    for (const n of notifications)
-        n.read = true;
-    if (onUpdate)
-        onUpdate();
-}
-function clearNotifications() {
-    notifications.length = 0;
-    if (onUpdate)
-        onUpdate();
-}
-function getUnreadCount() {
-    return notifications.filter(n => !n.read).length;
-}
-function setNotificationListener(fn) {
-    onUpdate = fn;
-}
-function renderNotificationCenter(container) {
-    const unread = getUnreadCount();
-    if (!notifications.length) {
-        container.innerHTML = `<div class="empty-state"><span class="es-icon">🔔</span><h3>No Notifications</h3><p>Events will appear here during research</p></div>`;
-        return;
-    }
-    let html = `<div class="notif-center">`;
-    html += `<div class="notif-toolbar">`;
-    html += `<span class="notif-count">${unread} unread</span>`;
-    html += `<div class="notif-actions">`;
-    html += `<button class="notif-btn notif-mark-all">Mark all read</button>`;
-    html += `<button class="notif-btn notif-clear-all">Clear all</button>`;
-    html += `</div></div>`;
-    html += `<div class="notif-list">`;
-    for (const n of notifications) {
-        const cls = n.read ? "notif-item notif-read" : "notif-item notif-unread";
-        const ago = formatTimeAgo(n.timestamp);
-        html += `<div class="${cls} notif-${n.priority}" data-nid="${n.id}">`;
-        html += `<span class="notif-icon">${n.icon}</span>`;
-        html += `<div class="notif-body">`;
-        html += `<div class="notif-title">${esc(n.title)}</div>`;
-        html += `<div class="notif-msg">${esc(n.message)}</div>`;
-        html += `<div class="notif-time">${ago}</div>`;
-        html += `</div></div>`;
-    }
-    html += `</div></div>`;
-    container.innerHTML = html;
-    // Events
-    container.querySelector(".notif-mark-all")?.addEventListener("click", () => {
-        markAllRead();
-        renderNotificationCenter(container);
-    });
-    container.querySelector(".notif-clear-all")?.addEventListener("click", () => {
-        clearNotifications();
-        renderNotificationCenter(container);
-    });
-    container.querySelectorAll(".notif-item").forEach(el => {
-        el.addEventListener("click", () => {
-            const id = el.getAttribute("data-nid") || "";
-            markRead(id);
-            renderNotificationCenter(container);
-        });
-    });
-}
-function formatTimeAgo(ts) {
-    const diff = Date.now() - ts;
-    const secs = Math.floor(diff / 1000);
-    if (secs < 60)
-        return "just now";
-    const mins = Math.floor(secs / 60);
-    if (mins < 60)
-        return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    return `${hrs}h ago`;
-}
-//# sourceMappingURL=notifications.js.map
-
-// ── print.js ──
-/* ── Print-Optimized Layout ────────────────────────────── */
-/* Generates a clean, printer-friendly version of reports     */
-/* with proper page breaks, headers, and styling              */
-
-function printReport(title, markdown, sources, score) {
-    const html = renderMarkdown(markdown);
-    const now = new Date().toLocaleDateString("en-US", {
-        year: "numeric", month: "long", day: "numeric"
-    });
-    const sourceList = sources.map((s, i) => `<li class="print-source">
-      <span class="print-src-num">[${i + 1}]</span>
-      <span class="print-src-title">${s.title}</span>
-      <span class="print-src-url">${s.url}</span>
-      <span class="print-src-cred">${s.credibility}%</span>
-    </li>`).join("");
-    const printDoc = `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>${title} — AI Research Agent</title>
-<style>
-  @page {
-    margin: 2cm 2.5cm;
-    @top-right { content: "AI Research Agent"; font-size: 9pt; color: #888; }
-    @bottom-center { content: "Page " counter(page) " of " counter(pages); font-size: 9pt; color: #888; }
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: "Georgia", "Times New Roman", serif;
-    font-size: 11pt;
-    line-height: 1.6;
-    color: #1a1a1a;
-    max-width: 100%;
-  }
-  .print-header {
-    border-bottom: 2px solid #333;
-    padding-bottom: 12pt;
-    margin-bottom: 18pt;
-  }
-  .print-title {
-    font-size: 22pt;
-    font-weight: 700;
-    margin-bottom: 4pt;
-    color: #111;
-  }
-  .print-meta {
-    font-size: 9pt;
-    color: #666;
-    display: flex;
-    gap: 16pt;
-  }
-  .print-score {
-    display: inline-block;
-    padding: 2pt 8pt;
-    border: 1px solid #333;
-    border-radius: 3pt;
-    font-weight: 700;
-  }
-  .print-body h1 { font-size: 16pt; margin-top: 18pt; margin-bottom: 8pt; page-break-after: avoid; }
-  .print-body h2 { font-size: 14pt; margin-top: 14pt; margin-bottom: 6pt; page-break-after: avoid; }
-  .print-body h3 { font-size: 12pt; margin-top: 10pt; margin-bottom: 4pt; page-break-after: avoid; }
-  .print-body p { margin-bottom: 8pt; text-align: justify; }
-  .print-body ul, .print-body ol { margin: 6pt 0 6pt 20pt; }
-  .print-body li { margin-bottom: 3pt; }
-  .print-body blockquote {
-    border-left: 3pt solid #ccc;
-    padding-left: 10pt;
-    color: #555;
-    margin: 8pt 0;
-    font-style: italic;
-  }
-  .print-body code {
-    font-family: "Courier New", monospace;
-    font-size: 10pt;
-    background: #f0f0f0;
-    padding: 1pt 3pt;
-    border-radius: 2pt;
-  }
-  .print-body pre {
-    background: #f5f5f5;
-    padding: 8pt;
-    border: 1px solid #ddd;
-    border-radius: 3pt;
-    overflow-x: auto;
-    margin: 8pt 0;
-    page-break-inside: avoid;
-  }
-  .print-body table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 8pt 0;
-    page-break-inside: avoid;
-  }
-  .print-body th, .print-body td {
-    border: 1px solid #ccc;
-    padding: 4pt 8pt;
-    text-align: left;
-    font-size: 10pt;
-  }
-  .print-body th { background: #f0f0f0; font-weight: 700; }
-  .print-sources {
-    page-break-before: always;
-    border-top: 1px solid #333;
-    padding-top: 12pt;
-  }
-  .print-sources h2 { font-size: 14pt; margin-bottom: 10pt; }
-  .print-source {
-    list-style: none;
-    padding: 4pt 0;
-    border-bottom: 1px solid #eee;
-    font-size: 9pt;
-    display: flex;
-    gap: 8pt;
-    align-items: baseline;
-  }
-  .print-src-num { font-weight: 700; min-width: 24pt; }
-  .print-src-title { flex: 1; }
-  .print-src-url { color: #666; word-break: break-all; max-width: 200pt; font-size: 8pt; }
-  .print-src-cred { font-weight: 700; }
-  .print-footer {
-    margin-top: 24pt;
-    padding-top: 8pt;
-    border-top: 1px solid #ccc;
-    font-size: 8pt;
-    color: #999;
-    text-align: center;
-  }
-  @media print {
-    body { font-size: 11pt; }
-    a { color: inherit; text-decoration: none; }
-    .no-print { display: none; }
-  }
-</style>
-</head>
-<body>
-  <div class="print-header">
-    <div class="print-title">${title}</div>
-    <div class="print-meta">
-      <span>Generated: ${now}</span>
-      <span>Quality Score: <span class="print-score">${score}/100</span></span>
-      <span>${sources.length} Sources</span>
-    </div>
-  </div>
-  <div class="print-body">${html}</div>
-  ${sources.length ? `
-  <div class="print-sources">
-    <h2>Sources &amp; References</h2>
-    <ol>${sourceList}</ol>
-  </div>` : ""}
-  <div class="print-footer">
-    Generated by AI Research Agent — Multi-source automated research with verification
-  </div>
-  <script>window.print();</script>
-</body>
-</html>`;
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-        printWindow.document.write(printDoc);
-        printWindow.document.close();
-    }
-}
-//# sourceMappingURL=print.js.map
-
-// ── app.js ──
-/* ── Main Application Controller ──────────────────────── */
-/* Wires: theme, commands, particles, pipeline, timeline, */
-/*        inspector, perf monitor, toasts, graph, chat    */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// ── State ─────────────────────────────────────────────
-let current = null;
-let chatHistory = [];
-let uploads = [];
-let liveText = "";
-let pipeline = null;
-let particles = null;
-let activeStream = null;
-let theme = null;
-let timeline = null;
-let perfmon = null;
-let sidebarCollapsed = false;
-// ── Init ──────────────────────────────────────────────
-function init() {
-    // Theme engine
-    theme = new ThemeEngine();
-    // Particles disabled for clean professional look
-    // particles = new ParticleField(document.body);
-    // Performance monitor
-    // UI
-    initTabs();
-    initForm();
-    initFileUpload();
-    initChat();
-    initDownload();
-    initExportMenu();
-    initSidebarToggle();
-    loadHistory();
-    addKeyboardShortcuts();
-    initCommandPalette();
-    registerAllCommands();
-    initScrollProgress();
-    initResizeHandle();
-    initAutoSuggest();
-    initAccessibility();
-    initTraceFilter();
-    initI18n();
-    initReadingProgress();
-    initVoiceInput();
-    injectTransitionStyles();
-    // Notification badge listener
-    setNotificationListener(updateNotifBadge);
-    // Wire topbar buttons
-    const themeBtn = document.getElementById("themeToggle");
-    if (themeBtn)
-        themeBtn.addEventListener("click", () => {
-            theme?.cycle();
-            const currentTheme = theme.theme;
-            const icons = { light: "☀️", dark: "🌙", midnight: "🌌" };
-            themeBtn.innerHTML = `<span class="theme-icon" style="font-size:16px;line-height:1">${icons[currentTheme] || "☀️"}</span>`;
-            toast(`Theme: ${currentTheme}`, "info");
-        });
-    const focusBtnEl = document.getElementById("focusBtn");
-    if (focusBtnEl)
-        focusBtnEl.addEventListener("click", () => {
-            const isActive = toggleFocus();
-            toast(isActive ? "Focus mode: ON — distraction-free reading" : "Focus mode: OFF", "info");
-        });
-    const shortcutsBtnEl = document.getElementById("shortcutsBtn");
-    if (shortcutsBtnEl)
-        shortcutsBtnEl.addEventListener("click", () => toggleShortcuts());
-    const cmdTriggerEl = document.getElementById("cmdTrigger");
-    if (cmdTriggerEl)
-        cmdTriggerEl.addEventListener("click", () => openPalette());
-    const notifTriggerEl = document.getElementById("notifTrigger");
-    if (notifTriggerEl)
-        notifTriggerEl.addEventListener("click", () => {
-            switchTab("notifications");
-            // Clear badge count
-            const badge = notifTriggerEl.querySelector(".notif-count");
-            if (badge)
-                badge.style.display = "none";
-            toast("Viewing notifications", "info");
-        });
-    const sidebarToggleEl = document.getElementById("sidebarToggle");
-    if (sidebarToggleEl)
-        sidebarToggleEl.addEventListener("click", () => toggleSidebar());
-    // Wire sidebar quick-action buttons
-    initSidebarActions();
-}
-function updateNotifBadge() {
-    const count = getUnreadCount();
-    const btn = document.querySelector('[data-t="notifications"]');
-    if (btn)
-        btn.textContent = count > 0 ? `Alerts (${count})` : "Alerts";
-    const dot = document.getElementById("notifDot");
-    if (dot)
-        dot.classList.toggle("hidden", count === 0);
-}
-// ── Register commands ─────────────────────────────────
-function registerAllCommands() {
-    registerCommands([
-        { id: "search", label: "Focus search", icon: "🔍", shortcut: "/", category: "Navigation",
-            action: () => $("q").focus() },
-        { id: "theme", label: "Cycle theme", icon: "🎨", shortcut: "T", category: "Appearance",
-            action: () => { const t = theme.cycle(); toast(`Theme: ${t}`, "info"); } },
-        { id: "particles-field", label: "Particles: Field mode", icon: "✨", category: "Appearance",
-            action: () => { particles?.setMode("field"); toast("Particle mode: field", "info"); } },
-        { id: "particles-constellation", label: "Particles: Constellation mode", icon: "🌌", category: "Appearance",
-            action: () => { particles?.setMode("constellation"); toast("Particle mode: constellation", "info"); } },
-        { id: "particles-vortex", label: "Particles: Vortex mode", icon: "🌀", category: "Appearance",
-            action: () => { particles?.setMode("vortex"); toast("Particle mode: vortex", "info"); } },
-        { id: "perf", label: "Toggle performance monitor", icon: "📊", shortcut: "P", category: "Debug",
-            action: () => perfmon?.toggle() },
-        { id: "sidebar", label: "Toggle sidebar", icon: "📋", shortcut: "[", category: "Layout",
-            action: toggleSidebar },
-        { id: "export-md", label: "Export as Markdown", icon: "📝", category: "Export",
-            action: () => exportReport("md") },
-        { id: "export-json", label: "Export as JSON", icon: "📦", category: "Export",
-            action: () => exportReport("json") },
-        { id: "export-html", label: "Export as HTML", icon: "🌐", category: "Export",
-            action: () => exportReport("html") },
-        { id: "fullscreen", label: "Toggle fullscreen", icon: "⛶", shortcut: "F", category: "View",
-            action: () => {
-                if (document.fullscreenElement)
-                    document.exitFullscreen();
-                else
-                    document.documentElement.requestFullscreen();
-            }
-        },
-        { id: "clear", label: "Clear current report", icon: "🗑", category: "Actions",
-            action: clearReport },
-        { id: "history", label: "Show research history", icon: "📚", category: "Navigation",
-            action: () => { if (sidebarCollapsed)
-                toggleSidebar(); } },
-        { id: "cmd-palette", label: "Command palette", icon: "⌨", shortcut: "⌘K", category: "Navigation",
-            action: () => openPalette() },
-        { id: "focus", label: "Toggle focus mode", icon: "👁", shortcut: "R", category: "View",
-            action: () => { const on = toggleFocus(); toast(on ? "Focus mode on" : "Focus mode off", "info"); } },
-        { id: "analytics-tab", label: "Show analytics", icon: "📊", category: "Navigation",
-            action: () => switchTab("analytics") },
-        { id: "heatmap-tab", label: "Show heatmap", icon: "🗺", category: "Navigation",
-            action: () => switchTab("heatmap") },
-        { id: "confidence-tab", label: "Show confidence meter", icon: "🎯", category: "Navigation",
-            action: () => switchTab("confidence") },
-        { id: "print", label: "Print report", icon: "🖨", category: "Export",
-            action: () => { if (current)
-                window.print();
-            else
-                toast("No report to print", "warn"); } },
-        { id: "share-copy", label: "Copy report to clipboard", icon: "📋", category: "Share",
-            action: () => { if (current)
-                shareReport(current, "copy");
-            else
-                toast("No report", "warn"); } },
-        { id: "share-link", label: "Open report in new tab", icon: "🔗", category: "Share",
-            action: () => { if (current)
-                shareReport(current, "link");
-            else
-                toast("No report", "warn"); } },
-        { id: "share-web", label: "Share via system share", icon: "📤", category: "Share",
-            action: () => { if (current)
-                shareReport(current, "share");
-            else
-                toast("No report", "warn"); } },
-        { id: "shortcuts", label: "Keyboard shortcuts", icon: "⌨", shortcut: "?", category: "Help",
-            action: () => toggleShortcuts() },
-        { id: "wordcloud-tab", label: "Show word cloud", icon: "☁", category: "Navigation",
-            action: () => switchTab("wordcloud") },
-        { id: "sourcemap-tab", label: "Show source map", icon: "🗺", category: "Navigation",
-            action: () => switchTab("sourcemap") },
-        { id: "lang-en", label: "Language: English", icon: "🇬🇧", category: "Language",
-            action: () => { setLang("en"); toast("Language: English", "info"); } },
-        { id: "lang-es", label: "Language: Español", icon: "🇪🇸", category: "Language",
-            action: () => { setLang("es"); toast("Idioma: Español", "info"); } },
-        { id: "lang-te", label: "Language: తెలుగు", icon: "🇮🇳", category: "Language",
-            action: () => { setLang("te"); toast("భాష: తెలుగు", "info"); } },
-        { id: "credibility-tab", label: "Show source trust scores", icon: "🛡", category: "Navigation",
-            action: () => switchTab("credibility") },
-        { id: "claimgraph-tab", label: "Show claim dependencies", icon: "🔗", category: "Navigation",
-            action: () => switchTab("claimgraph") },
-        { id: "diff-tab", label: "Compare reports", icon: "⇄", category: "Navigation",
-            action: () => switchTab("diff") },
-        { id: "bookmarks-tab", label: "Show bookmarks", icon: "★", category: "Navigation",
-            action: () => switchTab("bookmarks") },
-        { id: "notifications-tab", label: "Show notifications", icon: "🔔", category: "Navigation",
-            action: () => switchTab("notifications") },
-        { id: "bookmark-save", label: "Bookmark this research", icon: "★", category: "Actions",
-            action: () => {
-                if (current) {
-                    const credNum = Math.round((current.score?.citation_precision || 0) * 100);
-                    addBookmark(current.question || "Untitled", current.markdown || "", current.sources?.length || 0, current.claims?.length || 0, credNum);
-                }
-                else
-                    toast("No report to bookmark", "warn");
-            }
-        },
-        { id: "print-report", label: "Print-optimized report", icon: "🖨", category: "Export",
-            action: () => {
-                if (current) {
-                    const credSources = current.sources.map(s => ({ url: s.url, title: s.title, credibility: s.credibility === "high" ? 90 : s.credibility === "medium" ? 60 : 30 }));
-                    printReport(current.question || "Research Report", current.markdown || "", credSources, Math.round((current.score?.citation_precision || 0) * 100));
-                }
-                else
-                    toast("No report to print", "warn");
-            }
-        },
-    ]);
-}
-// ── Scroll progress indicator ─────────────────────────
-function initScrollProgress() {
-    const main = document.querySelector(".main");
-    const bar = document.createElement("div");
-    bar.className = "scroll-progress";
-    document.querySelector(".header")?.appendChild(bar);
-    main.addEventListener("scroll", () => {
-        const el = main;
-        const pct = el.scrollTop / (el.scrollHeight - el.clientHeight);
-        bar.style.width = `${Math.min(100, pct * 100)}%`;
-    });
-}
-// ── Sidebar toggle ────────────────────────────────────
-function initSidebarToggle() {
-    const btn = document.createElement("button");
-    btn.className = "sidebar-toggle";
-    btn.innerHTML = "☰";
-    btn.title = "Toggle sidebar";
-    btn.addEventListener("click", toggleSidebar);
-    document.querySelector(".header")?.appendChild(btn);
-}
-function toggleSidebar() {
-    sidebarCollapsed = !sidebarCollapsed;
-    document.querySelector(".sidebar")?.classList.toggle("collapsed", sidebarCollapsed);
-    document.querySelector(".shell")?.classList.toggle("sidebar-hidden", sidebarCollapsed);
-}
-// ── Sidebar quick actions ────────────────────────────
-let searchCount = 0;
-function initSidebarActions() {
-    const newSearch = document.getElementById("sbNewSearch");
-    if (newSearch)
-        newSearch.addEventListener("click", () => {
-            clearReport();
-            $("q").focus();
-            toast("Ready for new search", "info");
-        });
-    const bookmark = document.getElementById("sbBookmark");
-    if (bookmark)
-        bookmark.addEventListener("click", () => {
-            if (current) {
-                const credNum = Math.round((current.score?.citation_precision || 0) * 100);
-                addBookmark(current.question || "Untitled", current.markdown || "", current.sources?.length || 0, current.claims?.length || 0, credNum);
-                toast("Bookmarked!", "success");
-                updateSidebarStats();
-            }
-            else
-                toast("No report to bookmark", "warn");
-        });
-    const exportBtn = document.getElementById("sbExport");
-    if (exportBtn)
-        exportBtn.addEventListener("click", () => {
-            if (current)
-                exportReport("md");
-            else
-                toast("No report to export", "warn");
-        });
-    const shareBtn = document.getElementById("sbShare");
-    if (shareBtn)
-        shareBtn.addEventListener("click", () => {
-            if (current)
-                shareReport(current, "copy");
-            else
-                toast("No report to share", "warn");
-        });
-    const cmdBtn = document.getElementById("sbCmdPalette");
-    if (cmdBtn)
-        cmdBtn.addEventListener("click", () => openPalette());
-}
-function updateSidebarStats() {
-    const searches = document.getElementById("statSearches");
-    if (searches)
-        animateCounter(searches, searchCount);
-    const sources = document.getElementById("statSources");
-    if (sources)
-        animateCounter(sources, current ? (current.sources?.length || 0) : 0);
-    const precision = document.getElementById("statPrecision");
-    if (precision) {
-        const pctVal = current ? Math.round((current.score?.citation_precision || 0) * 100) : 0;
-        if (pctVal > 0)
-            animateCounter(precision, pctVal, "%");
-        else
-            precision.textContent = "—";
-    }
-    const bookmarks = document.getElementById("statBookmarks");
-    if (bookmarks)
-        animateCounter(bookmarks, getBookmarkCount());
-}
-// ── Dynamic Visual Effects ───────────────────────────
-function initRippleEffect() {
-    document.addEventListener("click", (e) => {
-        const target = e.target;
-        const btn = target.closest("button, .sidebar-quick-btn, .tab, .chip, .icon-btn, .export-btn, .feature-pill");
-        if (!btn)
-            return;
-        const rect = btn.getBoundingClientRect();
-        const ripple = document.createElement("span");
-        ripple.className = "ripple-effect";
-        const size = Math.max(rect.width, rect.height) * 2;
-        ripple.style.width = ripple.style.height = size + "px";
-        ripple.style.left = (e.clientX - rect.left - size / 2) + "px";
-        ripple.style.top = (e.clientY - rect.top - size / 2) + "px";
-        btn.style.position = "relative";
-        btn.style.overflow = "hidden";
-        btn.appendChild(ripple);
-        setTimeout(() => ripple.remove(), 600);
-    });
-}
-function initParticleSystem() {
-    const canvas = document.createElement("canvas");
-    canvas.id = "particles-canvas";
-    document.body.prepend(canvas);
-    const ctx = canvas.getContext("2d");
-    if (!ctx)
-        return;
-    let w = canvas.width = window.innerWidth;
-    let h = canvas.height = window.innerHeight;
-    window.addEventListener("resize", () => { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; });
-    const colors = ["99,102,241", "236,72,153", "6,182,212", "16,185,129", "139,92,246", "249,115,22"];
-    const pts = [];
-    const N = Math.min(40, Math.floor(w * h / 30000));
-    for (let i = 0; i < N; i++) {
-        pts.push({
-            x: Math.random() * w, y: Math.random() * h,
-            vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4,
-            r: Math.random() * 2 + 1,
-            c: colors[Math.floor(Math.random() * colors.length)],
-            a: Math.random() * 0.4 + 0.1
-        });
-    }
-    let mx = w / 2, my = h / 2;
-    document.addEventListener("mousemove", (e) => { mx = e.clientX; my = e.clientY; });
-    function draw() {
-        ctx.clearRect(0, 0, w, h);
-        for (const p of pts) {
-            p.x += p.vx;
-            p.y += p.vy;
-            if (p.x < 0 || p.x > w)
-                p.vx *= -1;
-            if (p.y < 0 || p.y > h)
-                p.vy *= -1;
-            // Mouse repel
-            const dx = p.x - mx, dy = p.y - my;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < 120) {
-                const force = (120 - dist) / 120 * 0.02;
-                p.vx += dx / dist * force;
-                p.vy += dy / dist * force;
-            }
-            // Damping
-            p.vx *= 0.999;
-            p.vy *= 0.999;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(${p.c},${p.a})`;
-            ctx.fill();
-        }
-        // Draw connections
-        for (let i = 0; i < pts.length; i++) {
-            for (let j = i + 1; j < pts.length; j++) {
-                const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y;
-                const d = Math.sqrt(dx * dx + dy * dy);
-                if (d < 150) {
-                    ctx.beginPath();
-                    ctx.moveTo(pts[i].x, pts[i].y);
-                    ctx.lineTo(pts[j].x, pts[j].y);
-                    ctx.strokeStyle = `rgba(99,102,241,${0.06 * (1 - d / 150)})`;
-                    ctx.lineWidth = 0.5;
-                    ctx.stroke();
-                }
-            }
-        }
-        requestAnimationFrame(draw);
-    }
-    requestAnimationFrame(draw);
-}
-function animateCounter(el, target, suffix = "") {
-    const start = parseInt(el.textContent || "0") || 0;
-    const diff = target - start;
-    if (diff === 0)
-        return;
-    const duration = 400;
-    const startTime = performance.now();
-    function step(now) {
-        const elapsed = now - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
-        const value = Math.round(start + diff * eased);
-        el.textContent = String(value) + suffix;
-        if (progress < 1)
-            requestAnimationFrame(step);
-        else {
-            el.classList.add("bump");
-            setTimeout(() => el.classList.remove("bump"), 300);
-        }
-    }
-    requestAnimationFrame(step);
-}
-function initTypingTitle() {
-    const title = document.querySelector(".search-title");
-    if (!title)
-        return;
-    const words = ["insights instantly", "knowledge deeply", "sources reliably", "claims accurately"];
-    let idx = 0;
-    const br = title.querySelector("br");
-    if (!br)
-        return;
-    const afterBr = br.nextSibling;
-    if (!afterBr)
-        return;
-    const baseText = "Discover verified";
-    setInterval(() => {
-        idx = (idx + 1) % words.length;
-        const word = words[idx];
-        // Fade out then swap
-        title.style.opacity = "0.6";
-        setTimeout(() => {
-            if (br.nextSibling && br.nextSibling.nodeType === 3) {
-                br.nextSibling.textContent = word;
-            }
-            title.style.opacity = "1";
-        }, 300);
-    }, 3500);
-}
-function initTiltEffect() {
-    document.querySelectorAll(".panel").forEach((panel) => {
-        panel.addEventListener("mousemove", (e) => {
-            const rect = panel.getBoundingClientRect();
-            const x = (e.clientX - rect.left) / rect.width - 0.5;
-            const y = (e.clientY - rect.top) / rect.height - 0.5;
-            panel.style.transform = `perspective(1200px) rotateY(${x * 3}deg) rotateX(${-y * 3}deg) translateY(-3px)`;
-        });
-        panel.addEventListener("mouseleave", () => {
-            panel.style.transform = "";
-        });
-    });
-}
-// ── Resize handle for trace card ──────────────────────
-function initResizeHandle() {
-    const trace = document.querySelector(".trace-card");
-    if (!trace)
-        return;
-    const handle = document.createElement("div");
-    handle.className = "resize-handle";
-    trace.appendChild(handle);
-    let startY = 0, startH = 0;
-    handle.addEventListener("mousedown", (e) => {
-        startY = e.clientY;
-        startH = trace.offsetHeight;
-        const onMove = (ev) => {
-            trace.style.maxHeight = `${Math.max(100, startH + ev.clientY - startY)}px`;
-        };
-        const onUp = () => {
-            document.removeEventListener("mousemove", onMove);
-            document.removeEventListener("mouseup", onUp);
-        };
-        document.addEventListener("mousemove", onMove);
-        document.addEventListener("mouseup", onUp);
-    });
-}
-// ── Keyboard shortcuts ────────────────────────────────
-function addKeyboardShortcuts() {
-    document.addEventListener("keydown", (e) => {
-        // Don't trigger shortcuts when typing in an input
-        const tag = e.target.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
-            if (e.key === "Escape")
-                e.target.blur();
+        catch (e) {
+            if (!ctrl.signal.aborted)
+                on.error("Could not reach the research service. Check your connection and try again.");
             return;
         }
-        if (e.key === "/") {
-            e.preventDefault();
-            $("q").focus();
+        if (!resp.ok || !resp.body) {
+            on.error(resp.status === 504
+                ? "The research service timed out. Try a shorter, more specific question."
+                : `Research service error (HTTP ${resp.status}).`);
+            return;
         }
-        if (e.key === "t") {
-            theme?.cycle();
-            toast(`Theme: ${theme.theme}`, "info");
-        }
-        if (e.key === "p") {
-            perfmon?.toggle();
-        }
-        if (e.key === "[") {
-            toggleSidebar();
-        }
-        if (e.key === "f" && !e.ctrlKey && !e.metaKey) {
-            if (document.fullscreenElement)
-                document.exitFullscreen();
-            else
-                document.documentElement.requestFullscreen();
-        }
-        if (e.key === "r" && !e.ctrlKey && !e.metaKey) {
-            toggleFocus();
-        }
-        if (e.key === "?") {
-            toggleShortcuts();
-        }
-    });
-}
-// ── Tabs ──────────────────────────────────────────────
-const TAB_IDS = ["report", "graph", "inspector", "timelinePanel", "analyticsPanel", "heatmapPanel", "confidencePanel", "wordcloudPanel", "sourcemapPanel", "credibilityPanel", "claimgraphPanel", "diffPanel", "bookmarksPanel", "notificationsPanel"];
-function switchTab(target) {
-    document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("on", x.dataset.t === target));
-    for (const id of TAB_IDS) {
-        const el = document.getElementById(id);
-        if (el)
-            el.classList.toggle("hidden", !matchTab(id, target));
-    }
-    if (target === "graph" && current)
-        drawGraph(current, $("graph"));
-    if (target === "inspector" && current)
-        renderInspector(current, $("inspector"));
-    if (target === "analytics" && current)
-        renderAnalytics(current, $("analyticsPanel"));
-    if (target === "heatmap" && current)
-        renderHeatmap(current, $("heatmapPanel"));
-    if (target === "confidence" && current)
-        renderConfidence(current, $("confidencePanel"));
-    if (target === "wordcloud" && current)
-        renderWordCloud(current, $("wordcloudPanel"));
-    if (target === "sourcemap" && current)
-        renderSourceMap(current, $("sourcemapPanel"));
-    if (target === "credibility" && current) {
-        const cs = current.sources.map(s => ({ url: s.url, title: s.title, credibility: s.credibility === "high" ? 90 : s.credibility === "medium" ? 60 : 30 }));
-        renderCredibilityPanel(cs, $("credibilityPanel"));
-    }
-    if (target === "claimgraph" && current) {
-        const cl = current.claims.map(c => ({ text: c.text, sources: c.cites.map(id => { const s = current.sources.find(x => x.id === id); return s ? s.title : ""; }).filter(Boolean) }));
-        renderClaimGraph(cl, current.sources.map(s => ({ url: s.url, title: s.title })), $("claimgraphPanel"));
-    }
-    if (target === "diff") {
-        const hist = getReportHistory();
-        if (hist.length >= 2)
-            renderDiff(hist[hist.length - 2], hist[hist.length - 1], $("diffPanel"));
-    }
-    if (target === "bookmarks")
-        renderBookmarksPanel($("bookmarksPanel"), (q) => {
-            $("q").value = q;
-            $("f").dispatchEvent(new Event("submit", { cancelable: true }));
-        });
-    if (target === "notifications")
-        renderNotificationCenter($("notificationsPanel"));
-    announce(`Switched to ${target} tab`);
-}
-function matchTab(id, target) {
-    const map = {
-        report: "report", graph: "graph", inspector: "inspector",
-        timelinePanel: "timeline", analyticsPanel: "analytics",
-        heatmapPanel: "heatmap", confidencePanel: "confidence",
-        wordcloudPanel: "wordcloud", sourcemapPanel: "sourcemap",
-        credibilityPanel: "credibility", claimgraphPanel: "claimgraph",
-        diffPanel: "diff", bookmarksPanel: "bookmarks",
-        notificationsPanel: "notifications",
-    };
-    return map[id] === target;
-}
-function initTabs() {
-    document.querySelectorAll(".tab").forEach((t) => {
-        t.addEventListener("click", () => {
-            const target = t.dataset.t || "report";
-            switchTab(target);
-        });
-    });
-}
-// ── Trace log ─────────────────────────────────────────
-function addTrace(html, type) {
-    const log = $("log");
-    if (log.classList.contains("empty")) {
-        log.innerHTML = "";
-        log.classList.remove("empty");
-    }
-    const div = document.createElement("div");
-    div.innerHTML = `<span class="trace-time">${new Date().toLocaleTimeString()}</span> ${html}`;
-    if (type)
-        div.dataset.type = type;
-    div.classList.add("trace-entry");
-    log.appendChild(div);
-    log.scrollTop = log.scrollHeight;
-    perfmon?.recordEvent();
-}
-// ── Skeleton loader ───────────────────────────────────
-function showSkeleton(el) {
-    el.innerHTML = Array.from({ length: 6 }, () => `<div class="skeleton-line" style="width:${40 + Math.random() * 55}%"></div>`).join("");
-    el.classList.remove("empty");
-}
-// ── Clear report ──────────────────────────────────────
-function clearReport() {
-    current = null;
-    chatHistory = [];
-    $("report").innerHTML = '<div class="empty">Your research report will appear here</div>';
-    $("report").classList.add("empty");
-    $("score").innerHTML = "";
-    $("log").innerHTML = '<span class="empty">Waiting for a query…</span>';
-    $("log").classList.add("empty");
-    ["conflictCard", "chatCard", "dl"].forEach((id) => $(id).classList.add("hidden"));
-    $("graph").innerHTML = '<div class="empty">Run a research query to see the citation graph</div>';
-    toast("Report cleared", "info");
-}
-// ── Research form ─────────────────────────────────────
-function initForm() {
-    $("f").addEventListener("submit", (e) => {
-        e.preventDefault();
-        startResearch();
-    });
-}
-function startResearch() {
-    const btn = $("b");
-    const input = $("q");
-    const question = input.value.trim();
-    if (!question) {
-        toast("Enter a research question", "warn");
-        return;
-    }
-    btn.disabled = true;
-    if (!btn.dataset.idle)
-        btn.dataset.idle = btn.innerHTML;
-    btn.innerHTML = '<span class="btn-spinner"></span> Researching…';
-    $("log").innerHTML = "";
-    $("score").innerHTML = "";
-    $("loadbar").classList.add("active");
-    ["conflictCard", "chatCard", "dl", "exportMenu"].forEach((id) => $(id).classList.add("hidden"));
-    showSkeleton($("report"));
-    // Create pipeline
-    if (pipeline)
-        pipeline.destroy();
-    pipeline = new PipelineIndicator($("log").parentElement);
-    // Create timeline
-    if (timeline)
-        timeline.reset();
-    timeline = new ResearchTimeline($("timelinePanel"));
-    timeline.add("init", "🚀", "Research started");
-    searchCount++;
-    updateSidebarStats();
-    toast(`Researching: "${question.slice(0, 50)}${question.length > 50 ? "…" : ""}"`, "info");
-    notify("Research Started", `Query: "${question.slice(0, 80)}"`, "info");
-    const depth = $("depth").value;
-    const tokens = uploads.map((u) => u.token);
-    let lastEventTime = Date.now();
-    activeStream = new ResearchStream(question, depth, tokens);
-    activeStream
-        .on("status", (d) => {
-        addTrace("• " + esc(d.message), "status");
-        recordLatency();
-    })
-        .on("plan", (d) => {
-        pipeline?.setStage("plan");
-        timeline?.add("plan", "🧭", `Planning: ${d.subquestions.length} sub-questions`);
-        addTrace('🧭 <b>Plan</b>' +
-            (d.time_sensitive ? ' <span class="tag medium">time-sensitive</span>' : "") +
-            "<br>" +
-            d.subquestions
-                .map((s) => `<span class="trace-sub">→ ${esc(s.question)} <span class="tag">${esc(s.source)}</span></span>`)
-                .join("<br>"), "plan");
-        recordLatency();
-    })
-        .on("search", (d) => {
-        pipeline?.setStage("search");
-        timeline?.add("search", "🔎", `Searching: ${d.query}`);
-        addTrace(`🔎 ${esc(d.query)} <span class="tag">${esc(d.kind)}</span>`, "search");
-        recordLatency();
-    })
-        .on("source", (d) => {
-        pipeline?.setStage("read");
-        timeline?.add("read", "📄", `Reading: ${d.title.slice(0, 40)}`);
-        addTrace(`📄 [${d.id}] <a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.title)}</a>` +
-            `<span class="tag ${esc(d.credibility)}">${esc(d.credibility)}</span>` +
-            (d.date ? `<span class="tag">${esc(d.date)}</span>` : ""), "source");
-        recordLatency();
-    })
-        .on("writing", (d) => {
-        pipeline?.setStage("write");
-        liveText = "";
-        timeline?.add("write", "📝", d.phase === "draft" ? "Drafting report" : "Revising report");
-        addTrace(d.phase === "draft" ? "📝 Drafting report (live stream)…" : "📝 Streaming revision…", "writing");
-        $("report").classList.remove("empty");
-        $("report").innerHTML = '<div class="live"></div>';
-        recordLatency();
-    })
-        .on("token", (d) => {
-        liveText += d.text;
-        const el = $("report").querySelector(".live");
-        if (el)
-            el.innerHTML = esc(liveText) + '<span class="cursor"></span>';
-    })
-        .on("budget", (d) => {
-        addTrace(`💰 ${esc(d.message)} <span class="tag warn">${fmt(d.used)}/${fmt(d.limit)}</span>`, "budget");
-    })
-        .on("gaps", (d) => {
-        timeline?.add("search", "🕳️", `Filling ${d.queries.length} gap(s)`);
-        addTrace("🕳️ Filling gaps: " + d.queries.map(esc).join("; "), "gaps");
-    })
-        .on("conflicts", (d) => {
-        timeline?.add("read", "⚖️", `${d.conflicts.length} source conflict(s)`);
-        addTrace("⚖️ Sources disagree on: " +
-            d.conflicts.map((c) => `<b>${esc(c.topic)}</b>`).join("; "), "conflicts");
-    })
-        .on("verify", (d) => {
-        pipeline?.setStage("verify");
-        timeline?.add("verify", "✅", `Verified ${d.checked}/${d.total} claims`);
-        addTrace(`✅ Checked ${d.checked}/${d.total} claims`, "verify");
-        recordLatency();
-    })
-        .on("revise", (d) => {
-        timeline?.add("write", "✍️", `Self-correcting ${d.flagged} claims (round ${d.round})`);
-        addTrace(`✍️ Self-correcting ${d.flagged} flagged claims <span class="tag">round ${d.round}</span>`, "revise");
-    })
-        .on("draft", (d) => {
-        // Show the written report immediately; the final event replaces it with verified claims
-        const panel = $("report");
-        if (panel)
-            panel.innerHTML = renderMarkdown(d.body);
-    })
-        .on("report", (d) => {
-        pipeline?.setStage("done");
-        timeline?.add("done", "🎉", "Research complete!");
-        timeline?.finish();
-        showReport(d);
-        done();
-        loadHistory();
-        toast("Research complete!", "success");
-    })
-        .on("error", (d) => {
-        addTrace('<span class="bad">✖ ' + esc(d.message) + "</span>", "error");
-        $("report").innerHTML = "";
-        $("report").classList.add("empty");
-        done();
-        toast("Research failed: " + d.message, "error");
-        notify("Research Failed", d.message, "error");
-    })
-        .onError(() => {
-        done();
-        toast("Connection lost", "error");
-        notify("Connection Lost", "SSE stream disconnected", "error");
-    });
-    function recordLatency() {
-        const now = Date.now();
-        perfmon?.recordLatency(now - lastEventTime);
-        lastEventTime = now;
-    }
-    function done() {
-        activeStream?.close();
-        activeStream = null;
-        btn.disabled = false;
-        btn.innerHTML = btn.dataset.idle || "Research";
-        $("loadbar").classList.remove("active");
-    }
-}
-// ── Show report ───────────────────────────────────────
-function showReport(d) {
-    current = d;
-    chatHistory = [];
-    $("chat").innerHTML = "";
-    const s = d.score;
-    const h = d.history || [];
-    const u = d.usage;
-    // Precision badge with color
-    const precColor = s.citation_precision >= 0.8 ? "ok" : s.citation_precision >= 0.5 ? "warn" : "bad";
-    $("score").innerHTML =
-        `<div class="score">` +
-            `<span class="pill ${precColor}"><span class="pill-icon">◎</span> Precision <b>${pct(s.citation_precision)}</b></span>` +
-            `<span class="pill ok"><span class="pill-icon">✓</span> ${s.supported} supported</span>` +
-            `<span class="pill warn"><span class="pill-icon">◐</span> ${s.partial} partial</span>` +
-            `<span class="pill bad"><span class="pill-icon">✗</span> ${s.unsupported} unsupported</span>` +
-            (h.length > 1
-                ? `<span class="pill"><span class="pill-icon">↑</span> Draft ${pct(h[0].citation_precision)} → Final ${pct(s.citation_precision)}</span>`
-                : "") +
-            (s.fact_precision != null
-                ? `<span class="pill"><span class="pill-icon">⚛</span> Atomic facts <b>${pct(s.fact_precision)}</b> of ${s.facts}</span>`
-                : "") +
-            `<span class="pill"><span class="pill-icon">📚</span> ${d.sources.length} sources</span>` +
-            (d.time_sensitive
-                ? '<span class="pill warn"><span class="pill-icon">⏰</span> time-sensitive</span>'
-                : "") +
-            `</div>` +
-            (u?.calls !== undefined
-                ? `<div class="usage">${u.calls} LLM calls · ${u.cached} cached · ${fmt(u.input_tokens + u.output_tokens)} tokens</div>`
-                : "");
-    $("report").classList.remove("empty");
-    $("report").innerHTML = renderMarkdown(d.markdown);
-    // Add word count
-    const words = d.markdown.split(/\s+/).length;
-    $("report").insertAdjacentHTML("beforeend", `<div class="report-meta">${words.toLocaleString()} words · ${d.sources.length} sources · ${d.claims.length} claims</div>`);
-    const c = d.conflicts || [];
-    $("conflictCard").classList.toggle("hidden", !c.length);
-    $("conflicts").innerHTML = c
-        .map((x) => `<div class="conflict"><b>${esc(x.topic)}</b><ul>${x.positions.map((p) => `<li>[${p.source}] ${esc(p.says)}</li>`).join("")}</ul>` +
-        (x.assessment ? `<em>${esc(x.assessment)}</em>` : "") +
-        `</div>`)
-        .join("");
-    $("chatCard").classList.toggle("hidden", !d.id);
-    $("dl").classList.remove("hidden");
-    $("exportMenu").classList.remove("hidden");
-    // Update visible panels
-    if (!$("graph").classList.contains("hidden"))
-        drawGraph(d, $("graph"));
-    if (!$("inspector").classList.contains("hidden"))
-        renderInspector(d, $("inspector"));
-    if (!$("analyticsPanel").classList.contains("hidden"))
-        renderAnalytics(d, $("analyticsPanel"));
-    if (!$("heatmapPanel").classList.contains("hidden"))
-        renderHeatmap(d, $("heatmapPanel"));
-    if (!$("confidencePanel").classList.contains("hidden"))
-        renderConfidence(d, $("confidencePanel"));
-    if (!$("wordcloudPanel").classList.contains("hidden"))
-        renderWordCloud(d, $("wordcloudPanel"));
-    if (!$("sourcemapPanel").classList.contains("hidden"))
-        renderSourceMap(d, $("sourcemapPanel"));
-    // Update new panels if visible
-    if (!$("credibilityPanel").classList.contains("hidden")) {
-        const cs = d.sources.map(s => ({ url: s.url, title: s.title, credibility: s.credibility === "high" ? 90 : s.credibility === "medium" ? 60 : 30 }));
-        renderCredibilityPanel(cs, $("credibilityPanel"));
-    }
-    if (!$("claimgraphPanel").classList.contains("hidden")) {
-        const cl = d.claims.map(c => ({ text: c.text, sources: c.cites.map(id => { const src = d.sources.find(x => x.id === id); return src ? src.title : ""; }).filter(Boolean) }));
-        renderClaimGraph(cl, d.sources.map(s => ({ url: s.url, title: s.title })), $("claimgraphPanel"));
-    }
-    // Push to diff history
-    pushReport(d.markdown);
-    // Notify
-    notify("Research Complete", `"${(d.question || "").slice(0, 50)}" — ${d.sources.length} sources, precision ${pct(d.score.citation_precision)}`, "success");
-    // Animate report in
-    fadeIn($("report"));
-    staggerChildren($("score"), ".pill", 60);
-    // Update sidebar stats
-    updateSidebarStats();
-    // Reading progress
-    setReadingContent(words);
-    announce(`Research report loaded: ${d.question}`);
-}
-// ── Export options ─────────────────────────────────────
-function initExportMenu() {
-    $("dl").addEventListener("click", () => exportReport("md"));
-    // JSON export
-    const jsonBtn = document.getElementById("export-json");
-    if (jsonBtn)
-        jsonBtn.addEventListener("click", () => exportReport("json"));
-    const htmlBtn = document.getElementById("export-html");
-    if (htmlBtn)
-        htmlBtn.addEventListener("click", () => exportReport("html"));
-}
-function exportReport(format) {
-    if (!current) {
-        toast("No report to export", "warn");
-        return;
-    }
-    let blob;
-    let ext;
-    if (format === "json") {
-        blob = new Blob([JSON.stringify(current, null, 2)], { type: "application/json" });
-        ext = "json";
-    }
-    else if (format === "html") {
-        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${esc(current.question)}</title>
-<style>body{font-family:system-ui;max-width:800px;margin:40px auto;padding:0 20px;line-height:1.6;color:#333}
-a{color:#5b4cdb}h1,h2,h3{margin-top:1.5em}code{background:#f4f4f4;padding:2px 6px;border-radius:3px}
-pre{background:#f4f4f4;padding:16px;border-radius:8px;overflow-x:auto}blockquote{border-left:3px solid #5b4cdb;padding-left:16px;color:#666}</style>
-</head><body><h1>${esc(current.question)}</h1>${renderMarkdown(current.markdown)}
-<hr><p><em>Generated by AI Research Agent · ${current.sources.length} sources · Precision: ${pct(current.score.citation_precision)}</em></p></body></html>`;
-        blob = new Blob([html], { type: "text/html" });
-        ext = "html";
-    }
-    else {
-        blob = new Blob([`# ${current.question}\n\n${current.markdown}\n\n---\n*${current.sources.length} sources · Precision: ${pct(current.score.citation_precision)}*\n`], { type: "text/markdown" });
-        ext = "md";
-    }
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `${(current.id || "report")}.${ext}`;
-    a.click();
-    toast(`Exported as .${ext}`, "success");
-}
-// ── File uploads ──────────────────────────────────────
-function initFileUpload() {
-    const input = $("files");
-    input.addEventListener("change", async () => {
-        for (const f of Array.from(input.files || [])) {
-            $("filelist").textContent = `Uploading ${f.name}…`;
+        const reader = resp.body.getReader();
+        const dec = new TextDecoder();
+        let buf = "";
+        const dispatch = (block) => {
+            let ev = "message";
+            const datas = [];
+            for (const line of block.split("\n")) {
+                if (line.startsWith("event:"))
+                    ev = line.slice(6).trim();
+                else if (line.startsWith("data:"))
+                    datas.push(line.slice(5).trim());
+            }
+            if (!datas.length)
+                return;
+            let data;
             try {
-                const result = await uploadFile(f);
-                if (result.token) {
-                    uploads.push(result);
-                    toast(`Uploaded: ${f.name}`, "success");
-                }
-                else {
-                    toast(`Upload failed: ${result.error}`, "error");
-                }
+                data = JSON.parse(datas.join("\n"));
             }
             catch {
-                toast("Upload failed", "error");
+                return;
             }
-        }
-        input.value = "";
-        renderFileList();
-    });
-    // Drag and drop
-    const card = document.querySelector(".search-card");
-    card.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        e.currentTarget.classList.add("drag-over");
-    });
-    card.addEventListener("dragleave", () => card.classList.remove("drag-over"));
-    card.addEventListener("drop", async (e) => {
-        e.preventDefault();
-        card.classList.remove("drag-over");
-        const files = e.dataTransfer?.files;
-        if (!files)
-            return;
-        for (const f of Array.from(files)) {
-            const result = await uploadFile(f);
-            if (result.token) {
-                uploads.push(result);
-                toast(`Uploaded: ${f.name}`, "success");
+            switch (ev) {
+                case "status":
+                    on.status(String(data.message || ""));
+                    break;
+                case "plan":
+                    on.plan(data.subquestions || []);
+                    break;
+                case "search":
+                    on.search(String(data.query || ""), String(data.kind || "web"));
+                    break;
+                case "source":
+                    on.source(data);
+                    break;
+                case "draft":
+                    on.draft(String(data.body || ""));
+                    break;
+                case "report":
+                    finished = true;
+                    on.report(data);
+                    break;
+                case "error":
+                    finished = true;
+                    on.error(String(data.message || "Research failed."));
+                    break;
             }
+        };
+        try {
+            for (;;) {
+                const { value, done: eof } = await reader.read();
+                if (value) {
+                    buf += dec.decode(value, { stream: true });
+                    let i;
+                    while ((i = buf.indexOf("\n\n")) >= 0) {
+                        dispatch(buf.slice(0, i));
+                        buf = buf.slice(i + 2);
+                    }
+                }
+                if (eof)
+                    break;
+            }
+            if (buf.trim())
+                dispatch(buf);
+            if (!finished)
+                on.error("The research stream ended unexpectedly. Please try again.");
         }
-        renderFileList();
-    });
+        catch (e) {
+            if (!ctrl.signal.aborted && !finished)
+                on.error("Connection lost while researching. Please try again.");
+        }
+    })();
+    return { cancel: () => ctrl.abort(), done };
 }
-function renderFileList() {
-    if (!uploads.length) {
-        $("filelist").innerHTML = "";
-        return;
+/** Follow-up question grounded in a report (sends the report inline). */
+async function askFollowup(report, question, history) {
+    try {
+        const r = await fetch("/api/ask", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ report, question, history }),
+        });
+        const j = await r.json();
+        if (j.error)
+            return { error: String(j.error) };
+        return j;
     }
-    $("filelist").innerHTML =
-        "📎 " +
-            uploads.map((u) => `<span class="file-chip">${esc(u.name)}</span>`).join("") +
-            ' <a href="#" id="clearf" class="file-clear">✕ clear all</a>';
-    const cl = document.getElementById("clearf");
-    if (cl) {
-        cl.addEventListener("click", (e) => {
-            e.preventDefault();
-            uploads = [];
-            renderFileList();
+    catch {
+        return { error: "Could not reach the server." };
+    }
+}
+async function fetchServerHistory() {
+    try {
+        const r = await fetch("/api/history");
+        const j = await r.json();
+        return Array.isArray(j) ? j : [];
+    }
+    catch {
+        return [];
+    }
+}
+//# sourceMappingURL=net.js.map
+
+// ── charts.js ──
+/* ── Verity charts: dependency-free SVG ────────────────────────────── */
+
+const NS = "http://www.w3.org/2000/svg";
+function sv(tag, attrs) {
+    const e = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs))
+        e.setAttribute(k, String(v));
+    return e;
+}
+/** Area/line chart with x labels, hover dots and tooltip. */
+function chArea(values, labels, opts) {
+    const W = 720, H = opts?.height ?? 220, PL = 34, PB = 24, PT = 12, PR = 8;
+    const max = Math.max(1, ...values);
+    const stepX = (W - PL - PR) / Math.max(1, values.length - 1);
+    const X = (i) => PL + i * stepX;
+    const Y = (v) => PT + (H - PT - PB) * (1 - v / max);
+    const svg = sv("svg", { viewBox: `0 0 ${W} ${H}`, class: "v-chart" });
+    // grid + y labels
+    const ticks = 4;
+    const seen = new Set();
+    for (let t = 0; t <= ticks; t++) {
+        const v = Math.round((max / ticks) * t), y = Y(v);
+        svg.append(sv("line", { x1: PL, y1: Y((max / ticks) * t), x2: W - PR, y2: Y((max / ticks) * t), class: "grid" }));
+        if (seen.has(v))
+            continue;
+        seen.add(v);
+        const lab = sv("text", { x: PL - 7, y: y + 3.5, class: "ylab", "text-anchor": "end" });
+        lab.textContent = String(v);
+        svg.append(lab);
+    }
+    if (values.length) {
+        const pts = values.map((v, i) => `${X(i)},${Y(v)}`).join(" ");
+        const areaD = `M${X(0)},${Y(values[0])} ` + values.map((v, i) => `L${X(i)},${Y(v)}`).join(" ") +
+            ` L${X(values.length - 1)},${H - PB} L${X(0)},${H - PB} Z`;
+        const grad = sv("linearGradient", { id: "vag", x1: 0, y1: 0, x2: 0, y2: 1 });
+        grad.append(sv("stop", { offset: "0%", "stop-color": "var(--green-500)", "stop-opacity": .22 }));
+        grad.append(sv("stop", { offset: "100%", "stop-color": "var(--green-500)", "stop-opacity": 0 }));
+        const defs = sv("defs", {});
+        defs.append(grad);
+        svg.append(defs);
+        svg.append(sv("path", { d: areaD, fill: "url(#vag)", stroke: "none" }));
+        svg.append(sv("polyline", { points: pts, class: "line" }));
+        values.forEach((v, i) => {
+            if (v > 0 || values.length < 40)
+                svg.append(sv("circle", { cx: X(i), cy: Y(v), r: 2.6, class: "dot" }));
         });
     }
-}
-// ── Follow-up chat ────────────────────────────────────
-function initChat() {
-    $("chatform").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        if (!current?.id)
+    // x labels (thin out)
+    const every = Math.max(1, Math.ceil(labels.length / 9));
+    labels.forEach((l, i) => {
+        if (i % every !== 0 && i !== labels.length - 1)
             return;
-        const input = $("cq");
-        const q = input.value.trim();
+        const t = sv("text", { x: X(i), y: H - 7, class: "xlab", "text-anchor": "middle" });
+        t.textContent = l;
+        svg.append(t);
+    });
+    const wrap = h("div.v-chartwrap");
+    const tip = h("div.v-tip");
+    wrap.append(svg, tip);
+    svg.addEventListener("mousemove", (e) => {
+        const r = svg.getBoundingClientRect();
+        const px = ((e.clientX - r.left) / r.width) * W;
+        const i = Math.max(0, Math.min(values.length - 1, Math.round((px - PL) / stepX)));
+        tip.textContent = `${labels[i]} — ${values[i]}`;
+        tip.style.opacity = "1";
+        tip.style.left = Math.min(Math.max((X(i) / W) * r.width, 40), r.width - 50) + "px";
+        tip.style.top = (Y(values[i]) / H) * r.height - 30 + "px";
+    });
+    svg.addEventListener("mouseleave", () => { tip.style.opacity = "0"; });
+    return wrap;
+}
+/** Donut with center label. */
+function chDonut(parts, center, sub) {
+    const total = Math.max(1, parts.reduce((a, p) => a + p.value, 0));
+    const R = 52, C = 2 * Math.PI * R;
+    const svg = sv("svg", { viewBox: "0 0 140 140", class: "v-donut" });
+    let off = C * 0.25;
+    svg.append(sv("circle", { cx: 70, cy: 70, r: R, fill: "none", stroke: "var(--line)", "stroke-width": 14 }));
+    for (const p of parts) {
+        if (!p.value)
+            continue;
+        const len = (p.value / total) * C;
+        svg.append(sv("circle", {
+            cx: 70, cy: 70, r: R, fill: "none", stroke: p.color, "stroke-width": 14,
+            "stroke-dasharray": `${len} ${C - len}`, "stroke-dashoffset": off, "stroke-linecap": "butt",
+        }));
+        off -= len;
+    }
+    const c1 = sv("text", { x: 70, y: 66, class: "dn-c", "text-anchor": "middle" });
+    c1.textContent = center;
+    const c2 = sv("text", { x: 70, y: 84, class: "dn-s", "text-anchor": "middle" });
+    c2.textContent = sub;
+    svg.append(c1, c2);
+    const legend = h("div.v-legend");
+    for (const p of parts)
+        legend.append(h("span.v-legend-it", null, h("i", { style: `background:${p.color}` }), `${p.label} (${p.value})`));
+    return h("div.v-donutwrap", null, svg, legend);
+}
+/** Horizontal bars (label, value, max). */
+function chBars(rows, unit = "") {
+    const max = Math.max(1, ...rows.map(r => r.value));
+    const box = h("div.v-bars");
+    for (const r of rows) {
+        box.append(h("div.v-bar-row", null, h("span.v-bar-label", { title: r.label }, r.label), h("div.v-bar-track", null, h("div.v-bar-fill", { style: `width:${(r.value / max) * 100}%` })), h("span.v-bar-val", null, `${r.value}${unit}${r.hint ? " · " + r.hint : ""}`)));
+    }
+    return box;
+}
+//# sourceMappingURL=charts.js.map
+
+// ── landing.js ──
+/* ── Landing page + sign-in ────────────────────────────────────────── */
+
+
+function heroArt() {
+    const w = h("div.hero-art");
+    w.innerHTML = `
+  <svg viewBox="0 0 420 340" fill="none" aria-hidden="true">
+    <defs>
+      <linearGradient id="hg1" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#d9f5e2"/><stop offset="100%" stop-color="#7ed9a3"/>
+      </linearGradient>
+      <linearGradient id="hg2" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#eefcf3"/><stop offset="100%" stop-color="#b9ecd0"/>
+      </linearGradient>
+    </defs>
+    <ellipse cx="210" cy="300" rx="150" ry="22" fill="#0f172a" opacity=".06"/>
+    <g class="float-b">
+      <rect x="90" y="150" width="150" height="110" rx="14" fill="url(#hg1)" opacity=".95"/>
+      <rect x="90" y="150" width="150" height="110" rx="14" fill="none" stroke="#2f9e63" stroke-opacity=".35"/>
+    </g>
+    <g class="float-a">
+      <rect x="170" y="70" width="170" height="130" rx="14" fill="url(#hg2)"/>
+      <rect x="170" y="70" width="170" height="130" rx="14" fill="none" stroke="#2f9e63" stroke-opacity=".3"/>
+      <path d="M190 102h120M190 126h96M190 150h110" stroke="#2f9e63" stroke-width="7" stroke-linecap="round" opacity=".45"/>
+    </g>
+    <g class="float-c">
+      <circle cx="320" cy="238" r="34" fill="#16a34a"/>
+      <path d="m306 238 9 9 18-19" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </g>
+    <circle cx="96" cy="92" r="7" fill="#16a34a" opacity=".5" class="float-c"/>
+    <circle cx="368" cy="120" r="5" fill="#16a34a" opacity=".35" class="float-b"/>
+  </svg>`;
+    return w;
+}
+const FEATURES = [
+    { icn: "layers", t: "Deep Research", d: "Multi-step agent workflow: planning, web search, source analysis and synthesis — not a single prompt." },
+    { icn: "shield", t: "Trusted Sources", d: "Every claim carries numbered citations. Source credibility is rated and verifiable in one click." },
+    { icn: "file", t: "Knowledge Base", d: "Bring your own PDFs, notes and datasets. Verity uses them to focus the research direction." },
+    { icn: "download", t: "Export & Share", d: "One-click export to PDF, Markdown, Word and HTML with citations included." },
+    { icn: "chart", t: "Research Analytics", d: "Track runs, sources analysed and citation precision across your whole workspace." },
+    { icn: "folder", t: "Projects", d: "Organise reports into projects, keep a searchable archive and return to any finding." },
+];
+const STEPS = [
+    ["Ask", "Describe what you need in plain language — from market analysis to technical deep-dives."],
+    ["Plan", "The agent breaks your question into focused sub-questions and picks the right source types."],
+    ["Search & read", "It searches the web, encyclopedic and academic sources, then reads and scores the results."],
+    ["Report", "You get a structured, cited report with an executive summary — ready to export and share."],
+];
+function renderLanding() {
+    const nav = (label, target) => h("a.land-nav-link", { href: "#", onclick: (e) => { e.preventDefault(); document.getElementById(target)?.scrollIntoView({ behavior: "smooth" }); } }, label);
+    const page = h("div.landing", null, h("header.land-head", null, h("div.land-head-in", null, h("a.brand", { href: "#/" }, h("span.brand-mark", null, icon("logo", 18)), h("span.brand-name", null, "Verity AI")), h("nav.land-nav", null, nav("Features", "features"), nav("How it works", "how"), nav("Pricing", "pricing")), h("div.land-cta", null, h("a.v-btn.ghost", { href: "#/signin" }, "Log in"), h("a.v-btn.primary", { href: "#/signin" }, "Get Started")))), h("section.hero", null, h("div.hero-in", null, h("div.hero-copy", null, h("span.hero-badge", null, icon("spark", 14), "AI Research Agent"), h("h1", { html: "Your Autonomous<br><em>AI Research</em> Agent" }), h("p.hero-sub", null, "Turn complex questions into deep, trustworthy and well-cited research — with web search, multi-source analysis and structured reports."), h("div.hero-actions", null, h("a.v-btn.dark.lg", { href: "#/signin" }, "Get Started", icon("send", 15)), h("a.v-btn.ghost.lg", { href: "#", onclick: (e) => { e.preventDefault(); document.getElementById("how")?.scrollIntoView({ behavior: "smooth" }); } }, "See how it works"))), heroArt()), h("div.hero-chips", null, ...[["layers", "Deep Research", "Multi-step analysis"], ["shield", "Trusted Sources", "Citations & links"],
+        ["image", "Multimodal", "Text, PDF, data, tables"], ["download", "Export & Share", "PDF, MD, Word"]].map(([i, t, d]) => h("div.hero-chip", null, h("span.chip-icn", null, icon(i, 18)), h("div", null, h("strong", null, t), h("span", null, d)))))), h("section.land-sec#features", null, h("div.sec-head", null, h("h2", null, "Research that holds up to scrutiny"), h("p", null, "Built for work where the sources matter as much as the answer.")), h("div.feat-grid", null, ...FEATURES.map(f => h("div.feat-card", null, h("span.feat-icn", null, icon(f.icn, 19)), h("h3", null, f.t), h("p", null, f.d))))), h("section.land-sec.alt#how", null, h("div.sec-head", null, h("h2", null, "How Verity works"), h("p", null, "A real agent pipeline — every step visible while it runs.")), h("div.steps-row", null, ...STEPS.map(([t, d], i) => h("div.step-card", null, h("span.step-n", null, String(i + 1)), h("h3", null, t), h("p", null, d))))), h("section.land-sec#pricing", null, h("div.sec-head", null, h("h2", null, "Simple pricing"), h("p", null, "Start free. Upgrade when your team does.")), h("div.price-grid", null, priceCard("Free", "$0", ["Unlimited local projects", "Standard research depth", "Knowledge base uploads", "All export formats"], false), priceCard("Pro", "$16", ["Everything in Free", "Deep research depth", "Priority model capacity", "Research analytics"], true), priceCard("Team", "$49", ["Everything in Pro", "Shared workspaces", "Admin controls", "Priority support"], false))), h("footer.land-foot", null, h("div.land-foot-in", null, h("a.brand.dim", { href: "#/" }, h("span.brand-mark", null, icon("logo", 16)), h("span.brand-name", null, "Verity AI")), h("span.foot-note", null, `© ${new Date().getFullYear()} Verity AI — autonomous research with verifiable sources.`))));
+    return page;
+}
+function priceCard(name, price, items, hot) {
+    return h("div.price-card" + (hot ? ".hot" : ""), null, hot ? h("span.price-tag", null, "Most popular") : null, h("h3", null, name), h("div.price-amt", null, h("strong", null, price), h("span", null, "/month")), h("ul", null, ...items.map(i => h("li", null, icon("check", 14), i))), h("a.v-btn.block" + (hot ? ".primary" : ".ghost"), { href: "#/signin" }, name === "Free" ? "Get started" : "Start free trial"));
+}
+/* ── Sign in ───────────────────────────────────────────────────────── */
+function renderSignin() {
+    const name = h("input.v-input", { placeholder: "Your name", value: ST.root.user?.name || "" });
+    const email = h("input.v-input", { placeholder: "you@company.com", type: "email", value: ST.root.user?.email || "" });
+    const wsName = h("input.v-input", { placeholder: "Workspace name", value: ST.wsMeta?.name || "Personal Workspace" });
+    const submit = (e) => {
+        e.preventDefault();
+        const n = name.value.trim(), m = email.value.trim();
+        if (!n) {
+            toast("Please enter your name.", "error");
+            name.focus();
+            return;
+        }
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m)) {
+            toast("Please enter a valid email address.", "error");
+            email.focus();
+            return;
+        }
+        ST.signIn(n, m);
+        if (wsName.value.trim())
+            ST.renameWorkspace(ST.root.activeWs, wsName.value.trim());
+        ST.log("signin");
+        location.hash = "#/app";
+    };
+    return h("div.auth-page", null, h("div.auth-card", null, h("a.brand.auth-brand", { href: "#/" }, h("span.brand-mark", null, icon("logo", 18)), h("span.brand-name", null, "Verity AI")), h("h1", null, "Welcome"), h("p.auth-sub", null, "Sign in to your workspace. Your account and research are stored privately in this browser."), h("form.auth-form", { onsubmit: submit }, h("label", null, "Name", name), h("label", null, "Email", email), h("label", null, "Workspace", wsName), h("button.v-btn.primary.block.lg", { type: "submit" }, "Continue", icon("send", 15))), h("p.auth-note", null, "No password needed — this workspace lives in your browser's storage.")));
+}
+//# sourceMappingURL=landing.js.map
+
+// ── shell.js ──
+/* ── App shell: sidebar, topbar, workspace & notifications ─────────── */
+
+
+const NAV = [
+    ["home", "Home", "#/app"],
+    ["folder", "Projects", "#/app/projects"],
+    ["doc", "Reports", "#/app/reports"],
+    ["book", "Knowledge Base", "#/app/kb"],
+    ["chart", "Analytics", "#/app/analytics"],
+];
+function renderShell(active, view) {
+    const collapsed = ST.root.sidebarCollapsed;
+    const navLink = (icn, label, href, cls = "") => h("a.side-link" + cls + (active === href ? ".on" : ""), { href, title: label }, icon(icn, 18), h("span.side-label", null, label));
+    const sidebar = h("aside.side" + (collapsed ? ".collapsed" : ""), null, h("div.side-top", null, h("a.brand", { href: "#/app" }, h("span.brand-mark", null, icon("logo", 18)), h("span.brand-name.side-label", null, "Verity AI")), h("button.v-iconbtn.side-collapse", {
+        title: collapsed ? "Expand sidebar" : "Collapse sidebar",
+        onclick: () => { ST.root.sidebarCollapsed = !ST.root.sidebarCollapsed; ST.save(); rerender(); },
+    }, icon("collapse", 16))), h("a.v-btn.primary.side-new" + (active === "#/app/research" ? ".glow" : ""), { href: "#/app/research", title: "New Research" }, icon("plus", 16), h("span.side-label", null, "New Research")), h("nav.side-nav", null, ...NAV.map(([i, l, hr]) => navLink(i, l, hr))), h("div.side-foot", null, navLink("settings", "Settings", "#/app/settings"), h("a.side-link", { href: "#", onclick: (e) => { e.preventDefault(); helpModal(); } }, icon("help", 18), h("span.side-label", null, "Help"))));
+    /* topbar */
+    const wsBtn = h("button.ws-btn", {
+        onclick: () => popMenu(wsBtn, [
+            ...ST.root.workspaces.map(w => ({
+                label: (w.id === ST.root.activeWs ? "✓ " : "") + w.name, icon: "grid",
+                on: () => { ST.switchWorkspace(w.id); rerender(); },
+            })),
+            { label: "New workspace…", icon: "plus", on: newWorkspaceModal },
+        ]),
+    }, icon("grid", 15), h("span.ws-name", null, ST.wsMeta.name), icon("chevd", 14));
+    const unread = ST.ws.notifs.filter(n => !n.read).length;
+    const bellBtn = h("button.v-iconbtn.bell", { title: "Notifications", onclick: () => notifPopover(bellBtn) }, icon("bell", 18), unread ? h("span.bell-dot", null, String(Math.min(unread, 9))) : null);
+    const initials = (ST.root.user?.name || "U").split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase();
+    const avatar = h("button.avatar", {
+        title: ST.root.user?.name || "Account",
+        onclick: () => popMenu(avatar, [
+            { label: ST.root.user?.name || "Account", icon: "user", on: () => { location.hash = "#/app/settings"; } },
+            { label: "Settings", icon: "settings", on: () => { location.hash = "#/app/settings"; } },
+            { label: "Help & shortcuts", icon: "help", on: helpModal },
+            { label: "Sign out", icon: "logout", danger: true, on: () => { ST.signOut(); location.hash = "#/"; } },
+        ]),
+    }, initials);
+    const topbar = h("header.topbar", null, h("button.v-iconbtn.only-mobile", { "aria-label": "Menu", onclick: () => document.body.classList.toggle("drawer-open") }, icon("menu", 18)), h("div.topbar-spacer"), wsBtn, bellBtn, avatar);
+    const main = h("main.app-main", null, view);
+    const scrim = h("div.drawer-scrim", { onclick: () => document.body.classList.remove("drawer-open") });
+    document.body.classList.remove("drawer-open");
+    return h("div.app" + (collapsed ? ".side-min" : ""), null, sidebar, scrim, h("div.app-right", null, topbar, main));
+}
+function rerender() { window.dispatchEvent(new HashChangeEvent("hashchange")); }
+function newWorkspaceModal() {
+    const inp = h("input.v-input", { placeholder: "e.g. Market Research" });
+    const m = modal({
+        title: "New workspace", sub: "Workspaces keep projects, reports and knowledge separate.",
+        body: h("label.v-field", null, "Workspace name", inp),
+        footer: frag(h("button.v-btn.ghost", { onclick: () => m.close() }, "Cancel"), h("button.v-btn.primary", {
+            onclick: () => {
+                const n = inp.value.trim();
+                if (!n) {
+                    toast("Give the workspace a name.", "error");
+                    return;
+                }
+                ST.addWorkspace(n);
+                m.close();
+                rerender();
+                toast(`Workspace “${n}” created.`);
+            },
+        }, "Create workspace")),
+    });
+    setTimeout(() => inp.focus(), 50);
+}
+function notifPopover(anchor) {
+    document.querySelectorAll(".v-pop").forEach(p => p.remove());
+    const pop = h("div.v-pop.notif-pop");
+    pop.append(h("div.notif-head", null, h("strong", null, "Notifications"), ST.ws.notifs.length ? h("button.v-link", {
+        onclick: () => { ST.markNotifsRead(); pop.remove(); rerender(); },
+    }, "Mark all read") : null));
+    if (!ST.ws.notifs.length) {
+        pop.append(h("p.notif-empty", null, "Nothing yet — finished research will show up here."));
+    }
+    else {
+        for (const n of ST.ws.notifs.slice(0, 8)) {
+            pop.append(h("button.notif-item" + (n.read ? "" : ".unread"), {
+                onclick: () => { pop.remove(); if (n.reportId)
+                    location.hash = "#/app/report/" + n.reportId; },
+            }, h("span.notif-text", null, n.text), h("span.notif-time", null, timeAgo(n.t))));
+        }
+    }
+    document.body.append(pop);
+    const r = anchor.getBoundingClientRect();
+    pop.style.top = r.bottom + 8 + "px";
+    pop.style.left = Math.max(10, Math.min(r.right - pop.offsetWidth, innerWidth - pop.offsetWidth - 10)) + "px";
+    const off = (e) => { if (!pop.contains(e.target)) {
+        pop.remove();
+        document.removeEventListener("click", off, true);
+    } };
+    setTimeout(() => document.addEventListener("click", off, true), 0);
+}
+function helpModal() {
+    const row = (k, d) => h("div.help-row", null, h("kbd", null, k), h("span", null, d));
+    const m = modal({
+        title: "Help",
+        body: frag(h("h4.help-h", null, "How research works"), h("p.help-p", null, "Verity plans sub-questions, searches the web and academic sources, reads what it finds, then writes a cited report. Every run shows its steps live, and every claim links back to a numbered source."), h("h4.help-h", null, "Shortcuts"), row("N", "New research"), row("/", "Focus search on list pages"), row("Esc", "Close dialogs"), h("h4.help-h", null, "Your data"), h("p.help-p", null, "Projects, reports and knowledge-base files are stored privately in this browser (localStorage + IndexedDB). Use Settings → Export data for a full backup.")),
+        footer: h("button.v-btn.primary", { onclick: () => m.close() }, "Got it"),
+    });
+}
+//# sourceMappingURL=shell.js.map
+
+// ── views.js ──
+/* ── Home, Projects, Reports, Knowledge Base, Analytics, Settings ──── */
+
+
+
+/* ═══ HOME ═══ */
+function renderHome() {
+    const user = ST.root.user;
+    const reports = ST.ws.reports;
+    const now = new Date();
+    const hour = now.getHours();
+    const greet = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+    const statCard = (label, value, icn) => h("div.v-card.stat-sm", null, h("span.stat-icn", null, icon(icn, 17)), h("div", null, h("strong", null, value), h("span", null, label)));
+    const totSources = reports.reduce((a, r) => a + r.sources, 0);
+    const avgPrec = reports.length ? Math.round(reports.reduce((a, r) => a + r.precision, 0) / reports.length) : 0;
+    return h("div.page", null, h("div.page-head", null, h("div", null, h("h1", null, `${greet}, ${user?.name?.split(" ")[0] || "researcher"}`), h("p.page-sub", null, "Pick up where you left off, or start something new.")), h("a.v-btn.primary", { href: "#/app/research" }, icon("plus", 15), "New Research")), h("div.stat-row", null, statCard("research runs", String(reports.length), "zap"), statCard("sources analysed", String(totSources), "link"), statCard("avg. citation precision", reports.length ? avgPrec + "%" : "—", "shield"), statCard("knowledge docs", String(ST.ws.docs.length), "book")), h("div.home-grid", null, h("div.v-card", null, h("div.card-head", null, h("h3", null, "Recent reports"), h("a.v-link", { href: "#/app/reports" }, "View all")), reports.length
+        ? h("div.list", null, ...reports.slice(0, 5).map(reportRow))
+        : emptyState("doc", "No research yet", "Run your first research and the report will appear here.", h("a.v-btn.primary.sm", { href: "#/app/research" }, "Start researching"))), h("div.v-card", null, h("div.card-head", null, h("h3", null, "Projects"), h("a.v-link", { href: "#/app/projects" }, "View all")), ST.ws.projects.length
+        ? h("div.list", null, ...ST.ws.projects.slice(0, 5).map(p => h("a.list-row", { href: "#/app/project/" + p.id }, h("span.row-icn.green", null, icon("folder", 16)), h("div.row-main", null, h("strong", null, p.name), h("span", null, `${ST.reportsIn(p.id).length} reports · updated ${timeAgo(p.updated)}`)), icon("back", 14))))
+        : emptyState("folder", "No projects yet", "Group related research into projects to keep things tidy."))));
+}
+function reportRow(r) {
+    return h("a.list-row", { href: "#/app/report/" + r.id }, h("span.row-icn", null, icon("doc", 16)), h("div.row-main", null, h("strong", null, r.question), h("span", null, `${r.sources} sources · ${r.precision}% precision · ${timeAgo(r.created)}`)), icon("back", 14));
+}
+/* ═══ PROJECTS ═══ */
+function renderProjects() {
+    const grid = h("div.proj-grid");
+    const paintGrid = () => {
+        grid.innerHTML = "";
+        if (!ST.ws.projects.length) {
+            grid.append(emptyState("folder", "Organise your research", "Projects group related reports — create one to get started.", h("button.v-btn.primary", { onclick: newProject }, icon("plus", 15), "New Project")));
+            return;
+        }
+        for (const p of ST.ws.projects) {
+            const n = ST.reportsIn(p.id).length;
+            const kebab = h("button.v-iconbtn", {
+                onclick: (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    popMenu(e.currentTarget, [
+                        { label: "Rename", icon: "edit", on: () => renameProject(p.id, paintGrid) },
+                        { label: "Delete", icon: "trash", danger: true, on: () => confirmBox("Delete project?", `Reports inside “${p.name}” are kept — they just leave the project.`, "Delete", () => { ST.deleteProject(p.id); paintGrid(); toast("Project deleted."); }) },
+                    ]);
+                },
+            }, icon("dots", 16));
+            grid.append(h("a.proj-card", { href: "#/app/project/" + p.id }, h("div.proj-top", null, h("span.proj-icn", null, icon("folder", 19)), kebab), h("strong.proj-name", null, p.name), h("span.proj-meta", null, `Updated ${timeAgo(p.updated)} · ${n} report${n === 1 ? "" : "s"}`)));
+        }
+    };
+    paintGrid();
+    function newProject() {
+        const inp = h("input.v-input", { placeholder: "e.g. EV Market Research" });
+        const m = modal({
+            title: "New Project", body: h("label.v-field", null, "Project name", inp),
+            footer: frag(h("button.v-btn.ghost", { onclick: () => m.close() }, "Cancel"), h("button.v-btn.primary", { onclick: () => {
+                    const n = inp.value.trim();
+                    if (!n) {
+                        toast("Give the project a name.", "error");
+                        return;
+                    }
+                    ST.addProject(n);
+                    m.close();
+                    paintGrid();
+                    toast(`Project “${n}” created.`);
+                } }, "Create project")),
+        });
+        setTimeout(() => inp.focus(), 50);
+    }
+    return h("div.page", null, h("div.page-head", null, h("div", null, h("h1", null, "Projects"), h("p.page-sub", null, "Organise your research into projects and keep track of progress.")), h("button.v-btn.primary", { onclick: newProject }, icon("plus", 15), "New Project")), grid);
+}
+function renameProject(id, after) {
+    const p = ST.project(id);
+    if (!p)
+        return;
+    const inp = h("input.v-input", { value: p.name });
+    const m = modal({
+        title: "Rename project", body: h("label.v-field", null, "Project name", inp),
+        footer: frag(h("button.v-btn.ghost", { onclick: () => m.close() }, "Cancel"), h("button.v-btn.primary", { onclick: () => {
+                if (inp.value.trim()) {
+                    ST.renameProject(id, inp.value.trim());
+                    m.close();
+                    after();
+                    toast("Renamed.");
+                }
+            } }, "Save")),
+    });
+    setTimeout(() => { inp.focus(); inp.select(); }, 50);
+}
+function renderProjectDetail(id) {
+    const p = ST.project(id);
+    if (!p)
+        return h("div.page", null, h("p.v-muted", null, "Project not found."));
+    const reports = ST.reportsIn(id);
+    return h("div.page", null, h("a.v-link.back", { href: "#/app/projects" }, icon("back", 15), "All projects"), h("div.page-head", null, h("div", null, h("h1", null, p.name), h("p.page-sub", null, `${reports.length} report${reports.length === 1 ? "" : "s"} · created ${fmtDate(p.created)}`)), h("div", null, h("button.v-btn.ghost", { onclick: () => renameProject(id, () => window.dispatchEvent(new HashChangeEvent("hashchange"))) }, icon("edit", 15), "Rename"), " ", h("a.v-btn.primary", { href: "#/app/research" }, icon("plus", 15), "New Research"))), reports.length
+        ? h("div.v-card", null, h("div.list", null, ...reports.map(reportRow)))
+        : emptyState("doc", "Nothing here yet", "Open any report and use “Add to project” to file it here."));
+}
+/* ═══ REPORTS LIST ═══ */
+function renderReports() {
+    const q = h("input.v-input.search-inp", { placeholder: "Search reports…  ( / )", id: "page-search" });
+    const listBox = h("div.v-card");
+    const paintList = () => {
+        const term = q.value.trim().toLowerCase();
+        const rows = ST.ws.reports.filter(r => !term || r.question.toLowerCase().includes(term));
+        listBox.innerHTML = "";
+        if (!ST.ws.reports.length) {
+            listBox.append(emptyState("doc", "No reports yet", "Everything you research is saved here automatically.", h("a.v-btn.primary.sm", { href: "#/app/research" }, "Start researching")));
+        }
+        else if (!rows.length) {
+            listBox.append(emptyState("search", "No matches", `Nothing matching “${q.value.trim()}”.`));
+        }
+        else {
+            const list = h("div.list");
+            for (const r of rows) {
+                const row = reportRow(r);
+                const kebab = h("button.v-iconbtn", {
+                    onclick: (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        popMenu(e.currentTarget, [
+                            { label: "Delete report", icon: "trash", danger: true, on: () => confirmBox("Delete report?", "This removes it permanently from the workspace.", "Delete", () => { ST.deleteReport(r.id); paintList(); toast("Report deleted."); }) },
+                        ]);
+                    },
+                }, icon("dots", 16));
+                row.append(kebab);
+                list.append(row);
+            }
+            listBox.append(list);
+        }
+    };
+    q.addEventListener("input", debounce(paintList, 150));
+    paintList();
+    return h("div.page", null, h("div.page-head", null, h("div", null, h("h1", null, "Reports"), h("p.page-sub", null, "Every research run in this workspace.")), h("a.v-btn.primary", { href: "#/app/research" }, icon("plus", 15), "New Research")), q, listBox);
+}
+/* ═══ KNOWLEDGE BASE ═══ */
+const KIND_OF = {
+    pdf: "pdf", doc: "doc", docx: "doc", txt: "note", md: "note", markdown: "note",
+    csv: "data", tsv: "data", json: "data", png: "image", jpg: "image", jpeg: "image", webp: "image", gif: "image",
+};
+const TEXT_KINDS = new Set(["txt", "md", "markdown", "csv", "tsv", "json"]);
+function renderKB() {
+    let filter = "all";
+    const q = h("input.v-input.search-inp", { placeholder: "Search your knowledge base…  ( / )", id: "page-search" });
+    const fileInput = h("input", { type: "file", multiple: true, style: "display:none",
+        accept: ".pdf,.doc,.docx,.txt,.md,.csv,.tsv,.json,.png,.jpg,.jpeg,.webp,.gif" });
+    const listBox = h("div.v-card");
+    const chipsRow = h("div.kb-chips");
+    const paintChips = () => {
+        chipsRow.innerHTML = "";
+        const defs = [["all", "All"], ["pdf", "PDFs"], ["note", "Notes"], ["data", "Datasets"], ["image", "Images"]];
+        for (const [k, label] of defs) {
+            chipsRow.append(h("button.kb-chip" + (filter === k ? ".on" : ""), {
+                onclick: () => { filter = k; paintChips(); paintKB(); },
+            }, label));
+        }
+    };
+    const texts = new Map(); // search cache
+    const paintKB = async () => {
+        const term = q.value.trim().toLowerCase();
+        let docs = ST.ws.docs.filter(d => filter === "all" || d.kind === filter || (filter === "pdf" && d.kind === "doc"));
+        if (term) {
+            const out = [];
+            for (const d of docs) {
+                if (d.name.toLowerCase().includes(term)) {
+                    out.push(d);
+                    continue;
+                }
+                if (d.hasText) {
+                    if (!texts.has(d.id)) {
+                        const p = await dbGet("files", d.id);
+                        texts.set(d.id, (p?.text || "").toLowerCase());
+                    }
+                    if (texts.get(d.id).includes(term))
+                        out.push(d);
+                }
+            }
+            docs = out;
+        }
+        listBox.innerHTML = "";
+        if (!ST.ws.docs.length) {
+            listBox.append(emptyState("upload", "Build your knowledge base", "Upload PDFs, notes, datasets and images. Text documents can steer your research runs.", h("button.v-btn.primary.sm", { onclick: () => fileInput.click() }, icon("upload", 15), "Upload files")));
+            return;
+        }
+        if (!docs.length) {
+            listBox.append(emptyState("search", "No matches", "Try a different search or filter."));
+            return;
+        }
+        const list = h("div.list");
+        for (const d of docs)
+            list.append(kbRow(d, () => void paintKB()));
+        listBox.append(list);
+    };
+    fileInput.addEventListener("change", async () => {
+        const files = Array.from(fileInput.files || []);
+        fileInput.value = "";
+        let added = 0;
+        for (const f of files) {
+            if (f.size > 25 * 1024 * 1024) {
+                toast(`“${f.name}” is over 25 MB — skipped.`, "error");
+                continue;
+            }
+            const ext = (f.name.split(".").pop() || "").toLowerCase();
+            const kind = KIND_OF[ext];
+            if (!kind) {
+                toast(`“${f.name}”: unsupported type .${ext}`, "error");
+                continue;
+            }
+            let text = "";
+            if (TEXT_KINDS.has(ext)) {
+                try {
+                    text = (await f.text()).slice(0, 400_000);
+                }
+                catch { /* binary */ }
+            }
+            const id = uid();
+            try {
+                await dbPut("files", id, { blob: f, text });
+                ST.addDoc({ id, name: f.name, kind, size: f.size, added: Date.now(), hasText: !!text, useInResearch: false });
+                ST.log("kb_upload", f.size);
+                added++;
+            }
+            catch {
+                toast(`Couldn't store “${f.name}” locally.`, "error");
+            }
+        }
+        if (added)
+            toast(`${added} file${added === 1 ? "" : "s"} added to your knowledge base.`);
+        void paintKB();
+    });
+    q.addEventListener("input", debounce(() => void paintKB(), 200));
+    paintChips();
+    void paintKB();
+    return h("div.page", null, h("div.page-head", null, h("div", null, h("h1", null, "Knowledge Base"), h("p.page-sub", null, "Upload your own documents, notes and data. Text files can guide new research runs.")), h("button.v-btn.primary", { onclick: () => fileInput.click() }, icon("upload", 15), "Upload")), fileInput, q, chipsRow, listBox);
+}
+function kbRow(d, repaint) {
+    const icn = d.kind === "pdf" ? "doc" : d.kind === "data" ? "database" : d.kind === "image" ? "image" : d.kind === "doc" ? "file" : "edit";
+    const kebab = h("button.v-iconbtn", {
+        onclick: (e) => popMenu(e.currentTarget, [
+            { label: "Preview", icon: "search", on: () => void previewDoc(d) },
+            { label: "Download", icon: "download", on: async () => {
+                    const p = await dbGet("files", d.id);
+                    if (!p) {
+                        toast("File data missing.", "error");
+                        return;
+                    }
+                    const a = document.createElement("a");
+                    a.href = URL.createObjectURL(p.blob);
+                    a.download = d.name;
+                    a.click();
+                    setTimeout(() => URL.revokeObjectURL(a.href), 400);
+                } },
+            { label: "Delete", icon: "trash", danger: true, on: () => confirmBox("Delete file?", `“${d.name}” will be removed from the knowledge base.`, "Delete", () => { ST.deleteDoc(d.id); repaint(); toast("File deleted."); }) },
+        ]),
+    }, icon("dots", 16));
+    return h("div.list-row.kb-row", null, h("span.row-icn.kb-" + d.kind, null, icon(icn, 16)), h("div.row-main", null, h("strong", null, d.name), h("span", null, `${d.kind.toUpperCase()} · ${fmtSize(d.size)} · ${timeAgo(d.added)}` + (d.hasText ? " · usable in research" : ""))), kebab);
+}
+async function previewDoc(d) {
+    const p = await dbGet("files", d.id);
+    if (!p) {
+        toast("File data missing.", "error");
+        return;
+    }
+    let body;
+    if (d.kind === "image") {
+        const img = h("img.kb-preview-img");
+        img.src = URL.createObjectURL(p.blob);
+        body = h("div", null, img);
+    }
+    else if (p.text) {
+        body = h("pre.kb-preview-text", null, p.text.slice(0, 8000) + (p.text.length > 8000 ? "\n…" : ""));
+    }
+    else {
+        body = h("p.v-muted", null, "No inline preview for this file type — use Download to open it locally.");
+    }
+    modal({ title: d.name, sub: `${fmtSize(d.size)} · added ${fmtDate(d.added)}`, body, wide: true });
+}
+/* ═══ ANALYTICS ═══ */
+function renderAnalytics() {
+    let days = 30;
+    const root = h("div.page");
+    const paintA = () => {
+        const since = Date.now() - days * 86400_000;
+        const ev = ST.ws.events.filter(e => e.t >= since);
+        const runs = ev.filter(e => e.type === "run_started").length;
+        const doneEv = ev.filter(e => e.type === "run_done");
+        const sources = doneEv.reduce((a, e) => a + (e.n || 0), 0);
+        const reports = ST.ws.reports.filter(r => r.created >= since);
+        const exportsN = ev.filter(e => e.type === "export").length;
+        const prevSince = since - days * 86400_000;
+        const prevRuns = ST.ws.events.filter(e => e.t >= prevSince && e.t < since && e.type === "run_started").length;
+        const delta = prevRuns ? Math.round(((runs - prevRuns) / prevRuns) * 100) : null;
+        // runs per day series
+        const buckets = Math.min(days, 45);
+        const bucketMs = (days * 86400_000) / buckets;
+        const values = new Array(buckets).fill(0);
+        const labels = [];
+        for (let i = 0; i < buckets; i++) {
+            const t = since + i * bucketMs;
+            labels.push(new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" }));
+        }
+        for (const e of ev)
+            if (e.type === "run_started") {
+                const i = Math.min(buckets - 1, Math.floor((e.t - since) / bucketMs));
+                values[i]++;
+            }
+        const avgPrec = reports.length ? Math.round(reports.reduce((a, r) => a + r.precision, 0) / reports.length) : 0;
+        const statBig = (v, label, sub) => h("div.v-card.stat-big", null, h("strong", null, v), h("span", null, label), sub ? h("em.stat-delta", null, sub) : null);
+        const rangeBtn = h("button.pill-btn", {
+            onclick: () => popMenu(rangeBtn, [7, 30, 90].map(d => ({
+                label: (d === days ? "✓ " : "") + `Last ${d} days`, icon: "clock",
+                on: () => { days = d; paintA(); },
+            }))),
+        }, icon("clock", 14), h("span", null, `Last ${days} Days`), icon("chevd", 13));
+        const byDepth = [
+            { label: "Standard", value: reports.filter(r => r.depth !== "deep").length, color: "var(--green-500)" },
+            { label: "Deep", value: reports.filter(r => r.depth === "deep").length, color: "var(--green-700)" },
+        ];
+        const topReports = reports.slice().sort((a, b) => b.sources - a.sources).slice(0, 6)
+            .map(r => ({ label: r.question.slice(0, 44), value: r.sources, hint: r.precision + "%" }));
+        root.innerHTML = "";
+        root.append(h("div.page-head", null, h("div", null, h("h1", null, "Research Analytics"), h("p.page-sub", null, "Your research activity and usage insights.")), rangeBtn), h("div.stat-row", null, statBig(String(runs), "Research runs", delta === null ? null : (delta >= 0 ? "+" : "") + delta + "% vs previous"), statBig(String(sources), "Sources analysed", null), statBig(String(reports.length), "Reports generated", null), statBig(reports.length ? avgPrec + "%" : "—", "Avg. citation precision", null)), runs || reports.length
+            ? frag(h("div.v-card", null, h("div.card-head", null, h("h3", null, "Research Activity")), chArea(values, labels)), h("div.ana-grid", null, h("div.v-card", null, h("h3", null, "Runs by depth"), chDonut(byDepth, String(reports.length), "reports")), h("div.v-card", null, h("h3", null, "Most-sourced reports"), topReports.length ? chBars(topReports, " src") : h("p.v-muted", null, "Finish a research run to see this."))), h("p.v-muted.ana-note", null, `${exportsN} export${exportsN === 1 ? "" : "s"} in this period.`))
+            : emptyState("chart", "No activity yet", "Run research in this period and your activity will chart here.", h("a.v-btn.primary.sm", { href: "#/app/research" }, "Start researching")));
+    };
+    paintA();
+    return root;
+}
+/* ═══ SETTINGS ═══ */
+function renderSettings() {
+    const u = ST.root.user;
+    const nameI = h("input.v-input", { value: u?.name || "" });
+    const mailI = h("input.v-input", { value: u?.email || "", type: "email" });
+    const wsI = h("input.v-input", { value: ST.wsMeta.name });
+    const wsList = h("div.list");
+    const paintWs = () => {
+        wsList.innerHTML = "";
+        for (const w of ST.root.workspaces) {
+            const kebab = h("button.v-iconbtn", {
+                onclick: (e) => popMenu(e.currentTarget, [
+                    { label: "Switch to", icon: "grid", on: () => { ST.switchWorkspace(w.id); location.reload(); } },
+                    { label: "Delete", icon: "trash", danger: true, on: () => {
+                            if (!ST.deleteWorkspace(w.id)) {
+                                toast("You need at least one workspace.", "error");
+                                return;
+                            }
+                            paintWs();
+                            toast("Workspace deleted.");
+                        } },
+                ]),
+            }, icon("dots", 16));
+            wsList.append(h("div.list-row", null, h("span.row-icn.green", null, icon("grid", 16)), h("div.row-main", null, h("strong", null, w.name + (w.id === ST.root.activeWs ? "  (current)" : "")), h("span", null, `created ${fmtDate(w.created)}`)), kebab));
+        }
+    };
+    paintWs();
+    return h("div.page.settings-page", null, h("div.page-head", null, h("div", null, h("h1", null, "Settings"), h("p.page-sub", null, "Profile, workspaces and your data."))), h("div.v-card", null, h("h3", null, "Profile"), h("div.set-grid", null, h("label.v-field", null, "Name", nameI), h("label.v-field", null, "Email", mailI)), h("button.v-btn.primary.sm", { onclick: () => {
+            if (!nameI.value.trim()) {
+                toast("Name can't be empty.", "error");
+                return;
+            }
+            ST.signIn(nameI.value.trim(), mailI.value.trim());
+            toast("Profile saved.");
+            window.dispatchEvent(new HashChangeEvent("hashchange"));
+        } }, "Save profile")), h("div.v-card", null, h("h3", null, "Current workspace"), h("div.set-grid", null, h("label.v-field", null, "Workspace name", wsI)), h("button.v-btn.primary.sm", { onclick: () => {
+            if (wsI.value.trim()) {
+                ST.renameWorkspace(ST.root.activeWs, wsI.value.trim());
+                toast("Workspace renamed.");
+                window.dispatchEvent(new HashChangeEvent("hashchange"));
+            }
+        } }, "Rename workspace"), h("h3.set-sub", null, "All workspaces"), wsList), h("div.v-card", null, h("h3", null, "Your data"), h("p.v-muted", null, "Reports, projects and analytics live in this browser. Export a backup any time; knowledge-base file contents are not included in the JSON backup."), h("div.set-actions", null, h("button.v-btn.ghost.sm", { onclick: exportData }, icon("download", 15), "Export data (JSON)"), h("button.v-btn.danger.sm", { onclick: () => confirmBox("Clear this workspace?", "All projects, reports, knowledge files and analytics in this workspace will be permanently removed.", "Clear workspace", async () => {
+            for (const r of ST.ws.reports)
+                await dbDel("reports", r.id);
+            for (const d of ST.ws.docs)
+                await dbDel("files", d.id);
+            ST.root.byWs[ST.root.activeWs] = { projects: [], reports: [], docs: [], events: [], notifs: [] };
+            ST.save();
+            toast("Workspace cleared.");
+            window.dispatchEvent(new HashChangeEvent("hashchange"));
+        }) }, icon("trash", 15), "Clear workspace"))));
+}
+function exportData() {
+    const data = JSON.stringify(ST.root, null, 2);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([data], { type: "application/json" }));
+    a.download = "verity-backup.json";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 400);
+    toast("Backup downloaded.");
+}
+//# sourceMappingURL=views.js.map
+
+// ── research.js ──
+/* ── Research: input screen + live progress ────────────────────────── */
+
+
+
+const SUGGESTIONS = [
+    "Compare LLMs for enterprise use",
+    "EV market in India 2026",
+    "AI in healthcare — current evidence",
+    "Semiconductor supply chain risks",
+];
+let live = null;
+function renderResearchHome() {
+    const ta = h("textarea.ask-input", {
+        placeholder: "e.g., “Analyse the impact of generative AI on the job market in India”",
+        rows: 3,
+    });
+    let depth = "standard";
+    const depthBtn = h("button.pill-btn", {
+        onclick: () => popMenu(depthBtn, [
+            { label: "Standard — fast, focused (recommended)", icon: "zap", on: () => { depth = "standard"; depthLabel.textContent = "Standard"; } },
+            { label: "Deep — more sources and checks", icon: "layers", on: () => { depth = "deep"; depthLabel.textContent = "Deep Research"; } },
+        ]),
+    }, icon("layers", 15), undefined);
+    const depthLabel = h("span", null, "Standard");
+    depthBtn.append(depthLabel, icon("chevd", 13));
+    /* knowledge-base context picker */
+    const usable = ST.ws.docs.filter(d => d.hasText);
+    const picked = new Set();
+    const filesBtn = h("button.pill-btn", {
+        onclick: () => {
+            if (!usable.length) {
+                toast("Upload notes, markdown or CSV files to the Knowledge Base first.", "error");
+                return;
+            }
+            popMenu(filesBtn, usable.map(d => ({
+                label: (picked.has(d.id) ? "✓ " : "") + d.name, icon: "file",
+                on: () => { picked.has(d.id) ? picked.delete(d.id) : picked.add(d.id); syncFiles(); },
+            })));
+        },
+    }, icon("file", 15), undefined);
+    const filesLabel = h("span", null, "Files");
+    filesBtn.append(filesLabel, icon("chevd", 13));
+    const syncFiles = () => {
+        filesLabel.textContent = picked.size ? `Files (${picked.size})` : "Files";
+        filesBtn.classList.toggle("on", picked.size > 0);
+    };
+    const start = async () => {
+        const q = ta.value.trim();
+        if (q.length < 8) {
+            toast("Describe what you want to research (a full question works best).", "error");
+            ta.focus();
+            return;
+        }
+        const context = [];
+        for (const id of picked) {
+            const docMeta = ST.ws.docs.find(d => d.id === id);
+            const payload = await dbGet("files", id);
+            if (docMeta && payload?.text)
+                context.push({ name: docMeta.name, text: payload.text.slice(0, 2500) });
+        }
+        beginRun(q, depth, context);
+    };
+    ta.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            void start();
+        }
+    });
+    const recent = ST.ws.reports.slice(0, 3);
+    return h("div.page.ask-page", null, h("div.ask-hero", null, h("h1", null, "What do you want to research today?"), h("p.ask-sub", null, "Ask anything, from market analysis to complex technical topics."), h("div.ask-card", null, ta, h("div.ask-row", null, h("div.ask-row-left", null, depthBtn, h("span.pill-static", { title: "Verity always researches with live web search" }, icon("globe", 15), "Web"), filesBtn), h("button.v-btn.primary.send-btn", { "aria-label": "Start research", onclick: () => void start() }, icon("send", 17)))), h("div.ask-sugs", null, ...SUGGESTIONS.map(s => h("button.sug", { onclick: () => { ta.value = s; ta.focus(); } }, h("span", null, s), icon("external", 13)))), recent.length ? h("div.ask-recent", null, h("h3", null, "Recent research"), ...recent.map(r => h("a.recent-row", { href: "#/app/report/" + r.id }, icon("doc", 16), h("span.recent-q", null, r.question), h("span.recent-meta", null, `${r.sources} sources`)))) : null));
+}
+/* ── live progress ─────────────────────────────────────────────────── */
+function beginRun(q, depth, context) {
+    const steps = [
+        "Understanding your query", "Planning research steps", "Searching the web",
+        "Reading and analysing sources", "Synthesising insights", "Generating structured report",
+    ].map((label, i) => ({ label, state: (i === 0 ? "doing" : "todo") }));
+    live = { q, depth, run: null, steps, feed: [], draft: "", startedAt: Date.now() };
+    ST.log("run_started", undefined, q);
+    location.hash = "#/app/progress";
+    let sourceCount = 0, searchCount = 0;
+    const setStep = (i) => {
+        for (let k = 0; k < live.steps.length; k++)
+            live.steps[k].state = k < i ? "done" : k === i ? "doing" : "todo";
+        paintProgress();
+    };
+    const feed = (icn, text) => {
+        live.feed.unshift({ icn, text });
+        live.feed = live.feed.slice(0, 30);
+        paintProgress();
+    };
+    const finish = async (r) => {
+        const id = uid();
+        const secs = Math.round((Date.now() - live.startedAt) / 1000);
+        await dbPut("reports", id, r);
+        ST.addReport({
+            id, question: r.question || q, created: Date.now(),
+            sources: r.sources?.length || 0,
+            precision: Math.round((r.score?.citation_precision || 0) * 100),
+            claims: r.score?.claims || r.claims?.length || 0, depth, secs,
+        });
+        ST.log("run_done", r.sources?.length || 0);
+        ST.notify(`Report ready — ${(r.question || q).slice(0, 70)}`, id);
+        live = null;
+        location.hash = "#/app/report/" + id;
+    };
+    live.run = runResearch(q, depth, context, {
+        status(msg) {
+            if (/writing report/i.test(msg))
+                setStep(4);
+            else if (/verifying/i.test(msg))
+                setStep(5);
+            if (/unavailable|extractive/i.test(msg))
+                feed("alert", msg);
+            else
+                feed("clock", msg);
+        },
+        plan(subs) { setStep(2); feed("check", `Planned ${subs.length} research angles`); for (const s of subs)
+            feed("spark", s.question); },
+        search(query) { searchCount++; setStep(2); feed("search", `Searching: ${query}`); },
+        source(s) {
+            sourceCount++;
+            setStep(3);
+            feed("link", `Source [${s.id}] ${s.title}`);
+            const el = document.getElementById("prog-count");
+            if (el)
+                el.textContent = `${sourceCount} sources`;
+        },
+        draft(body) { live && (live.draft = body); setStep(5); feed("doc", "Draft report written"); },
+        report(r) { void finish(r); },
+        error(msg) {
+            ST.log("run_error");
+            if (live?.draft) {
+                // We still have a written draft — salvage it as the report
+                void finish({
+                    question: q, markdown: live.draft, body: live.draft,
+                    score: { supported: 0, partial: 0, unsupported: 0, citation_precision: 0, claims: 0 },
+                    sources: [], claims: [], plan: [], conflicts: [],
+                });
+                return;
+            }
+            if (live) {
+                live.run = null;
+                paintProgress(msg);
+            }
+        },
+    });
+    paintProgress();
+}
+function renderProgress() {
+    if (!live) {
+        location.hash = "#/app/research";
+        return h("div");
+    }
+    return h("div.page.prog-page#prog-root");
+}
+function paintProgress(error) {
+    const root = document.getElementById("prog-root");
+    if (!root || !live)
+        return;
+    const doneCount = live.steps.filter(s => s.state === "done").length;
+    const current = live.steps.find(s => s.state === "doing");
+    root.innerHTML = "";
+    if (error) {
+        root.append(h("div.prog-error", null, h("span.prog-err-icn", null, icon("alert", 22)), h("h2", null, "Research couldn't finish"), h("p", null, error), h("div.prog-err-actions", null, h("button.v-btn.primary", { onclick: () => beginRun(live.q, live.depth, []) }, icon("refresh", 15), "Try again"), h("button.v-btn.ghost", { onclick: () => { live = null; location.hash = "#/app/research"; } }, "Back to research"))));
+        return;
+    }
+    root.append(h("div.prog-head", null, h("h1", null, h("span.pulse-dot"), "Research in progress…"), h("p", null, "Analysing, searching, and synthesising information from multiple sources."), h("p.prog-q", null, "“", live.q, "”")), h("div.prog-grid", null, h("div.prog-steps", null, ...live.steps.map(s => h("div.prog-step." + s.state, null, h("span.step-dot", null, s.state === "done" ? icon("check", 12) : null), h("span", null, s.label)))), h("div.prog-side", null, h("div.prog-visual", null, progressArt(), h("div.prog-stat", null, h("strong", null, `Step ${Math.min(doneCount + 1, 6)} / 6`), h("span#prog-count", null, current ? current.label : "Working…"))), h("div.prog-feed", null, h("h3", null, "Agent activity"), h("div.prog-feed-list", null, ...live.feed.map(f => h("div.feed-row", null, icon(f.icn, 14), h("span", null, f.text))))), h("button.v-btn.ghost.prog-cancel", {
+        onclick: () => { live?.run?.cancel(); live = null; location.hash = "#/app/research"; },
+    }, "Cancel research"))));
+}
+function progressArt() {
+    const w = h("div.prog-art");
+    w.innerHTML = `<svg viewBox="0 0 200 120" aria-hidden="true">
+    <defs><radialGradient id="pg" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#34d399" stop-opacity=".9"/><stop offset="100%" stop-color="#065f46" stop-opacity=".15"/>
+    </radialGradient></defs>
+    <rect width="200" height="120" rx="10" fill="#07120c"/>
+    <circle cx="100" cy="58" r="38" fill="url(#pg)" opacity=".8"/>
+    <g stroke="#6ee7b7" stroke-width=".7" fill="none" opacity=".75">
+      <ellipse cx="100" cy="58" rx="38" ry="13"/><ellipse cx="100" cy="58" rx="38" ry="26" opacity=".5"/>
+      <ellipse cx="100" cy="58" rx="13" ry="38" opacity=".5"/><circle cx="100" cy="58" r="38" opacity=".6"/>
+    </g>
+    <g fill="#a7f3d0"><circle cx="70" cy="40" r="1.6" class="tw1"/><circle cx="135" cy="70" r="1.6" class="tw2"/>
+    <circle cx="112" cy="30" r="1.3" class="tw3"/><circle cx="85" cy="82" r="1.3" class="tw1"/></g>
+  </svg>`;
+    return w;
+}
+//# sourceMappingURL=research.js.map
+
+// ── report.js ──
+/* ── Report view: overview, findings, analysis, sources, export ────── */
+
+
+
+
+let curTab = "overview";
+function renderReport(id) {
+    const meta = ST.reportMeta(id);
+    const root = h("div.page.rep-page", null, spinner("Loading report…"));
+    if (!meta) {
+        root.innerHTML = "";
+        root.append(h("p.v-muted", null, "This report was not found in the current workspace."));
+        return root;
+    }
+    void dbGet("reports", id).then(r => {
+        root.innerHTML = "";
+        if (!r) {
+            root.append(h("p.v-muted", null, "Report data is missing from local storage."));
+            return;
+        }
+        curTab = "overview";
+        paint(root, id, meta, r);
+    });
+    return root;
+}
+function paint(root, id, meta, r) {
+    const tabs = [
+        ["overview", "Overview"], ["findings", "Key Findings"], ["analysis", "Analysis"],
+        ["sources", `Sources (${r.sources.length})`],
+    ];
+    const body = h("div.rep-body");
+    const tabBar = h("div.rep-tabs", null, ...tabs.map(([k, label]) => h("button.rep-tab" + (curTab === k ? ".on" : ""), {
+        onclick: (e) => {
+            curTab = k;
+            tabBar.querySelectorAll(".rep-tab").forEach(t => t.classList.remove("on"));
+            e.currentTarget.classList.add("on");
+            paintTab(body, k, meta, r);
+        },
+    }, label)));
+    const projBtn = h("button.v-btn.ghost.sm", {
+        onclick: () => {
+            const items = ST.ws.projects.map(p => ({
+                label: (meta.projectId === p.id ? "✓ " : "") + p.name, icon: "folder",
+                on: () => { ST.assignReport(id, meta.projectId === p.id ? undefined : p.id); toast("Project updated."); refreshProjLabel(); },
+            }));
+            items.push({ label: "New project…", icon: "plus", on: () => {
+                    const name = prompt("Project name");
+                    if (name?.trim()) {
+                        const p = ST.addProject(name.trim());
+                        ST.assignReport(id, p.id);
+                        refreshProjLabel();
+                        toast(`Added to “${p.name}”.`);
+                    }
+                } });
+            popMenu(projBtn, items);
+        },
+    }, icon("folder", 15), undefined);
+    const projLabel = h("span", null, "");
+    projBtn.append(projLabel, icon("chevd", 13));
+    const refreshProjLabel = () => {
+        const p = meta.projectId ? ST.project(meta.projectId) : undefined;
+        projLabel.textContent = p ? p.name : "Add to project";
+    };
+    refreshProjLabel();
+    root.append(h("div.rep-topline", null, h("a.v-link.back", { href: "#/app/reports" }, icon("back", 15), "Back to Reports"), h("div.rep-actions", null, projBtn, h("button.v-btn.ghost.sm", { onclick: () => exportModal(meta, r) }, icon("download", 15), "Export", icon("chevd", 13)), h("button.v-btn.primary.sm", { onclick: () => shareModal(meta, r) }, icon("share", 15), "Share"), h("button.v-iconbtn", {
+        title: "More", onclick: (e) => popMenu(e.currentTarget, [
+            { label: "Ask a follow-up", icon: "help", on: () => askPanel(r) },
+            { label: "Delete report", icon: "trash", danger: true, on: () => confirmBox("Delete report?", "This removes the report from your workspace permanently.", "Delete", () => {
+                    ST.deleteReport(id);
+                    toast("Report deleted.");
+                    location.hash = "#/app/reports";
+                }) },
+        ]),
+    }, icon("dots", 16)))), h("h1.rep-title", null, r.question || meta.question), tabBar, body);
+    paintTab(body, curTab, meta, r);
+}
+/* ── tabs ──────────────────────────────────────────────────────────── */
+function paintTab(body, tab, meta, r) {
+    body.innerHTML = "";
+    if (tab === "overview")
+        return overviewTab(body, meta, r);
+    if (tab === "findings")
+        return findingsTab(body, r);
+    if (tab === "analysis")
+        return analysisTab(body, meta, r);
+    if (tab === "sources")
+        return sourcesTab(body, r);
+}
+function firstParagraph(markdown) {
+    for (const block of markdown.split(/\n{2,}/)) {
+        const t = block.trim();
+        if (t && !t.startsWith("#") && !t.startsWith("*The language model") && t.length > 80)
+            return t;
+    }
+    return markdown.slice(0, 400);
+}
+function overviewTab(body, meta, r) {
+    const takeaways = r.claims.slice(0, 4);
+    const stat = h("div.rep-stat-card", null, h("span.rep-stat-label", null, "Research snapshot"), h("div.rep-stat-num", null, String(r.sources.length)), h("span.rep-stat-sub", null, "sources analysed"), h("div.rep-stat-row", null, h("span", null, "Cited claims"), h("strong", null, String(r.score.claims || r.claims.length))), h("div.rep-stat-row", null, h("span", null, "Citation precision"), h("strong", null, meta.precision + "%")), h("div.rep-stat-row", null, h("span", null, "Depth"), h("strong", null, meta.depth === "deep" ? "Deep" : "Standard")), h("div.rep-stat-row", null, h("span", null, "Completed"), h("strong", null, fmtDate(meta.created))));
+    body.append(h("div.rep-overview-grid", null, h("div", null, h("div.exec-card", null, h("h3", null, "Executive Summary"), h("div.exec-text", { html: md(firstParagraph(r.markdown)) })), takeaways.length ? h("div.takeaways", null, h("h3", null, "Key Takeaways"), ...takeaways.map(c => h("div.tk-row", null, h("span.tk-icn." + labelClass(c.label), null, icon(labelIcon(c.label), 13)), h("span", { html: inlineMd(c.text) })))) : null), stat), h("article.rep-article", { html: md(r.markdown) }));
+    wireCites(body, r);
+}
+function findingsTab(body, r) {
+    if (!r.claims.length) {
+        body.append(h("p.v-muted", null, "No individual claims were extracted for this report (citation verification was skipped to stay within the time limit)."));
+        body.append(h("article.rep-article", { html: md(r.markdown) }));
+        return;
+    }
+    const groups = [
+        ["supported", "Verified findings", r.claims.filter(c => c.label === "supported")],
+        ["partial", "Partially supported", r.claims.filter(c => c.label === "partial")],
+        ["unchecked", "Awaiting verification", r.claims.filter(c => c.label !== "supported" && c.label !== "partial" && c.label !== "unsupported")],
+        ["unsupported", "Not supported by sources", r.claims.filter(c => c.label === "unsupported")],
+    ];
+    for (const [cls, title, claims] of groups) {
+        if (!claims.length)
+            continue;
+        body.append(h("h3.find-h." + cls, null, icon(labelIcon(cls), 15), `${title} (${claims.length})`));
+        for (const c of claims) {
+            body.append(h("div.find-card." + cls, null, h("p", { html: inlineMd(c.text) }), h("div.find-meta", null, ...c.cites.map(n => h("button.cite-chip", {
+                onclick: () => { curTabSet("sources"); },
+            }, `[${n}] ${r.sources.find(s => s.id === n)?.title.slice(0, 40) || "source"}`)), c.reason ? h("span.find-reason", null, c.reason) : null)));
+        }
+    }
+}
+function analysisTab(body, meta, r) {
+    const s = r.score;
+    const donut = chDonut([
+        { label: "Supported", value: s.supported, color: "var(--green-600)" },
+        { label: "Partial", value: s.partial, color: "#f59e0b" },
+        { label: "Unsupported", value: s.unsupported, color: "#ef4444" },
+        { label: "Unchecked", value: Math.max(0, (s.claims || r.claims.length) - s.supported - s.partial - s.unsupported), color: "#cbd5e1" },
+    ], meta.precision + "%", "citation precision");
+    const credOrder = { high: 3, medium: 2, low: 1 };
+    const credRows = r.sources
+        .slice().sort((a, b) => (credOrder[b.credibility] || 0) - (credOrder[a.credibility] || 0))
+        .map(src => ({ label: `[${src.id}] ${hostOf(src.url)}`, value: credOrder[src.credibility] || 1, hint: src.credibility }));
+    body.append(frag(h("div.ana-grid", null, h("div.v-card", null, h("h3", null, "Claim verification"), donut), h("div.v-card", null, h("h3", null, "Source credibility"), chBars(credRows))), r.plan?.length ? h("div.v-card.ana-plan", null, h("h3", null, "Research plan the agent followed"), h("ol.plan-list", null, ...r.plan.map(p => h("li", null, h("strong", null, p.question), h("span.plan-q", null, ` — searched “${p.query}” (${p.source})`))))) : null, r.conflicts?.length ? h("div.v-card", null, h("h3", null, "Source disagreements"), ...r.conflicts.map(c => h("p.v-muted", null, String(c.topic || "")))) : null));
+}
+function sourcesTab(body, r) {
+    if (!r.sources.length) {
+        body.append(h("p.v-muted", null, "No sources were captured for this run."));
+        return;
+    }
+    for (const s of r.sources) {
+        body.append(h("div.src-card#src-" + s.id, null, h("span.src-n", null, String(s.id)), h("div.src-main", null, h("div.src-top", null, h("strong.src-title", null, s.title), h("a.v-iconbtn", { href: s.url, target: "_blank", rel: "noopener", title: "Open source" }, icon("external", 15))), h("a.src-url", { href: s.url, target: "_blank", rel: "noopener" }, s.url), h("div.src-meta", null, h("span.src-badge." + s.credibility, null, s.credibility + " credibility"), h("span.src-host", null, hostOf(s.url)), s.date ? h("span.src-date", null, s.date) : null), s.passages?.length ? h("details.src-quote", null, h("summary", null, "Key passage used"), h("blockquote", null, s.passages[0].slice(0, 500) + (s.passages[0].length > 500 ? "…" : ""))) : null)));
+    }
+}
+/* ── follow-up ask ─────────────────────────────────────────────────── */
+function askPanel(r) {
+    const history = [];
+    const log = h("div.ask-log");
+    const inp = h("input.v-input", { placeholder: "Ask about this report…" });
+    const send = async () => {
+        const q = inp.value.trim();
         if (!q)
             return;
-        input.value = "";
-        $("cb").disabled = true;
-        $("chat").insertAdjacentHTML("beforeend", `<div class="msg user"><div class="msg-avatar">You</div><div class="msg-content">${esc(q)}</div></div>` +
-            `<div class="msg bot empty" id="pending"><div class="msg-avatar">AI</div><div class="msg-content">` +
-            `<div class="typing-indicator"><span></span><span></span><span></span></div></div></div>`);
-        $("chat").scrollTop = $("chat").scrollHeight;
-        try {
-            const r = await askFollowUp(current.id, q, chatHistory);
-            const p = $("pending");
-            p.removeAttribute("id");
-            p.classList.remove("empty");
-            const content = p.querySelector(".msg-content");
-            if (r.error) {
-                content.innerHTML = `<span class="bad">${esc(r.error)}</span>`;
-            }
-            else {
-                content.innerHTML =
-                    renderMarkdown(r.answer || "") +
-                        `<div class="usage" style="margin-top:8px">citation precision ${pct(r.score?.citation_precision)}</div>`;
-                chatHistory.push({ role: "user", content: q }, { role: "assistant", content: r.answer || "" });
-            }
+        inp.value = "";
+        log.append(h("div.ask-msg.me", null, q));
+        const wait = h("div.ask-msg.ai", null, spinner("Thinking…"));
+        log.append(wait);
+        log.scrollTop = log.scrollHeight;
+        const res = await askFollowup(r, q, history);
+        wait.remove();
+        if ("error" in res) {
+            log.append(h("div.ask-msg.ai.err", null, "Couldn't answer: " + res.error));
         }
-        catch {
-            const p = document.getElementById("pending");
-            if (p) {
-                const content = p.querySelector(".msg-content");
-                if (content)
-                    content.textContent = "Request failed";
-            }
+        else {
+            history.push({ role: "user", content: q }, { role: "assistant", content: res.answer });
+            log.append(h("div.ask-msg.ai", { html: md(res.answer) }));
         }
-        $("cb").disabled = false;
-        $("chat").scrollTop = $("chat").scrollHeight;
+        log.scrollTop = log.scrollHeight;
+    };
+    inp.addEventListener("keydown", e => { if (e.key === "Enter")
+        void send(); });
+    modal({
+        title: "Ask a follow-up", sub: "Answers stay grounded in this report's sources.",
+        wide: true,
+        body: frag(log, h("div.ask-sendrow", null, inp, h("button.v-btn.primary", { onclick: () => void send() }, icon("send", 15)))),
+    });
+    setTimeout(() => inp.focus(), 60);
+}
+/* ── export & share ────────────────────────────────────────────────── */
+function buildMarkdown(r, inc) {
+    let out = r.markdown;
+    if (!inc.src)
+        out = out.replace(/\n## Sources[\s\S]*$/, "");
+    if (inc.sum)
+        out = out; // summary is part of the report body
+    return out;
+}
+function download(name, mime, content) {
+    const blob = content instanceof Blob ? content : new Blob([content], { type: mime });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.append(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 400);
+}
+function reportHtml(r, inc) {
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(r.question)}</title>
+<style>body{font:15px/1.65 -apple-system,Segoe UI,Roboto,sans-serif;color:#1a2332;max-width:760px;margin:40px auto;padding:0 20px}
+h1,h2,h3{line-height:1.25}a{color:#15803d}sup{color:#15803d;font-weight:600}blockquote{border-left:3px solid #d1d5db;margin:0;padding:4px 14px;color:#475467}</style>
+</head><body>${md(buildMarkdown(r, inc))}<hr><p style="color:#98a2b3;font-size:13px">Generated by Verity AI</p></body></html>`;
+}
+function exportModal(meta, r) {
+    let fmt = "pdf";
+    const inc = { src: true, charts: true, sum: true };
+    const fmts = [
+        ["pdf", "PDF", "Best for sharing"], ["md", "Markdown", "For docs and GitHub"],
+        ["doc", "Word (.doc)", "Editable document"], ["html", "HTML", "Self-contained page"],
+    ];
+    const cards = h("div.exp-grid", null, ...fmts.map(([k, name, sub]) => h("button.exp-card" + (fmt === k ? ".on" : ""), {
+        onclick: (e) => {
+            fmt = k;
+            cards.querySelectorAll(".exp-card").forEach(c => c.classList.remove("on"));
+            e.currentTarget.classList.add("on");
+        },
+    }, h("span.exp-icn." + k, null, icon(k === "pdf" ? "doc" : k === "md" ? "file" : k === "doc" ? "edit" : "globe", 18)), h("strong", null, name), h("span", null, sub))));
+    const tgl = (key, label) => {
+        const b = h("button.v-toggle" + (inc[key] ? ".on" : ""), {
+            role: "switch", "aria-checked": String(inc[key]),
+            onclick: () => { inc[key] = !inc[key]; b.classList.toggle("on", inc[key]); b.setAttribute("aria-checked", String(inc[key])); },
+        }, h("span.v-knob"));
+        return h("div.exp-opt", null, h("span", null, label), b);
+    };
+    const slug = (r.question || "report").toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 50);
+    const m = modal({
+        title: "Export Report", sub: "Choose your export format and options.",
+        body: frag(cards, h("div.exp-opts", null, tgl("src", "Include sources and citations"), tgl("charts", "Include charts and tables"), tgl("sum", "Include executive summary"))),
+        footer: frag(h("button.v-btn.ghost", { onclick: () => m.close() }, "Cancel"), h("button.v-btn.primary", {
+            onclick: () => {
+                const mdText = buildMarkdown(r, inc);
+                if (fmt === "md")
+                    download(slug + ".md", "text/markdown", mdText);
+                else if (fmt === "html")
+                    download(slug + ".html", "text/html", reportHtml(r, inc));
+                else if (fmt === "doc")
+                    download(slug + ".doc", "application/msword", reportHtml(r, inc));
+                else
+                    printPdf(r, inc);
+                ST.log("export", undefined, fmt);
+                m.close();
+                toast(fmt === "pdf" ? "Print dialog opened — choose “Save as PDF”." : "Export downloaded.");
+            },
+        }, icon("download", 15), "Export")),
     });
 }
-// ── Download ──────────────────────────────────────────
-function initDownload() {
-    // Handled in initExportMenu
+function printPdf(r, inc) {
+    const w = window.open("", "_blank");
+    if (!w) {
+        toast("Allow pop-ups to export as PDF.", "error");
+        return;
+    }
+    w.document.write(reportHtml(r, inc));
+    w.document.close();
+    setTimeout(() => { w.focus(); w.print(); }, 250);
 }
-// ── Trace filter buttons ─────────────────────────────
-function initTraceFilter() {
-    document.querySelectorAll(".trace-filter-btn").forEach((btn) => {
-        btn.addEventListener("click", () => {
-            const filter = btn.dataset.filter || "all";
-            document.querySelectorAll(".trace-filter-btn").forEach((b) => b.classList.remove("active"));
-            btn.classList.add("active");
-            document.querySelectorAll(".trace-entry").forEach((entry) => {
-                if (filter === "all") {
-                    entry.style.display = "";
+function shareModal(meta, r) {
+    const summary = `${r.question}\n\n${firstParagraph(r.markdown).replace(/\[\d+\]/g, "")}\n\n— researched with Verity AI (${r.sources.length} sources, ${meta.precision}% citation precision)`;
+    const ta = h("textarea.v-input.share-ta", { rows: 7 });
+    ta.value = summary;
+    const m = modal({
+        title: "Share report", sub: "Copy a summary, or export a file to attach.",
+        body: frag(ta),
+        footer: frag(h("button.v-btn.ghost", { onclick: () => { exportModal(meta, r); m.close(); } }, icon("download", 15), "Export file instead"), h("button.v-btn.primary", {
+            onclick: async () => {
+                try {
+                    await navigator.clipboard.writeText(ta.value);
+                    toast("Summary copied to clipboard.");
                 }
-                else {
-                    entry.style.display = entry.dataset.type === filter ? "" : "none";
+                catch {
+                    ta.select();
+                    document.execCommand("copy");
+                    toast("Summary copied.");
                 }
-            });
+                ST.log("share");
+                m.close();
+            },
+        }, icon("copy", 15), "Copy summary")),
+    });
+}
+/* ── small helpers ─────────────────────────────────────────────────── */
+function labelClass(l) {
+    return l === "supported" ? "ok" : l === "partial" ? "mid" : l === "unsupported" ? "bad" : "na";
+}
+function labelIcon(l) {
+    return l === "supported" ? "check" : l === "partial" ? "alert" : l === "unsupported" ? "x" : "clock";
+}
+function inlineMd(t) {
+    return esc(t).replace(/\[(\d{1,2})\]/g, '<sup class="cite">[$1]</sup>');
+}
+function curTabSet(tab) {
+    const btns = document.querySelectorAll(".rep-tab");
+    btns.forEach((b, i) => {
+        const keys = ["overview", "findings", "analysis", "sources"];
+        if (keys[i] === tab)
+            b.click();
+    });
+}
+function wireCites(scope, r) {
+    scope.querySelectorAll("sup.cite[data-cite]").forEach(el => {
+        el.addEventListener("click", () => {
+            curTabSet("sources");
+            setTimeout(() => document.getElementById("src-" + el.getAttribute("data-cite"))?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
         });
     });
 }
-// ── History sidebar ───────────────────────────────────
-async function loadHistory() {
-    try {
-        const items = await fetchHistory();
-        if (!items.length)
-            return;
-        $("history").classList.remove("empty");
-        $("history").innerHTML = items
-            .map((i) => `<a class="hist" data-id="${esc(i.id)}">` +
-            `<span class="hist-title">${esc(i.question)}</span>` +
-            `<div class="hist-meta">` +
-            `<small>${i.precision != null ? pct(i.precision) + " precision" : ""}</small>` +
-            `</div></a>`)
-            .join("");
-        document.querySelectorAll(".hist").forEach((a) => {
-            a.addEventListener("click", async () => {
-                const id = a.dataset.id;
-                if (!id)
-                    return;
-                // Highlight selected
-                document.querySelectorAll(".hist").forEach((x) => x.classList.remove("hist-active"));
-                a.classList.add("hist-active");
-                const d = await fetchReport(id);
-                $("log").innerHTML = '<div class="trace-entry">Loaded saved report.</div>';
-                $("q").value = d.question;
-                showReport(d);
-                toast("Loaded: " + d.question.slice(0, 40), "info");
-            });
-        });
-    }
-    catch {
-        // silently fail — history is optional
-    }
-}
-//# sourceMappingURL=app.js.map
+//# sourceMappingURL=report.js.map
 
-// ── Bootstrap ──
-document.addEventListener("DOMContentLoaded", init);
+// ── main.js ──
+/* ── Verity router + boot ──────────────────────────────────────────── */
+
+
+
+
+
+
+const rootEl = document.getElementById("app");
+function route() {
+    const hash = location.hash || "#/";
+    const authed = !!ST.root.user;
+    rootEl.innerHTML = "";
+    window.scrollTo(0, 0);
+    if (hash === "#/" || hash === "") {
+        rootEl.append(renderLanding());
+        return;
+    }
+    if (hash === "#/signin") {
+        rootEl.append(renderSignin());
+        return;
+    }
+    if (hash.startsWith("#/app")) {
+        if (!authed) {
+            location.hash = "#/signin";
+            return;
+        }
+        let active = hash, view;
+        const seg = hash.split("/");
+        if (hash === "#/app")
+            view = renderHome();
+        else if (hash === "#/app/research")
+            view = renderResearchHome();
+        else if (hash === "#/app/progress")
+            view = renderProgress();
+        else if (hash.startsWith("#/app/report/")) {
+            view = renderReport(seg[3]);
+            active = "#/app/reports";
+        }
+        else if (hash === "#/app/projects")
+            view = renderProjects();
+        else if (hash.startsWith("#/app/project/")) {
+            view = renderProjectDetail(seg[3]);
+            active = "#/app/projects";
+        }
+        else if (hash === "#/app/reports")
+            view = renderReports();
+        else if (hash === "#/app/kb")
+            view = renderKB();
+        else if (hash === "#/app/analytics")
+            view = renderAnalytics();
+        else if (hash === "#/app/settings")
+            view = renderSettings();
+        else {
+            location.hash = "#/app";
+            return;
+        }
+        rootEl.append(renderShell(active, view));
+        return;
+    }
+    location.hash = "#/";
+}
+window.addEventListener("hashchange", route);
+/* global shortcuts */
+document.addEventListener("keydown", (e) => {
+    const tag = (document.activeElement?.tagName || "").toLowerCase();
+    const typing = tag === "input" || tag === "textarea" || document.activeElement?.isContentEditable;
+    if (typing || e.metaKey || e.ctrlKey || e.altKey)
+        return;
+    if (e.key === "n" && ST.root.user && location.hash.startsWith("#/app")) {
+        e.preventDefault();
+        location.hash = "#/app/research";
+    }
+    if (e.key === "/") {
+        const s = document.getElementById("page-search");
+        if (s) {
+            e.preventDefault();
+            s.focus();
+        }
+    }
+});
+route();
+//# sourceMappingURL=main.js.map
+
 })();

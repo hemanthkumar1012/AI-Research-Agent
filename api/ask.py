@@ -25,8 +25,14 @@ class handler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length) if length else b"{}"
             req = json.loads(body)
-            report = Report.from_dict(get_store().load(req["id"]))
-            agent = build_agent(Config.from_env(), None)
+            if isinstance(req.get("report"), dict):
+                report = Report.from_dict(req["report"])
+            else:
+                report = Report.from_dict(get_store().load(req["id"]))
+            cfg = Config.from_env()
+            cfg.llm_timeout = 25
+            cfg.llm_retries = 2
+            agent = build_agent(cfg, None)
             result = agent.ask(report, req["question"], req.get("history", []))
             data = json.dumps(result).encode()
             self.send_response(200)

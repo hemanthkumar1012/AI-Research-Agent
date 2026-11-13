@@ -14,14 +14,30 @@ from research_agent.config import PRESETS, Config, apply_preset
 
 
 class handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            req = json.loads(self.rfile.read(length) if length else b"{}")
+        except Exception:
+            req = {}
+        notes = ""
+        for d in (req.get("context") or [])[:3]:
+            text = str(d.get("text", ""))[:2500]
+            if text.strip():
+                notes += f"\n--- User document: {str(d.get('name','note'))[:80]} ---\n{text}\n"
+        question = str(req.get("q", "")).strip()
+        if notes:
+            question += ("\n\nThe user attached these notes/documents as background. "
+                         "Use them to focus the research plan:\n" + notes[:6000])
+        self._run(question, str(req.get("depth", "standard")))
+
     def do_GET(self):
         from urllib.parse import parse_qs, urlparse
         url = urlparse(self.path)
         qs = parse_qs(url.query)
+        self._run(qs.get("q", [""])[0].strip(), qs.get("depth", ["standard"])[0])
 
-        question = qs.get("q", [""])[0].strip()
-        depth = qs.get("depth", ["standard"])[0]
-
+    def _run(self, question, depth):
         if not question:
             self.send_response(400)
             self.send_header("Content-Type", "application/json")

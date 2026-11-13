@@ -38,39 +38,16 @@ try {
     execSync("tsc -p tsconfig.json", { cwd: FRONTEND, stdio: "inherit" });
   }
 } catch (e) {
-  console.log("⚠ TypeScript compiler not available — using source .ts files directly");
-  // Fallback: just copy .ts files as .js (browsers can't run TS, but
-  // we'll strip types with a simple regex pass)
-  const tsFiles = [
-    "types.ts", "utils.ts", "markdown.ts", "theme.ts", "particles.ts",
-    "graph.ts", "api.ts", "commands.ts", "inspector.ts", "timeline.ts",
-    "perfmon.ts", "pipeline.ts", "analytics.ts", "heatmap.ts",
-    "focus.ts", "confidence.ts", "autosuggest.ts", "accessibility.ts",
-    "wordcloud.ts", "shortcuts.ts", "share.ts", "i18n.ts",
-    "sourcemap.ts", "reading.ts", "voice.ts", "diff.ts", "credibility.ts",
-    "claimgraph.ts", "bookmarks.ts", "transitions.ts", "notifications.ts",
-    "print.ts", "app.ts"
-  ];
-  for (const f of tsFiles) {
-    const src = readFileSync(join(FRONTEND, "src", f), "utf8");
-    // Strip type annotations (basic — handles our codebase)
-    const js = stripTypes(src);
-    writeFileSync(join(DIST, f.replace(".ts", ".js")), js);
-  }
+  console.error("✗ TypeScript compilation failed — fix the errors above. Not shipping a broken bundle.");
+  process.exit(1);
 }
 
 // ── Step 2: Bundle all JS into single file ──────────────
 console.log("📦 Bundling JavaScript…");
 
 const MODULE_ORDER = [
-  "types.js", "utils.js", "markdown.js", "theme.js", "particles.js",
-  "graph.js", "api.js", "commands.js", "inspector.js", "timeline.js",
-  "perfmon.js", "pipeline.js", "analytics.js", "heatmap.js",
-  "focus.js", "confidence.js", "autosuggest.js", "accessibility.js",
-  "wordcloud.js", "shortcuts.js", "share.js", "i18n.js",
-  "sourcemap.js", "reading.js", "voice.js", "diff.js", "credibility.js",
-  "claimgraph.js", "bookmarks.js", "transitions.js", "notifications.js",
-  "print.js", "app.js"
+  "u.js", "store.js", "net.js", "charts.js",
+  "landing.js", "shell.js", "views.js", "research.js", "report.js", "main.js"
 ];
 
 let bundle = `"use strict";\n(() => {\n`;
@@ -94,7 +71,7 @@ for (const mod of MODULE_ORDER) {
   bundle += `\n// ── ${mod} ──\n${code}\n`;
 }
 
-bundle += `\n// ── Bootstrap ──\ndocument.addEventListener("DOMContentLoaded", init);\n})();\n`;
+bundle += `\n})();\n`;
 
 writeFileSync(join(STATIC, "app.js"), bundle);
 console.log(`  ✓ app.js (${(bundle.length / 1024).toFixed(1)} KB)`);
