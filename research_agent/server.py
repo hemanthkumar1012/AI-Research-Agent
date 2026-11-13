@@ -106,11 +106,29 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == "/api/upload":
             return self.upload()
+        if path == "/api/research":
+            try:
+                req = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+            except Exception:
+                req = {}
+            question = str(req.get("q", "")).strip()
+            notes = ""
+            for d in (req.get("context") or [])[:3]:
+                text = str(d.get("text", ""))[:2500]
+                if text.strip():
+                    notes += f"\n--- User document: {str(d.get('name', 'note'))[:80]} ---\n{text}\n"
+            if notes:
+                question += ("\n\nThe user attached these notes/documents as background. "
+                             "Use them to focus the research plan:\n" + notes[:6000])
+            return self.stream(question, str(req.get("depth", "standard")))
         if path != "/api/ask":
             return self.send_error(404)
         try:
             req = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
-            report = Report.from_dict(self.get_store().load(req["id"]))
+            if isinstance(req.get("report"), dict):
+                report = Report.from_dict(req["report"])
+            else:
+                report = Report.from_dict(self.get_store().load(req["id"]))
             agent = self.agent_factory(Config.from_env(), None)
             self.send_json(agent.ask(report, req["question"], req.get("history", [])))
         except KeyError:

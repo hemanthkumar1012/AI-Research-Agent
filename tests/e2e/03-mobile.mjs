@@ -1,0 +1,28 @@
+const { chromium } = await import(process.env.PW_PATH || 'playwright');
+const b = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});
+const p = await b.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+const errs = [];
+p.on('pageerror', e => errs.push(e.message));
+const ok = (name, v) => console.log((v ? '✓' : '✗ FAIL'), name);
+
+await p.goto('http://localhost:8899/'); await p.waitForTimeout(500);
+ok('mobile landing', await p.evaluate(() => !!document.querySelector('.hero h1')));
+await p.screenshot({ path: '/tmp/vm-landing.png' });
+await p.goto('http://localhost:8899/#/signin'); await p.waitForTimeout(300);
+await p.locator('.auth-form label:nth-child(1) input').fill('Hemanth');
+await p.locator('.auth-form label:nth-child(2) input').fill('h@v.ai');
+await p.click('.auth-form button[type=submit]'); await p.waitForTimeout(500);
+ok('mobile app', await p.evaluate(() => !!document.querySelector('.topbar')));
+ok('sidebar hidden on mobile', await p.evaluate(() => document.querySelector('.side').getBoundingClientRect().right <= 0));
+await p.click('.only-mobile'); await p.waitForTimeout(400);
+ok('drawer opens', await p.evaluate(() => document.body.classList.contains('drawer-open') && document.querySelector('.side').getBoundingClientRect().left === 0));
+await p.screenshot({ path: '/tmp/vm-drawer.png' });
+await p.click('.side-link:has-text("Knowledge Base")'); await p.waitForTimeout(400);
+ok('drawer nav works', await p.evaluate(() => location.hash === '#/app/kb'));
+await p.goto('http://localhost:8899/#/app/research'); await p.waitForTimeout(300);
+await p.fill('.ask-input', 'What is CRISPR and how does it work?');
+await p.click('.send-btn'); await p.waitForTimeout(3400);
+ok('mobile research→report', await p.evaluate(() => !!document.querySelector('.rep-title')));
+await p.screenshot({ path: '/tmp/vm-report.png' });
+console.log('ERRORS:', errs.length ? errs.join(' | ') : 'none');
+await b.close();

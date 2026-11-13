@@ -259,3 +259,56 @@ def test_verify_retries_flaky_batch_once():
     claims = agent.verify("The compound reduces emissions by forty percent overall [1].", srcs)
     assert agent.llm.n == 2
     assert claims[0].label == "supported"
+
+
+# ── local server parity with the Vercel handlers ────────────────────
+
+def _spin_server(tmp_path):
+    import threading
+    from http.server import ThreadingHTTPServer
+    from research_agent import server as srv
+    from research_agent.fetch import extract_text
+    from research_agent.store import ReportStore
+    from tests.test_agent import PAGE, FakeLLM as SrvLLM, FakeSearch as SrvSearch
+    srv.Handler.agent_factory = staticmethod(lambda cfg, emit: ResearchAgent(
+        SrvLLM(), SrvSearch(), Config(max_rounds=1), emit,
+        fetcher=lambda url, timeout=20: extract_text(PAGE)))
+    srv.Handler.store = ReportStore(str(tmp_path))
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), srv.Handler)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    return httpd, f"http://127.0.0.1:{httpd.server_address[1]}"
+
+
+def test_server_post_research_with_context(tmp_path):
+    import urllib.request
+    httpd, base = _spin_server(tmp_path)
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        payload = json.dumps({"q": "solar panels", "depth": "quick",
+                              "context": [{"name": "notes.md", "text": "focus on rooftop"}]}).encode()
+        req = urllib.request.Request(base + "/api/research", data=payload,
+                                     headers={"Content-Type": "application/json"})
+        body = opener.open(req, timeout=10).read().decode()
+        kinds = [l[7:] for l in body.splitlines() if l.startswith("event: ")]
+        assert kinds[0] == "status" and "report" in kinds and "draft" in kinds
+    finally:
+        httpd.shutdown()
+
+
+def test_server_ask_accepts_inline_report(tmp_path):
+    import urllib.request
+    httpd, base = _spin_server(tmp_path)
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        rep = {"question": "q", "markdown": "body [1]", "body": "body [1]",
+               "sources": [{"id": 1, "title": "T", "url": "https://e.com",
+                            "passages": ["solar output rose"], "credibility": "high",
+                            "relevance": 0.5, "date": ""}],
+               "claims": [], "score": {}, "plan": []}
+        req = urllib.request.Request(base + "/api/ask",
+                                     data=json.dumps({"report": rep, "question": "why?"}).encode(),
+                                     headers={"Content-Type": "application/json"})
+        out = json.loads(opener.open(req, timeout=10).read().decode())
+        assert "answer" in out
+    finally:
+        httpd.shutdown()

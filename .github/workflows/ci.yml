@@ -42,3 +42,22 @@ jobs:
             git diff --stat research_agent/static/
             exit 1
           fi
+
+  e2e-browser:
+    name: Frontend e2e (real backend, headless Chrome)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          npm install playwright@1.49.1
+          npx playwright install --with-deps chromium
+      - name: Run all e2e suites
+        run: node tests/e2e/run.mjs
