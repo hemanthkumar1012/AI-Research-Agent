@@ -38,7 +38,7 @@ def test_stream_history_and_followup(tmp_path):
                                      headers={"Content-Type": "application/json"})
         ans = json.loads(OPEN.open(req).read())
         assert "answer" in ans and "score" in ans
-        assert "AI Research Agent" in OPEN.open(base + "/").read().decode()
+        assert "Verity AI" in OPEN.open(base + "/").read().decode()
     finally:
         httpd.shutdown()
         server.Handler.store = None

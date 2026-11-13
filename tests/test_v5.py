@@ -182,7 +182,8 @@ def test_gemini_stream_cached():
 
     # Seed cache with the exact body structure stream() builds
     body = {"contents": [{"role": "user", "parts": [{"text": "cached prompt"}]}],
-            "generationConfig": {"temperature": 0.3}}
+            "generationConfig": {"temperature": 0.3,
+                                 "thinkingConfig": {"thinkingBudget": 0}}}
     ck = cache.key("gen", "gemini-2.5-flash", body)
     cache.set(ck, "cached result")
 

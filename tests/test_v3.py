@@ -95,6 +95,11 @@ def test_searcher_mixes_providers(monkeypatch):
     s = Searcher()
     monkeypatch.setattr(s, "_arxiv", lambda q, k: [SearchResult("paper", "https://arxiv.org/x")] * k)
     monkeypatch.setattr(s, "_web", lambda q, k: [SearchResult("web", "https://w.com")] * k)
+    # Academic: the web leads (arXiv text search is noisy outside math/CS)
+    # and at most one paper is added on top.
     out = s.search("q", 4, kind="academic")
-    assert [r.title for r in out] == ["paper"] * 3 + ["web"]
+    assert [r.title for r in out] == ["web"] * 4 + ["paper"]
     assert all(r.title == "web" for r in s.search("q", 2))
+    monkeypatch.setattr(s, "_wikipedia", lambda q, k: [SearchResult("wiki", "https://en.wikipedia.org/x")] * k)
+    enc = s.search("q", 4, kind="encyclopedic")
+    assert enc[0].title == "wiki" and "web" in [r.title for r in enc]

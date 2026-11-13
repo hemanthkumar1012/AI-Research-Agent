@@ -407,16 +407,24 @@ class ResearchAgent:
         by_id = {s.id: s for s in sources}
         for start in range(0, len(claims), 12):   # batch to keep prompts small
             batch = claims[start:start + 12]
-            items = "\n\n".join(
-                f"Claim {c.id}: {c.text}\n" + "\n".join(
-                    f"  Source [{i}] passages: " + " … ".join(by_id[i].passages)[:2500]
-                    for i in c.cites)
-                for c in batch)
+            results = {}
             try:
-                data = self.llm.generate_json(prompts.VERIFY.format(items=items), self.cfg.fast_model)
-                results = {int(r["id"]): r for r in data.get("results", [])}
+                items = "\n\n".join(
+                    f"Claim {c.id}: {c.text}\n" + "\n".join(
+                        f"  Source [{i}] passages: " + " … ".join(by_id[i].passages)[:2500]
+                        for i in c.cites if i in by_id)
+                    for c in batch)
+                for attempt in range(2):          # one retry: a flaky batch otherwise
+                    try:                          # silently leaves claims unchecked
+                        data = self.llm.generate_json(prompts.VERIFY.format(items=items), self.cfg.fast_model)
+                        results = {int(r["id"]): r for r in data.get("results", [])}
+                        if results:
+                            break
+                    except Exception:
+                        if attempt == 1:
+                            self.emit("status", {"message": "Citation check unavailable for some claims"})
             except Exception:
-                results = {}
+                pass
             for c in batch:
                 r = results.get(c.id)
                 if r and r.get("label") in ("supported", "partial", "unsupported"):
