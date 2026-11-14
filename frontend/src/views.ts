@@ -50,7 +50,7 @@ export function renderHome(): HTMLElement {
 
 function reportRow(r: VReportMeta): HTMLElement {
   return h("a.list-row", { href: "#/app/report/" + r.id },
-    h("span.row-icn", null, icon("doc", 16)),
+    h("span.row-icn" + (r.starred ? ".starred" : ""), null, icon(r.starred ? "star" : "doc", 16)),
     h("div.row-main", null, h("strong", null, r.question),
       h("span", null, `${r.sources} sources · ${r.precision}% precision · ${timeAgo(r.created)}`)),
     icon("back", 14));
@@ -139,15 +139,26 @@ export function renderProjectDetail(id: string): HTMLElement {
 export function renderReports(): HTMLElement {
   const q = h("input.v-input.search-inp", { placeholder: "Search reports…  ( / )", id: "page-search" }) as HTMLInputElement;
   const listBox = h("div.v-card");
+  let onlyStarred = false;
+  const filterRow = h("div.kb-chips");
+  const paintChips = () => {
+    filterRow.innerHTML = "";
+    filterRow.append(
+      h("button.kb-chip" + (onlyStarred ? "" : ".on"), { onclick: () => { onlyStarred = false; paintChips(); paintList(); } }, "All"),
+      h("button.kb-chip" + (onlyStarred ? ".on" : ""), { onclick: () => { onlyStarred = true; paintChips(); paintList(); } }, "★ Starred"));
+  };
   const paintList = () => {
     const term = q.value.trim().toLowerCase();
-    const rows = ST.ws.reports.filter(r => !term || r.question.toLowerCase().includes(term));
+    const rows = ST.ws.reports.filter(r =>
+      (!onlyStarred || r.starred) && (!term || r.question.toLowerCase().includes(term)));
     listBox.innerHTML = "";
     if (!ST.ws.reports.length) {
       listBox.append(emptyState("doc", "No reports yet", "Everything you research is saved here automatically.",
         h("a.v-btn.primary.sm", { href: "#/app/research" }, "Start researching")));
     } else if (!rows.length) {
-      listBox.append(emptyState("search", "No matches", `Nothing matching “${q.value.trim()}”.`));
+      listBox.append(onlyStarred && !q.value.trim()
+        ? emptyState("star", "No starred reports", "Star a report from its page to pin it here.")
+        : emptyState("search", "No matches", `Nothing matching “${q.value.trim()}”.`));
     } else {
       const list = h("div.list");
       for (const r of rows) {
@@ -166,12 +177,12 @@ export function renderReports(): HTMLElement {
     }
   };
   q.addEventListener("input", debounce(paintList, 150));
-  paintList();
+  paintChips(); paintList();
   return h("div.page", null,
     h("div.page-head", null,
       h("div", null, h("h1", null, "Reports"), h("p.page-sub", null, "Every research run in this workspace.")),
       h("a.v-btn.primary", { href: "#/app/research" }, icon("plus", 15), "New Research")),
-    q, listBox);
+    q, filterRow, listBox);
 }
 
 /* ═══ KNOWLEDGE BASE ═══ */
@@ -229,9 +240,7 @@ export function renderKB(): HTMLElement {
     listBox.append(list);
   };
 
-  fileInput.addEventListener("change", async () => {
-    const files = Array.from(fileInput.files || []);
-    fileInput.value = "";
+  const ingest = async (files: File[]) => {
     let added = 0;
     for (const f of files) {
       if (f.size > 25 * 1024 * 1024) { toast(`“${f.name}” is over 25 MB — skipped.`, "error"); continue; }
@@ -252,17 +261,36 @@ export function renderKB(): HTMLElement {
     }
     if (added) toast(`${added} file${added === 1 ? "" : "s"} added to your knowledge base.`);
     void paintKB();
+  };
+  fileInput.addEventListener("change", () => {
+    const files = Array.from(fileInput.files || []);
+    fileInput.value = "";
+    void ingest(files);
   });
 
   q.addEventListener("input", debounce(() => void paintKB(), 200));
   paintChips(); void paintKB();
 
-  return h("div.page", null,
+  const page = h("div.page.kb-page", null,
     h("div.page-head", null,
       h("div", null, h("h1", null, "Knowledge Base"),
         h("p.page-sub", null, "Upload your own documents, notes and data. Text files can guide new research runs.")),
       h("button.v-btn.primary", { onclick: () => fileInput.click() }, icon("upload", 15), "Upload")),
-    fileInput, q, chipsRow, listBox);
+    fileInput, q, chipsRow,
+    h("div.kb-dropzone", null, icon("upload", 18),
+      h("span", null, "Drag & drop files anywhere on this page — PDF, DOCX, CSV, MD, TXT, images"),
+      h("button.v-link", { onclick: () => fileInput.click() }, "or browse")),
+    listBox);
+  let dragDepth = 0;
+  page.addEventListener("dragover", (e) => { e.preventDefault(); });
+  page.addEventListener("dragenter", (e) => { e.preventDefault(); if (++dragDepth === 1) page.classList.add("dragging"); });
+  page.addEventListener("dragleave", () => { if (--dragDepth <= 0) { dragDepth = 0; page.classList.remove("dragging"); } });
+  page.addEventListener("drop", (e) => {
+    e.preventDefault(); dragDepth = 0; page.classList.remove("dragging");
+    const files = Array.from(e.dataTransfer?.files || []);
+    if (files.length) void ingest(files);
+  });
+  return page;
 }
 
 function kbRow(d: VDoc, repaint: () => void): HTMLElement {
@@ -356,6 +384,31 @@ export function renderAnalytics(): HTMLElement {
     const topReports = reports.slice().sort((a, b) => b.sources - a.sources).slice(0, 6)
       .map(r => ({ label: r.question.slice(0, 44), value: r.sources, hint: r.precision + "%" }));
 
+    // 12-week research heatmap (one cell per day)
+    const DAY = 86400_000;
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const start = todayStart.getTime() - (7 * 12 - 1) * DAY;
+    const perDay = new Map<number, number>();
+    for (const e of ST.ws.events) if (e.type === "run_started" && e.t >= start) {
+      const d = Math.floor((e.t - start) / DAY);
+      perDay.set(d, (perDay.get(d) || 0) + 1);
+    }
+    const maxDay = Math.max(1, ...perDay.values());
+    const heat = h("div.heatmap", { role: "img", "aria-label": "Research activity over the last 12 weeks" });
+    for (let w = 0; w < 12; w++) {
+      const colEl = h("div.heat-col");
+      for (let d = 0; d < 7; d++) {
+        const idx = w * 7 + d, t = start + idx * DAY;
+        if (t > Date.now()) break;
+        const n = perDay.get(idx) || 0;
+        const lvl = n === 0 ? 0 : Math.min(4, Math.ceil((n / maxDay) * 4));
+        colEl.append(h("span.heat-cell.l" + lvl, {
+          title: `${new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" })} — ${n} run${n === 1 ? "" : "s"}`,
+        }));
+      }
+      heat.append(colEl);
+    }
+
     root.innerHTML = "";
     root.append(
       h("div.page-head", null,
@@ -369,6 +422,8 @@ export function renderAnalytics(): HTMLElement {
       runs || reports.length
         ? frag(
           h("div.v-card", null, h("div.card-head", null, h("h3", null, "Research Activity")), chArea(values, labels)),
+          h("div.v-card", null, h("div.card-head", null, h("h3", null, "Last 12 weeks"),
+            h("span.v-muted", null, "every research run, day by day")), heat),
           h("div.ana-grid", null,
             h("div.v-card", null, h("h3", null, "Runs by depth"), chDonut(byDepth, String(reports.length), "reports")),
             h("div.v-card", null, h("h3", null, "Most-sourced reports"),

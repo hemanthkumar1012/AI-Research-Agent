@@ -1,8 +1,9 @@
 /* ── Report view: overview, findings, analysis, sources, export ────── */
 import { h, frag, icon, md, esc, toast, modal, popMenu, confirmBox, hostOf, fmtDate, spinner } from "./u.js";
-import { ST, dbGet, VReportMeta } from "./store.js";
+import { ST, dbGet, dbPut, VReportMeta } from "./store.js";
 import { RReport, RClaim, askFollowup } from "./net.js";
 import { chDonut, chBars } from "./charts.js";
+import { beginRun } from "./research.js";
 import { sourceMap } from "./fx.js";
 
 let curTab = "overview";
@@ -58,16 +59,42 @@ function paint(root: HTMLElement, id: string, meta: VReportMeta, r: RReport): vo
   };
   refreshProjLabel();
 
+  const starBtn = h("button.v-iconbtn.star-btn" + (meta.starred ? ".on" : ""), {
+    title: meta.starred ? "Unstar" : "Star this report",
+    "aria-pressed": String(!!meta.starred),
+    onclick: () => {
+      ST.toggleStar(id);
+      const on = !!ST.reportMeta(id)?.starred;
+      starBtn.classList.toggle("on", on);
+      starBtn.setAttribute("aria-pressed", String(on));
+      toast(on ? "Report starred." : "Star removed.");
+    },
+  }, icon("star", 17));
+
   root.append(
     h("div.rep-topline", null,
       h("a.v-link.back", { href: "#/app/reports" }, icon("back", 15), "Back to Reports"),
       h("div.rep-actions", null,
+        starBtn,
         projBtn,
         h("button.v-btn.ghost.sm", { onclick: () => exportModal(meta, r) }, icon("download", 15), "Export", icon("chevd", 13)),
         h("button.v-btn.primary.sm", { onclick: () => shareModal(meta, r) }, icon("share", 15), "Share"),
         h("button.v-iconbtn", {
           title: "More", onclick: (e: Event) => popMenu(e.currentTarget as HTMLElement, [
-            { label: "Ask a follow-up", icon: "help", on: () => askPanel(r) },
+            { label: "Ask a follow-up", icon: "help", on: () => {
+              const d = document.querySelector(".ask-dock");
+              d?.classList.add("open");
+              (d?.querySelector("input") as HTMLInputElement)?.focus();
+            } },
+            { label: "Re-run this research", icon: "refresh", on: () =>
+              beginRun(meta.question, meta.depth === "deep" ? "deep" : "standard", []) },
+            { label: "Compare with…", icon: "layers", on: () => {
+              const others = ST.ws.reports.filter(x => x.id !== id);
+              if (!others.length) { toast("Run another research first to compare.", "error"); return; }
+              popMenu(document.querySelector(".rep-actions .v-iconbtn[title=More]") as HTMLElement || root,
+                others.slice(0, 10).map(o => ({ label: o.question.slice(0, 50), icon: "doc",
+                  on: () => { location.hash = `#/app/compare/${id}/${o.id}`; } })));
+            } },
             { label: "Delete report", icon: "trash", danger: true, on: () =>
               confirmBox("Delete report?", "This removes the report from your workspace permanently.", "Delete", () => {
                 ST.deleteReport(id); toast("Report deleted."); location.hash = "#/app/reports";
@@ -75,7 +102,7 @@ function paint(root: HTMLElement, id: string, meta: VReportMeta, r: RReport): vo
           ]),
         }, icon("dots", 16)))),
     h("h1.rep-title", null, r.question || meta.question),
-    tabBar, body);
+    tabBar, body, askDock(id, r));
   paintTab(body, curTab, meta, r);
 }
 
@@ -106,9 +133,29 @@ function overviewTab(body: HTMLElement, meta: VReportMeta, r: RReport): void {
     h("div.rep-stat-row", null, h("span", null, "Depth"), h("strong", null, meta.depth === "deep" ? "Deep" : "Standard")),
     h("div.rep-stat-row", null, h("span", null, "Completed"), h("strong", null, fmtDate(meta.created))));
 
+  const words = (r.markdown.match(/\S+/g) || []).length;
+  const domains = [...new Set(r.sources.map(src => hostOf(src.url)))];
+  const metaBar = h("div.rep-meta-bar", null,
+    h("span.rep-meta-chip", null, icon("clock", 13), `${Math.max(1, Math.round(words / 220))} min read`),
+    h("span.rep-meta-chip", null, icon("edit", 13), `${words.toLocaleString()} words`),
+    ...domains.slice(0, 5).map(d => h("span.rep-meta-chip.domain", null, icon("globe", 13), d)),
+    domains.length > 5 ? h("span.rep-meta-chip", null, `+${domains.length - 5} more`) : null);
+
+  const article = h("article.rep-article", { html: md(r.markdown) });
+  // Build a table of contents from the report's own sections
+  const heads = Array.from(article.querySelectorAll("h2, h3")).slice(0, 14);
+  heads.forEach((el, i) => { el.id = "sec-" + i; });
+  const toc = heads.length >= 2 ? h("nav.rep-toc", { "aria-label": "Report sections" },
+    h("span.rep-stat-label", null, "On this page"),
+    ...heads.map((el, i) => h("a.toc-link" + (el.tagName === "H3" ? ".sub" : ""), {
+      href: "#", "data-sec": String(i),
+      onclick: (e: Event) => { e.preventDefault(); el.scrollIntoView({ behavior: "smooth", block: "start" }); },
+    }, el.textContent || ""))) : null;
+
   body.append(
     h("div.rep-overview-grid", null,
       h("div", null,
+        metaBar,
         h("div.exec-card", null,
           h("h3", null, "Executive Summary"),
           h("div.exec-text", { html: md(firstParagraph(r.markdown)) })),
@@ -117,9 +164,19 @@ function overviewTab(body: HTMLElement, meta: VReportMeta, r: RReport): void {
           ...takeaways.map(c => h("div.tk-row", null,
             h("span.tk-icn." + labelClass(c.label), null, icon(labelIcon(c.label), 13)),
             h("span", { html: inlineMd(c.text) })))) : null),
-      stat),
-    h("article.rep-article", { html: md(r.markdown) }));
+      h("div.rep-rail", null, stat, toc)),
+    article);
   wireCites(body, r);
+
+  if (toc && "IntersectionObserver" in window) {   // scrollspy
+    const links = toc.querySelectorAll<HTMLElement>(".toc-link");
+    const io = new IntersectionObserver((es) => {
+      for (const en of es) if (en.isIntersecting) {
+        links.forEach(l => l.classList.toggle("on", l.dataset.sec === (en.target as HTMLElement).id.slice(4)));
+      }
+    }, { rootMargin: "-10% 0px -70% 0px" });
+    heads.forEach(hd => io.observe(hd));
+  }
 }
 
 function findingsTab(body: HTMLElement, r: RReport): void {
@@ -183,20 +240,46 @@ function sourcesTab(body: HTMLElement, r: RReport): void {
   }
   if (r.sources.length > 1) {
     let mapOn = true;
-    const mapEl = sourceMap(r.sources, (id) => {
+    const cred = { high: true, medium: true, low: true };
+    let mapEl: HTMLElement;
+    const jump = (id: number) => {
       document.getElementById("src-" + id)?.scrollIntoView({ behavior: "smooth", block: "center" });
       document.getElementById("src-" + id)?.classList.add("src-flash");
       setTimeout(() => document.getElementById("src-" + id)?.classList.remove("src-flash"), 1600);
-    });
+    };
+    const buildMap = () => {
+      const subset = r.sources.filter(src => cred[src.credibility as keyof typeof cred] ?? true);
+      if (!subset.length) return h("div.smap.smap-none", null,
+        icon("search", 18), h("span", null, "No sources match the credibility filters."));
+      return sourceMap(subset, jump);
+    };
+    mapEl = buildMap();
+    const credChip = (k: keyof typeof cred, label: string) => {
+      const b = h("button.cred-chip." + k + ".on", {
+        "aria-pressed": "true",
+        onclick: () => {
+          cred[k] = !cred[k];
+          b.classList.toggle("on", cred[k]);
+          b.setAttribute("aria-pressed", String(cred[k]));
+          const fresh = buildMap();
+          mapEl.replaceWith(fresh); mapEl = fresh;
+          sync();
+        },
+      }, h("i"), label);
+      return b;
+    };
+    const credRow = h("div.cred-row", null,
+      credChip("high", "High"), credChip("medium", "Medium"), credChip("low", "Low"));
     const mapCard = h("div.smap-card", null,
       h("div.smap-head", null,
         h("h3", null, "Sources & Evidence"),
         h("div.smap-toggle", null,
           h("button.smap-tbtn.on#smap-b1", { onclick: () => { mapOn = true; sync(); } }, "Source Map"),
           h("button.smap-tbtn#smap-b2", { onclick: () => { mapOn = false; sync(); } }, "List View"))),
-      mapEl);
+      credRow, mapEl);
     const sync = () => {
       mapEl.style.display = mapOn ? "" : "none";
+      credRow.style.display = mapOn ? "" : "none";
       document.getElementById("smap-b1")?.classList.toggle("on", mapOn);
       document.getElementById("smap-b2")?.classList.toggle("on", !mapOn);
     };
@@ -221,13 +304,24 @@ function sourcesTab(body: HTMLElement, r: RReport): void {
 }
 
 /* ── follow-up ask ─────────────────────────────────────────────────── */
-function askPanel(r: RReport): void {
+function askDock(reportId: string, r: RReport): HTMLElement {
   const history: { role: string; content: string }[] = [];
-  const log = h("div.ask-log");
-  const inp = h("input.v-input", { placeholder: "Ask about this report…" }) as HTMLInputElement;
+  const log = h("div.ask-log.dock-log");
+  const bubble = (cls: string, html: string) => h("div.ask-msg." + cls, { html });
+
+  void dbGet<{ role: string; content: string }[]>("reports", reportId + ":thread").then(saved => {
+    for (const m of saved || []) {
+      history.push(m);
+      log.append(m.role === "user" ? h("div.ask-msg.me", null, m.content) : bubble("ai", md(m.content)));
+    }
+    log.scrollTop = log.scrollHeight;
+  });
+
+  const inp = h("input.v-input", { placeholder: "Ask Nyna about this report…" }) as HTMLInputElement;
   const send = async () => {
     const q = inp.value.trim(); if (!q) return;
     inp.value = "";
+    dock.classList.add("open");
     log.append(h("div.ask-msg.me", null, q));
     const wait = h("div.ask-msg.ai", null, spinner("Thinking…"));
     log.append(wait); log.scrollTop = log.scrollHeight;
@@ -237,17 +331,25 @@ function askPanel(r: RReport): void {
       log.append(h("div.ask-msg.ai.err", null, "Couldn't answer: " + res.error));
     } else {
       history.push({ role: "user", content: q }, { role: "assistant", content: res.answer });
-      log.append(h("div.ask-msg.ai", { html: md(res.answer) }));
+      void dbPut("reports", reportId + ":thread", history.slice(-24));
+      log.append(bubble("ai", md(res.answer)));
+      ST.log("followup");
     }
     log.scrollTop = log.scrollHeight;
   };
   inp.addEventListener("keydown", e => { if (e.key === "Enter") void send(); });
-  modal({
-    title: "Ask a follow-up", sub: "Answers stay grounded in this report's sources.",
-    wide: true,
-    body: frag(log, h("div.ask-sendrow", null, inp, h("button.v-btn.primary", { onclick: () => void send() }, icon("send", 15)))),
-  });
-  setTimeout(() => inp.focus(), 60);
+  inp.addEventListener("focus", () => dock.classList.add("open"));
+
+  const dock = h("aside.ask-dock", { "aria-label": "Ask Nyna" },
+    h("button.ask-dock-head", {
+      onclick: () => dock.classList.toggle("open"),
+      "aria-expanded": "false",
+    }, h("span.ask-dock-orb"), h("strong", null, "Ask Nyna"),
+      h("span.ask-dock-sub", null, "grounded in this report"), icon("chevd", 14)),
+    h("div.ask-dock-body", null, log,
+      h("div.ask-sendrow", null, inp,
+        h("button.v-btn.primary", { "aria-label": "Send", onclick: () => void send() }, icon("send", 15)))));
+  return dock;
 }
 
 /* ── export & share ────────────────────────────────────────────────── */
@@ -371,4 +473,56 @@ function wireCites(scope: HTMLElement, r: RReport): void {
       setTimeout(() => document.getElementById("src-" + el.getAttribute("data-cite"))?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
     });
   });
+}
+
+
+/* ── Compare two reports side by side ─────────────────────────────── */
+export function renderCompare(idA: string, idB: string): HTMLElement {
+  const root = h("div.page", null, spinner("Loading comparison…"));
+  void Promise.all([dbGet<RReport>("reports", idA), dbGet<RReport>("reports", idB)]).then(([a, b]) => {
+    root.innerHTML = "";
+    const ma = ST.reportMeta(idA), mb = ST.reportMeta(idB);
+    if (!a || !b || !ma || !mb) {
+      root.append(h("p.v-muted", null, "One of the reports is missing from this workspace."));
+      return;
+    }
+    const domainsA = new Set(a.sources.map(s => hostOf(s.url)));
+    const domainsB = new Set(b.sources.map(s => hostOf(s.url)));
+    const shared = [...domainsA].filter(d => domainsB.has(d));
+
+    const col = (m: typeof ma, r: RReport, other: typeof ma) => h("div.cmp-col", null,
+      h("a.cmp-title", { href: "#/app/report/" + m.id }, r.question),
+      h("span.cmp-date", null, fmtDate(m.created) + " · " + (m.depth === "deep" ? "Deep" : "Standard")),
+      h("div.cmp-stats", null,
+        cmpStat("Sources", m.sources, other.sources),
+        cmpStat("Cited claims", m.claims, other.claims),
+        cmpStat("Citation precision", m.precision, other.precision, "%")),
+      h("div.cmp-domains", null,
+        h("span.rep-stat-label", null, "Source domains"),
+        ...[...new Set(r.sources.map(s => hostOf(s.url)))].slice(0, 8).map(d =>
+          h("span.rep-meta-chip" + (shared.includes(d) ? ".shared" : ""), null, d))),
+      r.claims.length ? h("div.cmp-claims", null,
+        h("span.rep-stat-label", null, "Top findings"),
+        ...r.claims.slice(0, 3).map(c => h("div.tk-row", null,
+          h("span.tk-icn." + (c.label === "supported" ? "ok" : c.label === "partial" ? "mid" : "na"), null,
+            icon(c.label === "supported" ? "check" : "clock", 12)),
+          h("span", { html: inlineMd(c.text.slice(0, 160)) })))) : null);
+
+    root.append(
+      h("a.v-link.back", { href: "#/app/report/" + idA }, icon("back", 15), "Back to report"),
+      h("div.page-head", null, h("div", null,
+        h("h1", null, "Compare research"),
+        h("p.page-sub", null, shared.length
+          ? `${shared.length} shared source domain${shared.length === 1 ? "" : "s"} — highlighted below.`
+          : "These reports draw on entirely different sources."))),
+      h("div.cmp-grid", null, col(ma, a, mb), h("div.cmp-divider", null, h("span", null, "VS")), col(mb, b, ma)));
+  });
+  return root;
+}
+
+function cmpStat(label: string, v: number, other: number, unit = ""): HTMLElement {
+  const cls = v > other ? ".win" : v < other ? ".lose" : "";
+  return h("div.cmp-stat" + cls, null,
+    h("strong", null, v + unit), h("span", null, label),
+    v > other ? icon("check", 12) : null);
 }

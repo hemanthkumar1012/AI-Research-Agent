@@ -1,7 +1,16 @@
 /* ── Research: input screen + live progress ────────────────────────── */
-import { h, frag, icon, toast, uid, popMenu } from "./u.js";
+import { h, frag, icon, toast, uid, popMenu, md } from "./u.js";
 import { ST, dbPut, dbGet, VFilePayload } from "./store.js";
 import { runResearch, RReport, ResearchRun } from "./net.js";
+
+const TEMPLATES: [string, string][] = [
+  ["Market analysis", "Analyse the market for <industry> in <region>: current size, growth drivers, key players, risks and outlook."],
+  ["Compare options", "Compare <option A> vs <option B> for <use case>: strengths, weaknesses, costs and which fits best."],
+  ["Technology deep-dive", "Explain <technology>: how it works, current state of the art, main applications and open challenges."],
+  ["Academic review", "Summarise the current research evidence on <topic>: key findings, methods, disagreements and gaps."],
+  ["Policy briefing", "Brief me on <policy/regulation>: what it says, who it affects, timelines and expert reactions."],
+  ["Competitor scan", "Who are the main competitors of <company> in <market>, and how do they differ on product and pricing?"],
+];
 
 const SUGGESTIONS = [
   "Compare LLMs for enterprise use",
@@ -61,6 +70,18 @@ export function renderResearchHome(): HTMLElement {
     filesBtn.classList.toggle("on", picked.size > 0);
   };
 
+  const tplBtn = h("button.pill-btn", {
+    onclick: () => popMenu(tplBtn, TEMPLATES.map(([name, tpl]) => ({
+      label: name, icon: "spark",
+      on: () => {
+        ta.value = tpl;
+        ta.focus();
+        const a = tpl.indexOf("<"), b = tpl.indexOf(">");
+        if (a >= 0 && b > a) ta.setSelectionRange(a, b + 1);
+      },
+    }))),
+  }, icon("spark", 15), h("span", null, "Templates"), icon("chevd", 13));
+
   const start = async () => {
     const q = ta.value.trim();
     if (q.length < 8) { toast("Describe what you want to research (a full question works best).", "error"); ta.focus(); return; }
@@ -87,7 +108,7 @@ export function renderResearchHome(): HTMLElement {
         ta,
         h("div.ask-row", null,
           h("div.ask-row-left", null,
-            depthBtn,
+            depthBtn, tplBtn,
             h("span.pill-static", { title: "Nyna always researches with live web search" }, icon("globe", 15), "Web"),
             filesBtn),
           h("button.v-btn.primary.send-btn", { "aria-label": "Start research", onclick: () => void start() }, icon("send", 17)))),
@@ -159,7 +180,10 @@ export function beginRun(q: string, depth: string, context: { name: string; text
       sourceCount++; liveSourceCount = sourceCount; setStep(3);
       feed("link", `Source [${s.id}] ${s.title}`);
     },
-    draft(body) { live && (live.draft = body); setStep(5); feed("doc", "Draft report written"); },
+    draft(body) {
+      if (live) live.draft = body;
+      setStep(5); feed("doc", "Draft report written — verifying citations");
+    },
     report(r) { void finish(r); },
     error(msg) {
       ST.log("run_error");
@@ -219,6 +243,9 @@ function paintProgress(error?: string): void {
           h("div.prog-meters", null,
             h("div.prog-meter", null, h("span", null, "Time elapsed"), h("strong#prog-clock", null, clockStr())),
             h("div.prog-meter", null, h("span", null, "Sources found"), h("strong#prog-src", null, String(liveSourceCount))))),
+        live.draft ? h("div.prog-draft", null,
+          h("h3", null, icon("doc", 13), "Draft preview"),
+          h("div.prog-draft-body", { html: md(live.draft.slice(0, 900) + (live.draft.length > 900 ? "…" : "")) })) : null,
         h("div.prog-feed", null,
           h("h3", null, "Agent activity"),
           h("div.prog-feed-list", null, ...live.feed.map(f =>

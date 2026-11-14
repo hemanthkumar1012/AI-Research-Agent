@@ -33,7 +33,7 @@ ok('share copied toast', await p.evaluate(() => [...document.querySelectorAll('.
 await p.keyboard.press('Escape'); await p.waitForTimeout(200);
 
 // add to project (creates new via prompt)
-await p.click('.rep-actions .v-btn.ghost.sm:first-child'); await p.waitForTimeout(250);
+await p.click('.rep-actions .v-btn.ghost.sm >> nth=0'); await p.waitForTimeout(250);
 await p.click('.v-pop-item:has-text("New project")'); await p.waitForTimeout(400);
 ok('added to project', await p.evaluate(() => [...document.querySelectorAll('.rep-actions button')].some(x => /Renamed Project/.test(x.textContent))));
 
@@ -71,7 +71,7 @@ await p.keyboard.press('Escape'); await p.waitForTimeout(200);
 
 // research with KB context (Files picker)
 await p.goto('http://localhost:8899/#/app/research'); await p.waitForTimeout(300);
-await p.click('.ask-row-left .pill-btn:nth-of-type(2)'); await p.waitForTimeout(250);
+await p.click('.ask-row-left .pill-btn:nth-of-type(3)'); await p.waitForTimeout(250);
 await p.click('.v-pop-item:has-text("india_ai_notes")'); await p.waitForTimeout(200);
 ok('file picked for context', await p.evaluate(() => /Files \(1\)/.test(document.querySelector('.ask-row-left').textContent)));
 

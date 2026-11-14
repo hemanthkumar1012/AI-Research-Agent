@@ -87,6 +87,7 @@ const PATHS = {
     link: '<path d="M8.5 11.5a3.5 3.5 0 0 0 5 0l2.5-2.5a3.5 3.5 0 0 0-5-5L9.8 5.2"/><path d="M11.5 8.5a3.5 3.5 0 0 0-5 0L4 11a3.5 3.5 0 0 0 5 5l1.2-1.2"/>',
     alert: '<path d="M10 3 2.5 16h15z"/><path d="M10 8v4M10 14.6v.2"/>',
     database: '<ellipse cx="10" cy="4.5" rx="6.5" ry="2.3"/><path d="M3.5 4.5v11c0 1.3 2.9 2.3 6.5 2.3s6.5-1 6.5-2.3v-11"/><path d="M3.5 10c0 1.3 2.9 2.3 6.5 2.3s6.5-1 6.5-2.3"/>',
+    star: '<path d="m10 2.8 2.2 4.6 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L2.8 8.1l5-.7z"/>',
     logout: '<path d="M8 3.5H4.5v13H8"/><path d="M13 6.5 16.5 10 13 13.5M16.5 10h-9"/>',
 };
 function icon(name, size = 18) {
@@ -379,6 +380,13 @@ class Store {
         if (projectId)
             this.touchProject(projectId);
         this.save();
+    }
+    toggleStar(id) {
+        const r = this.reportMeta(id);
+        if (r) {
+            r.starred = !r.starred;
+            this.save();
+        }
     }
     deleteReport(id) {
         this.ws.reports = this.ws.reports.filter(r => r.id !== id);
@@ -994,6 +1002,122 @@ function sourceMap(sources, onPick) {
 }
 //# sourceMappingURL=fx.js.map
 
+// ── palette.js ──
+/* ── Command palette (Ctrl/Cmd+K): actions, reports, projects, docs ── */
+
+
+let open = false;
+function fuzzy(hay, needle) {
+    const H = hay.toLowerCase(), N = needle.toLowerCase();
+    if (!N)
+        return 1;
+    if (H.includes(N))
+        return 100 - H.indexOf(N);
+    let i = 0, score = 0;
+    for (const ch of H) {
+        if (ch === N[i]) {
+            i++;
+            score += 2;
+        }
+    }
+    return i === N.length ? score : 0;
+}
+function commands() {
+    const nav = (label, icn, hash) => ({ icn, label, kind: "Navigate", run: () => { location.hash = hash; } });
+    const out = [
+        { icn: "plus", label: "New Research", hint: "N", kind: "Actions", run: () => { location.hash = "#/app/research"; } },
+        nav("Home", "home", "#/app"), nav("Projects", "folder", "#/app/projects"),
+        nav("Reports", "doc", "#/app/reports"), nav("Knowledge Base", "book", "#/app/kb"),
+        nav("Analytics", "chart", "#/app/analytics"), nav("Settings", "settings", "#/app/settings"),
+    ];
+    for (const r of ST.ws.reports.slice(0, 40))
+        out.push({ icn: "doc", label: r.question, hint: `${r.sources} sources`, kind: "Reports",
+            run: () => { location.hash = "#/app/report/" + r.id; } });
+    for (const p of ST.ws.projects)
+        out.push({ icn: "folder", label: p.name, kind: "Projects",
+            run: () => { location.hash = "#/app/project/" + p.id; } });
+    for (const d of ST.ws.docs.slice(0, 25))
+        out.push({ icn: "file", label: d.name, hint: d.kind.toUpperCase(), kind: "Knowledge",
+            run: () => { location.hash = "#/app/kb"; } });
+    return out;
+}
+function openPalette() {
+    if (open || !ST.root.user)
+        return;
+    open = true;
+    const all = commands();
+    let sel = 0, shown = all;
+    const inp = h("input.pal-input", { placeholder: "Search actions, reports, projects, knowledge…", "aria-label": "Command palette" });
+    const list = h("div.pal-list", { role: "listbox" });
+    const card = h("div.pal-card", null, h("div.pal-top", null, icon("search", 17), inp, h("kbd", null, "esc")), list);
+    const wrap = h("div.v-overlay.pal-wrap", { onclick: (e) => { if (e.target === wrap)
+            close(); } }, card);
+    const close = () => {
+        open = false;
+        wrap.classList.remove("in");
+        document.removeEventListener("keydown", onKey, true);
+        setTimeout(() => wrap.remove(), 150);
+    };
+    const paint = () => {
+        list.innerHTML = "";
+        let lastKind = "";
+        if (!shown.length) {
+            list.append(h("p.pal-empty", null, "No matches."));
+            return;
+        }
+        shown.slice(0, 14).forEach((c, i) => {
+            if (c.kind !== lastKind) {
+                list.append(h("div.pal-kind", null, c.kind));
+                lastKind = c.kind;
+            }
+            list.append(h("button.pal-item" + (i === sel ? ".on" : ""), {
+                role: "option", onclick: () => { close(); c.run(); },
+                onmousemove: () => { if (sel !== i) {
+                    sel = i;
+                    paint();
+                } },
+            }, icon(c.icn, 15), h("span.pal-label", null, c.label), c.hint ? h("span.pal-hint", null, c.hint) : null));
+        });
+        list.querySelector(".pal-item.on")?.scrollIntoView({ block: "nearest" });
+    };
+    const onKey = (e) => {
+        if (e.key === "Escape") {
+            e.stopPropagation();
+            close();
+        }
+        else if (e.key === "ArrowDown") {
+            e.preventDefault();
+            sel = Math.min(sel + 1, Math.min(shown.length, 14) - 1);
+            paint();
+        }
+        else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            sel = Math.max(sel - 1, 0);
+            paint();
+        }
+        else if (e.key === "Enter") {
+            e.preventDefault();
+            const c = shown[sel];
+            if (c) {
+                close();
+                c.run();
+            }
+        }
+    };
+    inp.addEventListener("input", () => {
+        const q = inp.value.trim();
+        shown = all.map(c => ({ c, s: fuzzy(c.label + " " + c.kind, q) }))
+            .filter(x => x.s > 0).sort((a, b) => b.s - a.s).map(x => x.c);
+        sel = 0;
+        paint();
+    });
+    document.addEventListener("keydown", onKey, true);
+    document.body.append(wrap);
+    requestAnimationFrame(() => { wrap.classList.add("in"); inp.focus(); });
+    paint();
+}
+//# sourceMappingURL=palette.js.map
+
 // ── landing.js ──
 /* ── Landing page + sign-in ────────────────────────────────────────── */
 
@@ -1055,6 +1179,7 @@ function renderSignin() {
 /* ── App shell: sidebar, topbar, workspace & notifications ─────────── */
 
 
+
 const NAV = [
     ["home", "Home", "#/app"],
     ["folder", "Projects", "#/app/projects"],
@@ -1091,7 +1216,7 @@ function renderShell(active, view) {
             { label: "Sign out", icon: "logout", danger: true, on: () => { ST.signOut(); location.hash = "#/"; } },
         ]),
     }, initials);
-    const topbar = h("header.topbar", null, h("button.v-iconbtn.only-mobile", { "aria-label": "Menu", onclick: () => document.body.classList.toggle("drawer-open") }, icon("menu", 18)), h("div.topbar-spacer"), wsBtn, bellBtn, avatar);
+    const topbar = h("header.topbar", null, h("button.v-iconbtn.only-mobile", { "aria-label": "Menu", onclick: () => document.body.classList.toggle("drawer-open") }, icon("menu", 18)), h("div.topbar-spacer"), h("button.topbar-search", { onclick: openPalette, "aria-label": "Search (Ctrl+K)" }, icon("search", 15), h("span", null, "Search"), h("kbd", null, "Ctrl K")), wsBtn, bellBtn, avatar);
     const main = h("main.app-main", null, view);
     const scrim = h("div.drawer-scrim", { onclick: () => document.body.classList.remove("drawer-open") });
     document.body.classList.remove("drawer-open");
@@ -1178,7 +1303,7 @@ function renderHome() {
         : emptyState("folder", "No projects yet", "Group related research into projects to keep things tidy."))));
 }
 function reportRow(r) {
-    return h("a.list-row", { href: "#/app/report/" + r.id }, h("span.row-icn", null, icon("doc", 16)), h("div.row-main", null, h("strong", null, r.question), h("span", null, `${r.sources} sources · ${r.precision}% precision · ${timeAgo(r.created)}`)), icon("back", 14));
+    return h("a.list-row", { href: "#/app/report/" + r.id }, h("span.row-icn" + (r.starred ? ".starred" : ""), null, icon(r.starred ? "star" : "doc", 16)), h("div.row-main", null, h("strong", null, r.question), h("span", null, `${r.sources} sources · ${r.precision}% precision · ${timeAgo(r.created)}`)), icon("back", 14));
 }
 /* ═══ PROJECTS ═══ */
 function renderProjects() {
@@ -1256,15 +1381,23 @@ function renderProjectDetail(id) {
 function renderReports() {
     const q = h("input.v-input.search-inp", { placeholder: "Search reports…  ( / )", id: "page-search" });
     const listBox = h("div.v-card");
+    let onlyStarred = false;
+    const filterRow = h("div.kb-chips");
+    const paintChips = () => {
+        filterRow.innerHTML = "";
+        filterRow.append(h("button.kb-chip" + (onlyStarred ? "" : ".on"), { onclick: () => { onlyStarred = false; paintChips(); paintList(); } }, "All"), h("button.kb-chip" + (onlyStarred ? ".on" : ""), { onclick: () => { onlyStarred = true; paintChips(); paintList(); } }, "★ Starred"));
+    };
     const paintList = () => {
         const term = q.value.trim().toLowerCase();
-        const rows = ST.ws.reports.filter(r => !term || r.question.toLowerCase().includes(term));
+        const rows = ST.ws.reports.filter(r => (!onlyStarred || r.starred) && (!term || r.question.toLowerCase().includes(term)));
         listBox.innerHTML = "";
         if (!ST.ws.reports.length) {
             listBox.append(emptyState("doc", "No reports yet", "Everything you research is saved here automatically.", h("a.v-btn.primary.sm", { href: "#/app/research" }, "Start researching")));
         }
         else if (!rows.length) {
-            listBox.append(emptyState("search", "No matches", `Nothing matching “${q.value.trim()}”.`));
+            listBox.append(onlyStarred && !q.value.trim()
+                ? emptyState("star", "No starred reports", "Star a report from its page to pin it here.")
+                : emptyState("search", "No matches", `Nothing matching “${q.value.trim()}”.`));
         }
         else {
             const list = h("div.list");
@@ -1286,8 +1419,9 @@ function renderReports() {
         }
     };
     q.addEventListener("input", debounce(paintList, 150));
+    paintChips();
     paintList();
-    return h("div.page", null, h("div.page-head", null, h("div", null, h("h1", null, "Reports"), h("p.page-sub", null, "Every research run in this workspace.")), h("a.v-btn.primary", { href: "#/app/research" }, icon("plus", 15), "New Research")), q, listBox);
+    return h("div.page", null, h("div.page-head", null, h("div", null, h("h1", null, "Reports"), h("p.page-sub", null, "Every research run in this workspace.")), h("a.v-btn.primary", { href: "#/app/research" }, icon("plus", 15), "New Research")), q, filterRow, listBox);
 }
 /* ═══ KNOWLEDGE BASE ═══ */
 const KIND_OF = {
@@ -1347,9 +1481,7 @@ function renderKB() {
             list.append(kbRow(d, () => void paintKB()));
         listBox.append(list);
     };
-    fileInput.addEventListener("change", async () => {
-        const files = Array.from(fileInput.files || []);
-        fileInput.value = "";
+    const ingest = async (files) => {
         let added = 0;
         for (const f of files) {
             if (f.size > 25 * 1024 * 1024) {
@@ -1383,11 +1515,33 @@ function renderKB() {
         if (added)
             toast(`${added} file${added === 1 ? "" : "s"} added to your knowledge base.`);
         void paintKB();
+    };
+    fileInput.addEventListener("change", () => {
+        const files = Array.from(fileInput.files || []);
+        fileInput.value = "";
+        void ingest(files);
     });
     q.addEventListener("input", debounce(() => void paintKB(), 200));
     paintChips();
     void paintKB();
-    return h("div.page", null, h("div.page-head", null, h("div", null, h("h1", null, "Knowledge Base"), h("p.page-sub", null, "Upload your own documents, notes and data. Text files can guide new research runs.")), h("button.v-btn.primary", { onclick: () => fileInput.click() }, icon("upload", 15), "Upload")), fileInput, q, chipsRow, listBox);
+    const page = h("div.page.kb-page", null, h("div.page-head", null, h("div", null, h("h1", null, "Knowledge Base"), h("p.page-sub", null, "Upload your own documents, notes and data. Text files can guide new research runs.")), h("button.v-btn.primary", { onclick: () => fileInput.click() }, icon("upload", 15), "Upload")), fileInput, q, chipsRow, h("div.kb-dropzone", null, icon("upload", 18), h("span", null, "Drag & drop files anywhere on this page — PDF, DOCX, CSV, MD, TXT, images"), h("button.v-link", { onclick: () => fileInput.click() }, "or browse")), listBox);
+    let dragDepth = 0;
+    page.addEventListener("dragover", (e) => { e.preventDefault(); });
+    page.addEventListener("dragenter", (e) => { e.preventDefault(); if (++dragDepth === 1)
+        page.classList.add("dragging"); });
+    page.addEventListener("dragleave", () => { if (--dragDepth <= 0) {
+        dragDepth = 0;
+        page.classList.remove("dragging");
+    } });
+    page.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dragDepth = 0;
+        page.classList.remove("dragging");
+        const files = Array.from(e.dataTransfer?.files || []);
+        if (files.length)
+            void ingest(files);
+    });
+    return page;
 }
 function kbRow(d, repaint) {
     const icn = d.kind === "pdf" ? "doc" : d.kind === "data" ? "database" : d.kind === "image" ? "image" : d.kind === "doc" ? "file" : "edit";
@@ -1474,9 +1628,36 @@ function renderAnalytics() {
         ];
         const topReports = reports.slice().sort((a, b) => b.sources - a.sources).slice(0, 6)
             .map(r => ({ label: r.question.slice(0, 44), value: r.sources, hint: r.precision + "%" }));
+        // 12-week research heatmap (one cell per day)
+        const DAY = 86400_000;
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const start = todayStart.getTime() - (7 * 12 - 1) * DAY;
+        const perDay = new Map();
+        for (const e of ST.ws.events)
+            if (e.type === "run_started" && e.t >= start) {
+                const d = Math.floor((e.t - start) / DAY);
+                perDay.set(d, (perDay.get(d) || 0) + 1);
+            }
+        const maxDay = Math.max(1, ...perDay.values());
+        const heat = h("div.heatmap", { role: "img", "aria-label": "Research activity over the last 12 weeks" });
+        for (let w = 0; w < 12; w++) {
+            const colEl = h("div.heat-col");
+            for (let d = 0; d < 7; d++) {
+                const idx = w * 7 + d, t = start + idx * DAY;
+                if (t > Date.now())
+                    break;
+                const n = perDay.get(idx) || 0;
+                const lvl = n === 0 ? 0 : Math.min(4, Math.ceil((n / maxDay) * 4));
+                colEl.append(h("span.heat-cell.l" + lvl, {
+                    title: `${new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" })} — ${n} run${n === 1 ? "" : "s"}`,
+                }));
+            }
+            heat.append(colEl);
+        }
         root.innerHTML = "";
         root.append(h("div.page-head", null, h("div", null, h("h1", null, "Research Analytics"), h("p.page-sub", null, "Your research activity and usage insights.")), rangeBtn), h("div.stat-row", null, statBig(String(runs), "Research runs", delta === null ? null : (delta >= 0 ? "+" : "") + delta + "% vs previous"), statBig(String(sources), "Sources analysed", null), statBig(String(reports.length), "Reports generated", null), statBig(reports.length ? avgPrec + "%" : "—", "Avg. citation precision", null)), runs || reports.length
-            ? frag(h("div.v-card", null, h("div.card-head", null, h("h3", null, "Research Activity")), chArea(values, labels)), h("div.ana-grid", null, h("div.v-card", null, h("h3", null, "Runs by depth"), chDonut(byDepth, String(reports.length), "reports")), h("div.v-card", null, h("h3", null, "Most-sourced reports"), topReports.length ? chBars(topReports, " src") : h("p.v-muted", null, "Finish a research run to see this."))), h("p.v-muted.ana-note", null, `${exportsN} export${exportsN === 1 ? "" : "s"} in this period.`))
+            ? frag(h("div.v-card", null, h("div.card-head", null, h("h3", null, "Research Activity")), chArea(values, labels)), h("div.v-card", null, h("div.card-head", null, h("h3", null, "Last 12 weeks"), h("span.v-muted", null, "every research run, day by day")), heat), h("div.ana-grid", null, h("div.v-card", null, h("h3", null, "Runs by depth"), chDonut(byDepth, String(reports.length), "reports")), h("div.v-card", null, h("h3", null, "Most-sourced reports"), topReports.length ? chBars(topReports, " src") : h("p.v-muted", null, "Finish a research run to see this."))), h("p.v-muted.ana-note", null, `${exportsN} export${exportsN === 1 ? "" : "s"} in this period.`))
             : emptyState("chart", "No activity yet", "Run research in this period and your activity will chart here.", h("a.v-btn.primary.sm", { href: "#/app/research" }, "Start researching")));
     };
     paintA();
@@ -1550,6 +1731,14 @@ function exportData() {
 
 
 
+const TEMPLATES = [
+    ["Market analysis", "Analyse the market for <industry> in <region>: current size, growth drivers, key players, risks and outlook."],
+    ["Compare options", "Compare <option A> vs <option B> for <use case>: strengths, weaknesses, costs and which fits best."],
+    ["Technology deep-dive", "Explain <technology>: how it works, current state of the art, main applications and open challenges."],
+    ["Academic review", "Summarise the current research evidence on <topic>: key findings, methods, disagreements and gaps."],
+    ["Policy briefing", "Brief me on <policy/regulation>: what it says, who it affects, timelines and expert reactions."],
+    ["Competitor scan", "Who are the main competitors of <company> in <market>, and how do they differ on product and pricing?"],
+];
 const SUGGESTIONS = [
     "Compare LLMs for enterprise use",
     "EV market in India 2026",
@@ -1600,6 +1789,18 @@ function renderResearchHome() {
         filesLabel.textContent = picked.size ? `Files (${picked.size})` : "Files";
         filesBtn.classList.toggle("on", picked.size > 0);
     };
+    const tplBtn = h("button.pill-btn", {
+        onclick: () => popMenu(tplBtn, TEMPLATES.map(([name, tpl]) => ({
+            label: name, icon: "spark",
+            on: () => {
+                ta.value = tpl;
+                ta.focus();
+                const a = tpl.indexOf("<"), b = tpl.indexOf(">");
+                if (a >= 0 && b > a)
+                    ta.setSelectionRange(a, b + 1);
+            },
+        }))),
+    }, icon("spark", 15), h("span", null, "Templates"), icon("chevd", 13));
     const start = async () => {
         const q = ta.value.trim();
         if (q.length < 8) {
@@ -1623,7 +1824,7 @@ function renderResearchHome() {
         }
     });
     const recent = ST.ws.reports.slice(0, 3);
-    return h("div.page.ask-page", null, h("div.ask-hero", null, h("h1", null, "What do you want to research today?"), h("p.ask-sub", null, "Ask anything, from market analysis to complex technical topics."), h("div.ask-card", null, ta, h("div.ask-row", null, h("div.ask-row-left", null, depthBtn, h("span.pill-static", { title: "Nyna always researches with live web search" }, icon("globe", 15), "Web"), filesBtn), h("button.v-btn.primary.send-btn", { "aria-label": "Start research", onclick: () => void start() }, icon("send", 17)))), h("div.ask-sugs", null, ...SUGGESTIONS.map(s => h("button.sug", { onclick: () => { ta.value = s; ta.focus(); } }, h("span", null, s), icon("external", 13)))), recent.length ? h("div.ask-recent", null, h("h3", null, "Recent research"), ...recent.map(r => h("a.recent-row", { href: "#/app/report/" + r.id }, icon("doc", 16), h("span.recent-q", null, r.question), h("span.recent-meta", null, `${r.sources} sources`)))) : null));
+    return h("div.page.ask-page", null, h("div.ask-hero", null, h("h1", null, "What do you want to research today?"), h("p.ask-sub", null, "Ask anything, from market analysis to complex technical topics."), h("div.ask-card", null, ta, h("div.ask-row", null, h("div.ask-row-left", null, depthBtn, tplBtn, h("span.pill-static", { title: "Nyna always researches with live web search" }, icon("globe", 15), "Web"), filesBtn), h("button.v-btn.primary.send-btn", { "aria-label": "Start research", onclick: () => void start() }, icon("send", 17)))), h("div.ask-sugs", null, ...SUGGESTIONS.map(s => h("button.sug", { onclick: () => { ta.value = s; ta.focus(); } }, h("span", null, s), icon("external", 13)))), recent.length ? h("div.ask-recent", null, h("h3", null, "Recent research"), ...recent.map(r => h("a.recent-row", { href: "#/app/report/" + r.id }, icon("doc", 16), h("span.recent-q", null, r.question), h("span.recent-meta", null, `${r.sources} sources`)))) : null));
 }
 /* ── live progress ─────────────────────────────────────────────────── */
 function beginRun(q, depth, context) {
@@ -1690,7 +1891,12 @@ function beginRun(q, depth, context) {
             setStep(3);
             feed("link", `Source [${s.id}] ${s.title}`);
         },
-        draft(body) { live && (live.draft = body); setStep(5); feed("doc", "Draft report written"); },
+        draft(body) {
+            if (live)
+                live.draft = body;
+            setStep(5);
+            feed("doc", "Draft report written — verifying citations");
+        },
         report(r) { void finish(r); },
         error(msg) {
             ST.log("run_error");
@@ -1729,7 +1935,7 @@ function paintProgress(error) {
         root.append(h("div.prog-error", null, h("span.prog-err-icn", null, icon("alert", 22)), h("h2", null, "Research couldn't finish"), h("p", null, error), h("div.prog-err-actions", null, h("button.v-btn.primary", { onclick: () => beginRun(live.q, live.depth, []) }, icon("refresh", 15), "Try again"), h("button.v-btn.ghost", { onclick: () => { live = null; location.hash = "#/app/research"; } }, "Back to research"))));
         return;
     }
-    root.append(h("div.prog-head", null, h("h1", null, h("span.pulse-dot"), "Research in progress…"), h("p", null, "Analysing, searching, and synthesising information from multiple sources."), h("p.prog-q", null, "“", live.q, "”")), h("div.prog-grid", null, h("div.prog-steps", null, ...live.steps.map(s => h("div.prog-step." + s.state, null, h("span.step-dot", null, s.state === "done" ? icon("check", 12) : null), h("span", null, s.label)))), h("div.prog-side", null, h("div.prog-visual", null, progressArt(), h("div.prog-stat", null, h("strong", null, `Step ${Math.min(doneCount + 1, 6)} / 6`), h("span#prog-count", null, current ? current.label : "Working…")), h("div.prog-meters", null, h("div.prog-meter", null, h("span", null, "Time elapsed"), h("strong#prog-clock", null, clockStr())), h("div.prog-meter", null, h("span", null, "Sources found"), h("strong#prog-src", null, String(liveSourceCount))))), h("div.prog-feed", null, h("h3", null, "Agent activity"), h("div.prog-feed-list", null, ...live.feed.map(f => h("div.feed-row", null, icon(f.icn, 14), h("span", null, f.text))))), h("button.v-btn.ghost.prog-cancel", {
+    root.append(h("div.prog-head", null, h("h1", null, h("span.pulse-dot"), "Research in progress…"), h("p", null, "Analysing, searching, and synthesising information from multiple sources."), h("p.prog-q", null, "“", live.q, "”")), h("div.prog-grid", null, h("div.prog-steps", null, ...live.steps.map(s => h("div.prog-step." + s.state, null, h("span.step-dot", null, s.state === "done" ? icon("check", 12) : null), h("span", null, s.label)))), h("div.prog-side", null, h("div.prog-visual", null, progressArt(), h("div.prog-stat", null, h("strong", null, `Step ${Math.min(doneCount + 1, 6)} / 6`), h("span#prog-count", null, current ? current.label : "Working…")), h("div.prog-meters", null, h("div.prog-meter", null, h("span", null, "Time elapsed"), h("strong#prog-clock", null, clockStr())), h("div.prog-meter", null, h("span", null, "Sources found"), h("strong#prog-src", null, String(liveSourceCount))))), live.draft ? h("div.prog-draft", null, h("h3", null, icon("doc", 13), "Draft preview"), h("div.prog-draft-body", { html: md(live.draft.slice(0, 900) + (live.draft.length > 900 ? "…" : "")) })) : null, h("div.prog-feed", null, h("h3", null, "Agent activity"), h("div.prog-feed-list", null, ...live.feed.map(f => h("div.feed-row", null, icon(f.icn, 14), h("span", null, f.text))))), h("button.v-btn.ghost.prog-cancel", {
         onclick: () => { live?.run?.cancel(); live = null; location.hash = "#/app/research"; },
     }, "Cancel research"))));
 }
@@ -1754,6 +1960,7 @@ function progressArt() {
 
 // ── report.js ──
 /* ── Report view: overview, findings, analysis, sources, export ────── */
+
 
 
 
@@ -1818,16 +2025,41 @@ function paint(root, id, meta, r) {
         projLabel.textContent = p ? p.name : "Add to project";
     };
     refreshProjLabel();
-    root.append(h("div.rep-topline", null, h("a.v-link.back", { href: "#/app/reports" }, icon("back", 15), "Back to Reports"), h("div.rep-actions", null, projBtn, h("button.v-btn.ghost.sm", { onclick: () => exportModal(meta, r) }, icon("download", 15), "Export", icon("chevd", 13)), h("button.v-btn.primary.sm", { onclick: () => shareModal(meta, r) }, icon("share", 15), "Share"), h("button.v-iconbtn", {
+    const starBtn = h("button.v-iconbtn.star-btn" + (meta.starred ? ".on" : ""), {
+        title: meta.starred ? "Unstar" : "Star this report",
+        "aria-pressed": String(!!meta.starred),
+        onclick: () => {
+            ST.toggleStar(id);
+            const on = !!ST.reportMeta(id)?.starred;
+            starBtn.classList.toggle("on", on);
+            starBtn.setAttribute("aria-pressed", String(on));
+            toast(on ? "Report starred." : "Star removed.");
+        },
+    }, icon("star", 17));
+    root.append(h("div.rep-topline", null, h("a.v-link.back", { href: "#/app/reports" }, icon("back", 15), "Back to Reports"), h("div.rep-actions", null, starBtn, projBtn, h("button.v-btn.ghost.sm", { onclick: () => exportModal(meta, r) }, icon("download", 15), "Export", icon("chevd", 13)), h("button.v-btn.primary.sm", { onclick: () => shareModal(meta, r) }, icon("share", 15), "Share"), h("button.v-iconbtn", {
         title: "More", onclick: (e) => popMenu(e.currentTarget, [
-            { label: "Ask a follow-up", icon: "help", on: () => askPanel(r) },
+            { label: "Ask a follow-up", icon: "help", on: () => {
+                    const d = document.querySelector(".ask-dock");
+                    d?.classList.add("open");
+                    d?.querySelector("input")?.focus();
+                } },
+            { label: "Re-run this research", icon: "refresh", on: () => beginRun(meta.question, meta.depth === "deep" ? "deep" : "standard", []) },
+            { label: "Compare with…", icon: "layers", on: () => {
+                    const others = ST.ws.reports.filter(x => x.id !== id);
+                    if (!others.length) {
+                        toast("Run another research first to compare.", "error");
+                        return;
+                    }
+                    popMenu(document.querySelector(".rep-actions .v-iconbtn[title=More]") || root, others.slice(0, 10).map(o => ({ label: o.question.slice(0, 50), icon: "doc",
+                        on: () => { location.hash = `#/app/compare/${id}/${o.id}`; } })));
+                } },
             { label: "Delete report", icon: "trash", danger: true, on: () => confirmBox("Delete report?", "This removes the report from your workspace permanently.", "Delete", () => {
                     ST.deleteReport(id);
                     toast("Report deleted.");
                     location.hash = "#/app/reports";
                 }) },
         ]),
-    }, icon("dots", 16)))), h("h1.rep-title", null, r.question || meta.question), tabBar, body);
+    }, icon("dots", 16)))), h("h1.rep-title", null, r.question || meta.question), tabBar, body, askDock(id, r));
     paintTab(body, curTab, meta, r);
 }
 /* ── tabs ──────────────────────────────────────────────────────────── */
@@ -1853,8 +2085,29 @@ function firstParagraph(markdown) {
 function overviewTab(body, meta, r) {
     const takeaways = r.claims.slice(0, 4);
     const stat = h("div.rep-stat-card", null, h("span.rep-stat-label", null, "Research snapshot"), h("div.rep-stat-num", null, String(r.sources.length)), h("span.rep-stat-sub", null, "sources analysed"), h("div.rep-stat-row", null, h("span", null, "Cited claims"), h("strong", null, String(r.score.claims || r.claims.length))), h("div.rep-stat-row", null, h("span", null, "Citation precision"), h("strong", null, meta.precision + "%")), h("div.rep-stat-row", null, h("span", null, "Depth"), h("strong", null, meta.depth === "deep" ? "Deep" : "Standard")), h("div.rep-stat-row", null, h("span", null, "Completed"), h("strong", null, fmtDate(meta.created))));
-    body.append(h("div.rep-overview-grid", null, h("div", null, h("div.exec-card", null, h("h3", null, "Executive Summary"), h("div.exec-text", { html: md(firstParagraph(r.markdown)) })), takeaways.length ? h("div.takeaways", null, h("h3", null, "Key Takeaways"), ...takeaways.map(c => h("div.tk-row", null, h("span.tk-icn." + labelClass(c.label), null, icon(labelIcon(c.label), 13)), h("span", { html: inlineMd(c.text) })))) : null), stat), h("article.rep-article", { html: md(r.markdown) }));
+    const words = (r.markdown.match(/\S+/g) || []).length;
+    const domains = [...new Set(r.sources.map(src => hostOf(src.url)))];
+    const metaBar = h("div.rep-meta-bar", null, h("span.rep-meta-chip", null, icon("clock", 13), `${Math.max(1, Math.round(words / 220))} min read`), h("span.rep-meta-chip", null, icon("edit", 13), `${words.toLocaleString()} words`), ...domains.slice(0, 5).map(d => h("span.rep-meta-chip.domain", null, icon("globe", 13), d)), domains.length > 5 ? h("span.rep-meta-chip", null, `+${domains.length - 5} more`) : null);
+    const article = h("article.rep-article", { html: md(r.markdown) });
+    // Build a table of contents from the report's own sections
+    const heads = Array.from(article.querySelectorAll("h2, h3")).slice(0, 14);
+    heads.forEach((el, i) => { el.id = "sec-" + i; });
+    const toc = heads.length >= 2 ? h("nav.rep-toc", { "aria-label": "Report sections" }, h("span.rep-stat-label", null, "On this page"), ...heads.map((el, i) => h("a.toc-link" + (el.tagName === "H3" ? ".sub" : ""), {
+        href: "#", "data-sec": String(i),
+        onclick: (e) => { e.preventDefault(); el.scrollIntoView({ behavior: "smooth", block: "start" }); },
+    }, el.textContent || ""))) : null;
+    body.append(h("div.rep-overview-grid", null, h("div", null, metaBar, h("div.exec-card", null, h("h3", null, "Executive Summary"), h("div.exec-text", { html: md(firstParagraph(r.markdown)) })), takeaways.length ? h("div.takeaways", null, h("h3", null, "Key Takeaways"), ...takeaways.map(c => h("div.tk-row", null, h("span.tk-icn." + labelClass(c.label), null, icon(labelIcon(c.label), 13)), h("span", { html: inlineMd(c.text) })))) : null), h("div.rep-rail", null, stat, toc)), article);
     wireCites(body, r);
+    if (toc && "IntersectionObserver" in window) { // scrollspy
+        const links = toc.querySelectorAll(".toc-link");
+        const io = new IntersectionObserver((es) => {
+            for (const en of es)
+                if (en.isIntersecting) {
+                    links.forEach(l => l.classList.toggle("on", l.dataset.sec === en.target.id.slice(4)));
+                }
+        }, { rootMargin: "-10% 0px -70% 0px" });
+        heads.forEach(hd => io.observe(hd));
+    }
 }
 function findingsTab(body, r) {
     if (!r.claims.length) {
@@ -1900,14 +2153,40 @@ function sourcesTab(body, r) {
     }
     if (r.sources.length > 1) {
         let mapOn = true;
-        const mapEl = sourceMap(r.sources, (id) => {
+        const cred = { high: true, medium: true, low: true };
+        let mapEl;
+        const jump = (id) => {
             document.getElementById("src-" + id)?.scrollIntoView({ behavior: "smooth", block: "center" });
             document.getElementById("src-" + id)?.classList.add("src-flash");
             setTimeout(() => document.getElementById("src-" + id)?.classList.remove("src-flash"), 1600);
-        });
-        const mapCard = h("div.smap-card", null, h("div.smap-head", null, h("h3", null, "Sources & Evidence"), h("div.smap-toggle", null, h("button.smap-tbtn.on#smap-b1", { onclick: () => { mapOn = true; sync(); } }, "Source Map"), h("button.smap-tbtn#smap-b2", { onclick: () => { mapOn = false; sync(); } }, "List View"))), mapEl);
+        };
+        const buildMap = () => {
+            const subset = r.sources.filter(src => cred[src.credibility] ?? true);
+            if (!subset.length)
+                return h("div.smap.smap-none", null, icon("search", 18), h("span", null, "No sources match the credibility filters."));
+            return sourceMap(subset, jump);
+        };
+        mapEl = buildMap();
+        const credChip = (k, label) => {
+            const b = h("button.cred-chip." + k + ".on", {
+                "aria-pressed": "true",
+                onclick: () => {
+                    cred[k] = !cred[k];
+                    b.classList.toggle("on", cred[k]);
+                    b.setAttribute("aria-pressed", String(cred[k]));
+                    const fresh = buildMap();
+                    mapEl.replaceWith(fresh);
+                    mapEl = fresh;
+                    sync();
+                },
+            }, h("i"), label);
+            return b;
+        };
+        const credRow = h("div.cred-row", null, credChip("high", "High"), credChip("medium", "Medium"), credChip("low", "Low"));
+        const mapCard = h("div.smap-card", null, h("div.smap-head", null, h("h3", null, "Sources & Evidence"), h("div.smap-toggle", null, h("button.smap-tbtn.on#smap-b1", { onclick: () => { mapOn = true; sync(); } }, "Source Map"), h("button.smap-tbtn#smap-b2", { onclick: () => { mapOn = false; sync(); } }, "List View"))), credRow, mapEl);
         const sync = () => {
             mapEl.style.display = mapOn ? "" : "none";
+            credRow.style.display = mapOn ? "" : "none";
             document.getElementById("smap-b1")?.classList.toggle("on", mapOn);
             document.getElementById("smap-b2")?.classList.toggle("on", !mapOn);
         };
@@ -1918,15 +2197,24 @@ function sourcesTab(body, r) {
     }
 }
 /* ── follow-up ask ─────────────────────────────────────────────────── */
-function askPanel(r) {
+function askDock(reportId, r) {
     const history = [];
-    const log = h("div.ask-log");
-    const inp = h("input.v-input", { placeholder: "Ask about this report…" });
+    const log = h("div.ask-log.dock-log");
+    const bubble = (cls, html) => h("div.ask-msg." + cls, { html });
+    void dbGet("reports", reportId + ":thread").then(saved => {
+        for (const m of saved || []) {
+            history.push(m);
+            log.append(m.role === "user" ? h("div.ask-msg.me", null, m.content) : bubble("ai", md(m.content)));
+        }
+        log.scrollTop = log.scrollHeight;
+    });
+    const inp = h("input.v-input", { placeholder: "Ask Nyna about this report…" });
     const send = async () => {
         const q = inp.value.trim();
         if (!q)
             return;
         inp.value = "";
+        dock.classList.add("open");
         log.append(h("div.ask-msg.me", null, q));
         const wait = h("div.ask-msg.ai", null, spinner("Thinking…"));
         log.append(wait);
@@ -1938,18 +2226,20 @@ function askPanel(r) {
         }
         else {
             history.push({ role: "user", content: q }, { role: "assistant", content: res.answer });
-            log.append(h("div.ask-msg.ai", { html: md(res.answer) }));
+            void dbPut("reports", reportId + ":thread", history.slice(-24));
+            log.append(bubble("ai", md(res.answer)));
+            ST.log("followup");
         }
         log.scrollTop = log.scrollHeight;
     };
     inp.addEventListener("keydown", e => { if (e.key === "Enter")
         void send(); });
-    modal({
-        title: "Ask a follow-up", sub: "Answers stay grounded in this report's sources.",
-        wide: true,
-        body: frag(log, h("div.ask-sendrow", null, inp, h("button.v-btn.primary", { onclick: () => void send() }, icon("send", 15)))),
-    });
-    setTimeout(() => inp.focus(), 60);
+    inp.addEventListener("focus", () => dock.classList.add("open"));
+    const dock = h("aside.ask-dock", { "aria-label": "Ask Nyna" }, h("button.ask-dock-head", {
+        onclick: () => dock.classList.toggle("open"),
+        "aria-expanded": "false",
+    }, h("span.ask-dock-orb"), h("strong", null, "Ask Nyna"), h("span.ask-dock-sub", null, "grounded in this report"), icon("chevd", 14)), h("div.ask-dock-body", null, log, h("div.ask-sendrow", null, inp, h("button.v-btn.primary", { "aria-label": "Send", onclick: () => void send() }, icon("send", 15)))));
+    return dock;
 }
 /* ── export & share ────────────────────────────────────────────────── */
 function buildMarkdown(r, inc) {
@@ -2078,10 +2368,35 @@ function wireCites(scope, r) {
         });
     });
 }
+/* ── Compare two reports side by side ─────────────────────────────── */
+function renderCompare(idA, idB) {
+    const root = h("div.page", null, spinner("Loading comparison…"));
+    void Promise.all([dbGet("reports", idA), dbGet("reports", idB)]).then(([a, b]) => {
+        root.innerHTML = "";
+        const ma = ST.reportMeta(idA), mb = ST.reportMeta(idB);
+        if (!a || !b || !ma || !mb) {
+            root.append(h("p.v-muted", null, "One of the reports is missing from this workspace."));
+            return;
+        }
+        const domainsA = new Set(a.sources.map(s => hostOf(s.url)));
+        const domainsB = new Set(b.sources.map(s => hostOf(s.url)));
+        const shared = [...domainsA].filter(d => domainsB.has(d));
+        const col = (m, r, other) => h("div.cmp-col", null, h("a.cmp-title", { href: "#/app/report/" + m.id }, r.question), h("span.cmp-date", null, fmtDate(m.created) + " · " + (m.depth === "deep" ? "Deep" : "Standard")), h("div.cmp-stats", null, cmpStat("Sources", m.sources, other.sources), cmpStat("Cited claims", m.claims, other.claims), cmpStat("Citation precision", m.precision, other.precision, "%")), h("div.cmp-domains", null, h("span.rep-stat-label", null, "Source domains"), ...[...new Set(r.sources.map(s => hostOf(s.url)))].slice(0, 8).map(d => h("span.rep-meta-chip" + (shared.includes(d) ? ".shared" : ""), null, d))), r.claims.length ? h("div.cmp-claims", null, h("span.rep-stat-label", null, "Top findings"), ...r.claims.slice(0, 3).map(c => h("div.tk-row", null, h("span.tk-icn." + (c.label === "supported" ? "ok" : c.label === "partial" ? "mid" : "na"), null, icon(c.label === "supported" ? "check" : "clock", 12)), h("span", { html: inlineMd(c.text.slice(0, 160)) })))) : null);
+        root.append(h("a.v-link.back", { href: "#/app/report/" + idA }, icon("back", 15), "Back to report"), h("div.page-head", null, h("div", null, h("h1", null, "Compare research"), h("p.page-sub", null, shared.length
+            ? `${shared.length} shared source domain${shared.length === 1 ? "" : "s"} — highlighted below.`
+            : "These reports draw on entirely different sources."))), h("div.cmp-grid", null, col(ma, a, mb), h("div.cmp-divider", null, h("span", null, "VS")), col(mb, b, ma)));
+    });
+    return root;
+}
+function cmpStat(label, v, other, unit = "") {
+    const cls = v > other ? ".win" : v < other ? ".lose" : "";
+    return h("div.cmp-stat" + cls, null, h("strong", null, v + unit), h("span", null, label), v > other ? icon("check", 12) : null);
+}
 //# sourceMappingURL=report.js.map
 
 // ── main.js ──
 /* ── Nyna router + boot ──────────────────────────────────────────── */
+
 
 
 
@@ -2119,6 +2434,10 @@ function route() {
             view = renderReport(seg[3]);
             active = "#/app/reports";
         }
+        else if (hash.startsWith("#/app/compare/")) {
+            view = renderCompare(seg[3], seg[4]);
+            active = "#/app/reports";
+        }
         else if (hash === "#/app/projects")
             view = renderProjects();
         else if (hash.startsWith("#/app/project/")) {
@@ -2145,6 +2464,12 @@ function route() {
 window.addEventListener("hashchange", route);
 /* global shortcuts */
 document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        if (ST.root.user && location.hash.startsWith("#/app"))
+            openPalette();
+        return;
+    }
     const tag = (document.activeElement?.tagName || "").toLowerCase();
     const typing = tag === "input" || tag === "textarea" || document.activeElement?.isContentEditable;
     if (typing || e.metaKey || e.ctrlKey || e.altKey)

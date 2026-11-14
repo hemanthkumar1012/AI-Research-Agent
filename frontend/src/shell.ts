@@ -1,6 +1,7 @@
 /* ── App shell: sidebar, topbar, workspace & notifications ─────────── */
 import { h, icon, popMenu, modal, frag, toast, timeAgo } from "./u.js";
 import { ST } from "./store.js";
+import { openPalette } from "./palette.js";
 
 const NAV: [string, string, string][] = [
   ["home", "Home", "#/app"],
@@ -61,6 +62,8 @@ export function renderShell(active: string, view: HTMLElement): HTMLElement {
   const topbar = h("header.topbar", null,
     h("button.v-iconbtn.only-mobile", { "aria-label": "Menu", onclick: () => document.body.classList.toggle("drawer-open") }, icon("menu", 18)),
     h("div.topbar-spacer"),
+    h("button.topbar-search", { onclick: openPalette, "aria-label": "Search (Ctrl+K)" },
+      icon("search", 15), h("span", null, "Search"), h("kbd", null, "Ctrl K")),
     wsBtn, bellBtn, avatar);
 
   const main = h("main.app-main", null, view);

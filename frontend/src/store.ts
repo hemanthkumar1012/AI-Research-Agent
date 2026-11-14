@@ -7,6 +7,7 @@ export interface VProject { id: string; name: string; created: number; updated: 
 export interface VReportMeta {
   id: string; question: string; created: number; projectId?: string;
   sources: number; precision: number; claims: number; depth: string; secs: number;
+  starred?: boolean;
 }
 export interface VDoc {
   id: string; name: string; kind: "pdf" | "doc" | "note" | "data" | "image";
@@ -100,6 +101,10 @@ class Store {
   assignReport(id: string, projectId?: string): void {
     const r = this.reportMeta(id); if (!r) return;
     r.projectId = projectId; if (projectId) this.touchProject(projectId); this.save();
+  }
+  toggleStar(id: string): void {
+    const r = this.reportMeta(id);
+    if (r) { r.starred = !r.starred; this.save(); }
   }
   deleteReport(id: string): void {
     this.ws.reports = this.ws.reports.filter(r => r.id !== id); this.save(); void dbDel("reports", id);

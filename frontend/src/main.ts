@@ -4,7 +4,8 @@ import { renderLanding, renderSignin } from "./landing.js";
 import { renderShell } from "./shell.js";
 import { renderHome, renderProjects, renderProjectDetail, renderReports, renderKB, renderAnalytics, renderSettings } from "./views.js";
 import { renderResearchHome, renderProgress } from "./research.js";
-import { renderReport } from "./report.js";
+import { renderReport, renderCompare } from "./report.js";
+import { openPalette } from "./palette.js";
 
 const rootEl = document.getElementById("app") as HTMLElement;
 
@@ -25,6 +26,7 @@ function route(): void {
     else if (hash === "#/app/research") view = renderResearchHome();
     else if (hash === "#/app/progress") view = renderProgress();
     else if (hash.startsWith("#/app/report/")) { view = renderReport(seg[3]); active = "#/app/reports"; }
+    else if (hash.startsWith("#/app/compare/")) { view = renderCompare(seg[3], seg[4]); active = "#/app/reports"; }
     else if (hash === "#/app/projects") view = renderProjects();
     else if (hash.startsWith("#/app/project/")) { view = renderProjectDetail(seg[3]); active = "#/app/projects"; }
     else if (hash === "#/app/reports") view = renderReports();
@@ -42,6 +44,11 @@ window.addEventListener("hashchange", route);
 
 /* global shortcuts */
 document.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    if (ST.root.user && location.hash.startsWith("#/app")) openPalette();
+    return;
+  }
   const tag = (document.activeElement?.tagName || "").toLowerCase();
   const typing = tag === "input" || tag === "textarea" || (document.activeElement as HTMLElement)?.isContentEditable;
   if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
